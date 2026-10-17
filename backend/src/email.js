@@ -1,9 +1,12 @@
 const nodemailer = require('nodemailer');
 
+const SENDER_EMAIL = 'notifications.rennesvtc@gmail.com';
+const ADMIN_EMAIL = 'rennesvtc@gmail.com';
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'rennesvtc@gmail.com',
+    user: SENDER_EMAIL,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
 });
@@ -14,8 +17,8 @@ async function sendAdminEmail(subject, text) {
     return;
   }
   await transporter.sendMail({
-    from: 'Rennes VTC <rennesvtc@gmail.com>',
-    to: 'rennesvtc@gmail.com',
+    from: `Rennes VTC <${SENDER_EMAIL}>`,
+    to: ADMIN_EMAIL,
     subject,
     text,
   });
