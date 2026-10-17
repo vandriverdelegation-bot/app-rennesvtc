@@ -1,0 +1,10 @@
+{
+  "name": "@app-rennesvtc/shared",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "expo-device": "*",
+    "expo-notifications": "*"
+  }
+}

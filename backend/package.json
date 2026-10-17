@@ -1,0 +1,15 @@
+{
+  "name": "backend",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^4.19.2",
+    "nodemailer": "^10.1.2"
+  }
+}

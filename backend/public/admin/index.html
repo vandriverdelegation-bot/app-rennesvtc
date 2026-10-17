@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rennes VTC - Admin</title>
+<style>
+  :root {
+    --bg: #0E0F10;
+    --card: #1B1C1E;
+    --card-border: #2A2B2E;
+    --accent: #47C415;
+    --accent-text: #0E0F10;
+    --text: #FFFFFF;
+    --text-muted: #9AA0A6;
+    --error: #FF5C5C;
+    --input: #1B1C1E;
+    --input-border: #33353A;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
+  h1 { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
+  h1 .accent { color: var(--accent); }
+  h2 { font-size: 18px; margin: 0 0 16px; }
+  h3 { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select { display: block; width: 100%; padding: 10px; margin: 6px 0; border: 1px solid var(--input-border); background: var(--input); color: var(--text); border-radius: 8px; }
+  input::placeholder { color: var(--text-muted); }
+  button { background: var(--accent); color: var(--accent-text); border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; margin: 4px 4px 4px 0; font-weight: 700; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--input-border); }
+  .card { border: 1px solid var(--card-border); background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .meta { color: var(--accent); font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+  .error { color: var(--error); }
+  select { padding: 8px; margin-right: 6px; width: auto; display: inline-block; }
+  .price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .price-row span.cat { width: 80px; font-weight: bold; }
+  .price-row input { width: 110px; margin: 0; }
+  .price-row label { font-size: 13px; color: var(--text-muted); }
+  #login-screen { max-width: 320px; margin: 80px auto; text-align: center; padding: 0 16px; }
+
+  #app-screen { display: none; }
+  .app-layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--card-border); padding: 20px 12px; }
+  .sidebar h1 { padding: 0 8px 20px; }
+  .nav-link { display: block; padding: 10px 12px; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-weight: 600; margin-bottom: 4px; cursor: pointer; }
+  .nav-link:hover { background: var(--input); color: var(--text); }
+  .nav-link.active { background: var(--accent); color: var(--accent-text); }
+  .main { flex: 1; padding: 24px; max-width: 900px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat-card { flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; }
+  .stat-number { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-label { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--card-border); font-size: 14px; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  #map { width: 100%; height: 480px; border-radius: 12px; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>RENNES <span class="accent">VTC</span></h1>
+  <p style="color:var(--text-muted)">Espace administrateur</p>
+  <input id="login-email" type="email" placeholder="Email" autocomplete="username" />
+  <input id="login-password" type="password" placeholder="Mot de passe" autocomplete="current-password" />
+  <button id="login-btn" style="width:100%">Se connecter</button>
+  <p id="login-error" class="error"></p>
+</div>
+
+<div id="app-screen">
+  <div class="app-layout">
+    <div class="sidebar">
+      <h1>RENNES <span class="accent">VTC</span></h1>
+      <a class="nav-link active" data-page="dashboard">Tableau de bord</a>
+      <a class="nav-link" data-page="reservations">Reservations</a>
+      <a class="nav-link" data-page="chauffeurs">Chauffeurs</a>
+      <a class="nav-link" data-page="clients">Clients</a>
+      <a class="nav-link" data-page="tarifs">Tarifs</a>
+      <a class="nav-link" data-page="carte">Carte interactive</a>
+    </div>
+
+    <div class="main">
+      <div class="top-bar">
+        <div></div>
+        <button class="secondary" id="logout-btn">Se deconnecter</button>
+      </div>
+
+      <div class="page active" id="page-dashboard">
+        <h2>Tableau de bord</h2>
+        <div class="stat-grid" id="stats-grid"></div>
+      </div>
+
+      <div class="page" id="page-reservations">
+        <h2>Nouvelles demandes</h2>
+        <div id="pending-list"></div>
+        <h2 style="margin-top:32px">En cours</h2>
+        <div id="active-list"></div>
+      </div>
+
+      <div class="page" id="page-chauffeurs">
+        <h2>Chauffeurs</h2>
+        <div id="chauffeurs-list"></div>
+        <h3 style="margin-top:24px">Ajouter un chauffeur</h3>
+        <div class="price-row">
+          <input id="new-chauffeur-email" placeholder="Email" style="width:220px" />
+          <input id="new-chauffeur-password" placeholder="Mot de passe" style="width:160px" />
+          <select id="new-chauffeur-category"></select>
+          <button id="add-chauffeur">Ajouter</button>
+        </div>
+        <p id="chauffeur-error" class="error"></p>
+      </div>
+
+      <div class="page" id="page-clients">
+        <h2>Clients</h2>
+        <div id="clients-list"></div>
+      </div>
+
+      <div class="page" id="page-tarifs">
+        <h2>Tarifs</h2>
+        <div id="pricing-section"></div>
+      </div>
+
+      <div class="page" id="page-carte">
+        <h2>Carte interactive</h2>
+        <p style="color:var(--text-muted)">Affiche les chauffeurs actuellement en course (la position n'est suivie que pendant une course).</p>
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://igrhehamvaaturnyttgb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
+const SERVICE_LABELS = { trajet_simple: 'Trajet simple', mise_a_disposition: 'Mise a disposition', forfait: 'Forfait' };
+const CATEGORIES = ['confort', 'affaires', 'van'];
+
+const loginScreen = document.getElementById('login-screen');
+const appScreen = document.getElementById('app-screen');
+const loginError = document.getElementById('login-error');
+
+document.getElementById('login-btn').addEventListener('click', handleLogin);
+document.getElementById('logout-btn').addEventListener('click', () => supabase.auth.signOut());
+
+document.querySelectorAll('.nav-link').forEach((link) => {
+  link.addEventListener('click', () => showPage(link.dataset.page));
+});
+
+function showPage(name) {
+  document.querySelectorAll('.nav-link').forEach((l) => l.classList.toggle('active', l.dataset.page === name));
+  document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${name}`));
+  if (name === 'carte') initMap();
+}
+
+async function handleLogin() {
+  loginError.textContent = '';
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    loginError.textContent = error.message;
+    return;
+  }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+  if (profile?.role !== 'admin') {
+    loginError.textContent = "Ce compte n'est pas un compte administrateur.";
+    await supabase.auth.signOut();
+  }
+}
+
+supabase.auth.onAuthStateChange(async (_event, session) => {
+  if (!session) {
+    loginScreen.style.display = 'block';
+    appScreen.style.display = 'none';
+    return;
+  }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+  if (profile?.role !== 'admin') return; // handleLogin affiche deja l'erreur et deconnecte
+  loginScreen.style.display = 'none';
+  appScreen.style.display = 'block';
+  refresh();
+  renderPricing();
+  populateCategorySelect();
+});
+
+let refreshing = false;
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  await Promise.all([
+    renderPending(),
+    renderActive(),
+    renderStats(),
+    renderChauffeurs(),
+    renderClients(),
+    updateMapMarkers(),
+  ]);
+  refreshing = false;
+}
+setInterval(refresh, 5000);
+
+function populateCategorySelect() {
+  document.getElementById('new-chauffeur-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+}
+
+async function renderStats() {
+  const [{ count: chauffeurs }, { count: clients }, { count: pending }, { count: enCours }, { count: terminees }] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'chauffeur'),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client'),
+    supabase.from('rides').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('rides').select('*', { count: 'exact', head: true }).in('status', ['dispatched', 'accepted']),
+    supabase.from('rides').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+  ]);
+
+  const stats = [
+    { label: 'Chauffeurs', value: chauffeurs ?? 0 },
+    { label: 'Clients', value: clients ?? 0 },
+    { label: 'Nouvelles demandes', value: pending ?? 0 },
+    { label: 'Courses en cours', value: enCours ?? 0 },
+    { label: 'Courses terminees', value: terminees ?? 0 },
+  ];
+
+  document.getElementById('stats-grid').innerHTML = stats.map((s) => `
+    <div class="stat-card">
+      <div class="stat-number">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>
+  `).join('');
+}
+
+async function renderChauffeurs() {
+  const { data: chauffeurs } = await supabase
+    .from('profiles')
+    .select('id, email, vehicle_category, push_token, created_at')
+    .eq('role', 'chauffeur')
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('chauffeurs-list');
+  if (!chauffeurs || chauffeurs.length === 0) {
+    container.innerHTML = '<p>Aucun chauffeur pour le moment.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Email</th><th>Gamme</th><th>Notifications</th><th>Inscrit le</th></tr></thead>
+      <tbody>
+        ${chauffeurs.map((c) => `
+          <tr>
+            <td>${escapeHtml(c.email ?? '')}</td>
+            <td>${c.vehicle_category ? VEHICLE_LABELS[c.vehicle_category] : '-'}</td>
+            <td>${c.push_token ? 'Activees' : 'Non activees'}</td>
+            <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('add-chauffeur').addEventListener('click', async () => {
+  const errorEl = document.getElementById('chauffeur-error');
+  errorEl.textContent = '';
+  const email = document.getElementById('new-chauffeur-email').value.trim();
+  const password = document.getElementById('new-chauffeur-password').value;
+  const vehicle_category = document.getElementById('new-chauffeur-category').value;
+  if (!email || !password) { errorEl.textContent = 'Email et mot de passe requis.'; return; }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch('/admin/chauffeurs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ email, password, vehicle_category }),
+  });
+  const result = await res.json();
+  if (!res.ok) { errorEl.textContent = result.error; return; }
+
+  document.getElementById('new-chauffeur-email').value = '';
+  document.getElementById('new-chauffeur-password').value = '';
+  renderChauffeurs();
+});
+
+async function renderClients() {
+  const { data: clients } = await supabase
+    .from('profiles')
+    .select('id, email, created_at')
+    .eq('role', 'client')
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('clients-list');
+  if (!clients || clients.length === 0) {
+    container.innerHTML = '<p>Aucun client pour le moment.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Email</th><th>Inscrit le</th></tr></thead>
+      <tbody>
+        ${clients.map((c) => `
+          <tr>
+            <td>${escapeHtml(c.email ?? '')}</td>
+            <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+let map, mapMarkers = {};
+function initMap() {
+  if (map) { map.invalidateSize(); return; }
+  map = L.map('map').setView([48.1173, -1.6778], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+  updateMapMarkers();
+}
+
+async function updateMapMarkers() {
+  if (!map) return;
+  const { data: rides } = await supabase
+    .from('rides')
+    .select('id, driver_lat, driver_lng, pickup_address, dropoff_address')
+    .eq('status', 'accepted')
+    .not('driver_lat', 'is', null);
+
+  const activeIds = new Set((rides ?? []).map((r) => r.id));
+  Object.keys(mapMarkers).forEach((id) => {
+    if (!activeIds.has(id)) { map.removeLayer(mapMarkers[id]); delete mapMarkers[id]; }
+  });
+
+  (rides ?? []).forEach((ride) => {
+    const latlng = [ride.driver_lat, ride.driver_lng];
+    if (mapMarkers[ride.id]) {
+      mapMarkers[ride.id].setLatLng(latlng);
+    } else {
+      mapMarkers[ride.id] = L.marker(latlng)
+        .addTo(map)
+        .bindPopup(`${escapeHtml(ride.pickup_address)} &rarr; ${escapeHtml(ride.dropoff_address)}`);
+    }
+  });
+}
+
+async function renderPending() {
+  const { data: rides } = await supabase
+    .from('rides')
+    .select('id, pickup_address, dropoff_address, vehicle_category, payment_method, service_type, price, created_at')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  const container = document.getElementById('pending-list');
+  if (!rides || rides.length === 0) {
+    container.innerHTML = '<p>Aucune nouvelle demande.</p>';
+    return;
+  }
+
+  const driversByCategory = {};
+  for (const ride of rides) {
+    if (!driversByCategory[ride.vehicle_category]) {
+      const { data: drivers } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('role', 'chauffeur')
+        .eq('vehicle_category', ride.vehicle_category);
+      driversByCategory[ride.vehicle_category] = drivers ?? [];
+    }
+  }
+
+  container.innerHTML = rides.map((ride) => {
+    const drivers = driversByCategory[ride.vehicle_category];
+    const options = drivers.map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+    return `
+      <div class="card">
+        <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${PAYMENT_LABELS[ride.payment_method]} - ${ride.price} &euro;</div>
+        <div><strong>Depart</strong> ${escapeHtml(ride.pickup_address)}</div>
+        <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}</div>
+        <div style="margin-top:10px">
+          <button data-dispatch-all="${ride.id}">Dispatcher a tous (${drivers.length} chauffeur${drivers.length > 1 ? 's' : ''})</button>
+        </div>
+        <div style="margin-top:6px">
+          <select data-driver-select="${ride.id}">
+            <option value="">Choisir un chauffeur...</option>
+            ${options}
+          </select>
+          <button class="secondary" data-dispatch-one="${ride.id}">Dispatcher a ce chauffeur</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('[data-dispatch-all]').forEach((btn) => {
+    btn.addEventListener('click', () => dispatchRide(btn.dataset.dispatchAll, null));
+  });
+  container.querySelectorAll('[data-dispatch-one]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const rideId = btn.dataset.dispatchOne;
+      const select = container.querySelector(`[data-driver-select="${rideId}"]`);
+      if (!select.value) { alert('Choisissez un chauffeur.'); return; }
+      dispatchRide(rideId, select.value);
+    });
+  });
+}
+
+async function dispatchRide(rideId, driverId) {
+  const { error } = await supabase
+    .from('rides')
+    .update({ status: 'dispatched', dispatched_to: driverId })
+    .eq('id', rideId)
+    .eq('status', 'pending');
+  if (error) { alert(error.message); return; }
+  const { data: { session } } = await supabase.auth.getSession();
+  fetch('/notify/dispatch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ rideId }),
+  }).catch(() => {});
+  refresh();
+}
+
+async function renderActive() {
+  const { data: rides } = await supabase
+    .from('rides')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to')
+    .in('status', ['dispatched', 'accepted'])
+    .order('created_at', { ascending: true });
+
+  const container = document.getElementById('active-list');
+  if (!rides || rides.length === 0) {
+    container.innerHTML = '<p>Aucune course en cours.</p>';
+    return;
+  }
+
+  container.innerHTML = rides.map((ride) => `
+    <div class="card">
+      <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${ride.price} &euro; - ${ride.status === 'accepted' ? 'Acceptee' : 'Dispatchee'}</div>
+      <div><strong>Depart</strong> ${escapeHtml(ride.pickup_address)}</div>
+      <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}</div>
+    </div>
+  `).join('');
+}
+
+async function renderPricing() {
+  const [{ data: simple }, { data: hourly }, { data: forfaits }] = await Promise.all([
+    supabase.from('pricing_simple').select('*'),
+    supabase.from('pricing_hourly').select('*'),
+    supabase.from('forfaits').select('*').order('created_at', { ascending: true }),
+  ]);
+
+  const container = document.getElementById('pricing-section');
+  container.innerHTML = `
+    <h3>Trajet simple</h3>
+    <div id="pricing-simple-rows"></div>
+    <button id="save-simple">Enregistrer</button>
+
+    <h3 style="margin-top:24px">Mise a disposition</h3>
+    <div id="pricing-hourly-rows"></div>
+    <button id="save-hourly">Enregistrer</button>
+
+    <h3 style="margin-top:24px">Forfaits</h3>
+    <div id="forfaits-rows"></div>
+    <div class="price-row" style="margin-top:12px">
+      <input id="new-forfait-name" placeholder="Nom (ex: Aeroport Rennes)" style="width:220px" />
+      <select id="new-forfait-category">${CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('')}</select>
+      <input id="new-forfait-price" type="number" placeholder="Prix €" style="width:90px" />
+      <button id="add-forfait">Ajouter</button>
+    </div>
+  `;
+
+  const simpleById = Object.fromEntries((simple ?? []).map((s) => [s.vehicle_category, s]));
+  document.getElementById('pricing-simple-rows').innerHTML = CATEGORIES.map((cat) => {
+    const s = simpleById[cat] ?? { base_price: 0, price_per_km: 0, min_price: 0 };
+    return `
+      <div class="price-row">
+        <span class="cat">${VEHICLE_LABELS[cat]}</span>
+        <input type="number" step="0.01" data-simple="${cat}" data-field="base_price" value="${s.base_price}" />
+        <label>prise en charge €</label>
+        <input type="number" step="0.01" data-simple="${cat}" data-field="price_per_km" value="${s.price_per_km}" />
+        <label>par km €</label>
+        <input type="number" step="0.01" data-simple="${cat}" data-field="min_price" value="${s.min_price}" />
+        <label>minimum €</label>
+      </div>
+    `;
+  }).join('');
+
+  const hourlyById = Object.fromEntries((hourly ?? []).map((h) => [h.vehicle_category, h]));
+  document.getElementById('pricing-hourly-rows').innerHTML = CATEGORIES.map((cat) => {
+    const h = hourlyById[cat] ?? { price_per_hour: 0, min_hours: 0 };
+    return `
+      <div class="price-row">
+        <span class="cat">${VEHICLE_LABELS[cat]}</span>
+        <input type="number" step="0.01" data-hourly="${cat}" data-field="price_per_hour" value="${h.price_per_hour}" />
+        <label>par heure €</label>
+        <input type="number" step="0.5" data-hourly="${cat}" data-field="min_hours" value="${h.min_hours}" />
+        <label>heures minimum</label>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('forfaits-rows').innerHTML = (forfaits ?? []).map((f) => `
+    <div class="price-row">
+      <span style="width:200px">${escapeHtml(f.name)}</span>
+      <span class="cat">${VEHICLE_LABELS[f.vehicle_category]}</span>
+      <input type="number" step="0.01" data-forfait-price="${f.id}" value="${f.price}" style="width:90px" />
+      <label>€</label>
+      <button class="secondary" data-delete-forfait="${f.id}">Supprimer</button>
+    </div>
+  `).join('');
+
+  document.getElementById('save-simple').addEventListener('click', async () => {
+    const rows = document.querySelectorAll('[data-simple]');
+    const byCategory = {};
+    rows.forEach((input) => {
+      const cat = input.dataset.simple;
+      byCategory[cat] = byCategory[cat] ?? { vehicle_category: cat };
+      byCategory[cat][input.dataset.field] = parseFloat(input.value) || 0;
+    });
+    const { error } = await supabase.from('pricing_simple').upsert(Object.values(byCategory));
+    alert(error ? error.message : 'Tarifs trajet simple enregistres.');
+  });
+
+  document.getElementById('save-hourly').addEventListener('click', async () => {
+    const rows = document.querySelectorAll('[data-hourly]');
+    const byCategory = {};
+    rows.forEach((input) => {
+      const cat = input.dataset.hourly;
+      byCategory[cat] = byCategory[cat] ?? { vehicle_category: cat };
+      byCategory[cat][input.dataset.field] = parseFloat(input.value) || 0;
+    });
+    const { error } = await supabase.from('pricing_hourly').upsert(Object.values(byCategory));
+    alert(error ? error.message : 'Tarifs mise a disposition enregistres.');
+  });
+
+  document.getElementById('add-forfait').addEventListener('click', async () => {
+    const name = document.getElementById('new-forfait-name').value.trim();
+    const category = document.getElementById('new-forfait-category').value;
+    const price = parseFloat(document.getElementById('new-forfait-price').value);
+    if (!name || !price) { alert('Nom et prix requis.'); return; }
+    const { error } = await supabase.from('forfaits').insert({ name, vehicle_category: category, price });
+    if (error) { alert(error.message); return; }
+    renderPricing();
+  });
+
+  container.querySelectorAll('[data-forfait-price]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const { error } = await supabase
+        .from('forfaits')
+        .update({ price: parseFloat(input.value) || 0 })
+        .eq('id', input.dataset.forfaitPrice);
+      if (error) alert(error.message);
+    });
+  });
+  container.querySelectorAll('[data-delete-forfait]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Supprimer ce forfait ?')) return;
+      await supabase.from('forfaits').delete().eq('id', btn.dataset.deleteForfait);
+      renderPricing();
+    });
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text ?? '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

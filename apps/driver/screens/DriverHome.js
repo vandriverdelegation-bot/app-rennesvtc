@@ -1,0 +1,252 @@
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking } from 'react-native';
+import * as Location from 'expo-location';
+import { theme } from '@app-rennesvtc/shared';
+import { supabase } from '../lib/supabase';
+import DriverSettings from './DriverSettings';
+
+const PAYMENT_LABELS = {
+  carte_a_bord: 'CB a bord',
+  especes: 'Especes',
+  compte: 'En compte',
+};
+
+const SERVICE_LABELS = {
+  trajet_simple: 'Trajet simple',
+  mise_a_disposition: 'Mise a disposition',
+  forfait: 'Forfait',
+};
+
+export default function DriverHome({ session }) {
+  const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeRide, setActiveRide] = useState(undefined);
+  const [pendingRides, setPendingRides] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
+  const locationSubscription = useRef(null);
+
+  async function refresh() {
+    const { data: active } = await supabase
+      .from('rides')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price')
+      .eq('driver_id', session.user.id)
+      .eq('status', 'accepted')
+      .maybeSingle();
+    setActiveRide(active ?? null);
+
+    if (!active) {
+      const { data: pending } = await supabase
+        .from('rides')
+        .select('id, pickup_address, dropoff_address, status, payment_method, service_type, price')
+        .eq('status', 'dispatched')
+        .order('created_at', { ascending: true });
+      setPendingRides(pending ?? []);
+    }
+  }
+
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('vehicle_category')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => setVehicleCategory(data?.vehicle_category ?? null));
+  }, []);
+
+  useEffect(() => {
+    if (!vehicleCategory) return;
+    refresh();
+    const interval = setInterval(refresh, 3000);
+    return () => clearInterval(interval);
+  }, [vehicleCategory]);
+
+  // Envoie la position GPS du chauffeur pendant qu'une course est en cours, pour le suivi cote client.
+  useEffect(() => {
+    async function startTracking() {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      locationSubscription.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 20 },
+        (position) => {
+          supabase
+            .from('rides')
+            .update({
+              driver_lat: position.coords.latitude,
+              driver_lng: position.coords.longitude,
+            })
+            .eq('id', activeRide.id)
+            .eq('driver_id', session.user.id)
+            .then(() => {});
+        }
+      );
+    }
+
+    if (activeRide) {
+      startTracking();
+    }
+    return () => {
+      locationSubscription.current?.remove();
+      locationSubscription.current = null;
+    };
+  }, [activeRide?.id]);
+
+  async function handleAccept(rideId) {
+    setErrorMsg('');
+    const { data, error } = await supabase
+      .from('rides')
+      .update({ driver_id: session.user.id, status: 'accepted' })
+      .eq('id', rideId)
+      .eq('status', 'dispatched')
+      .select();
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setErrorMsg('Cette course vient d’etre acceptee par un autre chauffeur.');
+    } else {
+      fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/accepted`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ rideId }),
+      }).catch(() => {});
+    }
+    refresh();
+  }
+
+  async function handleComplete() {
+    await supabase
+      .from('rides')
+      .update({ status: 'completed' })
+      .eq('id', activeRide.id)
+      .eq('driver_id', session.user.id);
+    refresh();
+  }
+
+  function handleNavigate() {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup_lat},${activeRide.pickup_lng}`;
+    Linking.openURL(url);
+  }
+
+  if (vehicleCategory === undefined) {
+    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
+  }
+
+  if (!vehicleCategory || showSettings) {
+    return (
+      <DriverSettings
+        session={session}
+        currentCategory={vehicleCategory}
+        onSaved={(category) => {
+          setVehicleCategory(category);
+          setShowSettings(false);
+        }}
+      />
+    );
+  }
+
+  if (activeRide === undefined) {
+    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
+  }
+
+  if (activeRide) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Course en cours</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Depart</Text>
+          <Text style={styles.value}>{activeRide.pickup_address}</Text>
+          <Text style={styles.label}>Destination</Text>
+          <Text style={styles.value}>{activeRide.dropoff_address}</Text>
+          <Text style={styles.label}>Service</Text>
+          <Text style={styles.priceValue}>{SERVICE_LABELS[activeRide.service_type]} · {activeRide.price} €</Text>
+          <Text style={styles.label}>Reglement</Text>
+          <Text style={styles.value}>{PAYMENT_LABELS[activeRide.payment_method]}</Text>
+        </View>
+        <TouchableOpacity style={styles.button} onPress={handleNavigate}>
+          <Text style={styles.buttonText}>Naviguer vers le depart</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.buttonSecondary} onPress={handleComplete}>
+          <Text style={styles.buttonSecondaryText}>Terminer la course</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Courses disponibles</Text>
+      {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+      {pendingRides.length === 0 ? (
+        <Text style={styles.mutedText}>Aucune course disponible pour votre gamme.</Text>
+      ) : (
+        <FlatList
+          style={styles.list}
+          data={pendingRides}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Text style={styles.label}>Depart</Text>
+              <Text style={styles.value}>{item.pickup_address}</Text>
+              <Text style={styles.label}>Destination</Text>
+              <Text style={styles.value}>{item.dropoff_address}</Text>
+              <Text style={styles.label}>Service</Text>
+              <Text style={styles.priceValue}>{SERVICE_LABELS[item.service_type]} · {item.price} €</Text>
+              <Text style={styles.label}>Reglement</Text>
+              <Text style={styles.value}>{PAYMENT_LABELS[item.payment_method]}</Text>
+              <TouchableOpacity style={styles.button} onPress={() => handleAccept(item.id)}>
+                <Text style={styles.buttonText}>Accepter</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+      <TouchableOpacity onPress={() => setShowSettings(true)}>
+        <Text style={styles.link}>Changer ma gamme de vehicule</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
+  title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, alignSelf: 'flex-start' },
+  label: { fontWeight: '700', marginTop: 8, color: theme.colors.textMuted, fontSize: 12 },
+  value: { color: theme.colors.text, fontSize: 15 },
+  priceValue: { color: theme.colors.accent, fontWeight: '700', fontSize: 15 },
+  mutedText: { color: theme.colors.textMuted },
+  list: { width: '100%' },
+  card: {
+    width: '100%',
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius,
+    padding: 14,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.radius,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 8,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  buttonText: { color: theme.colors.accentText, fontWeight: '700' },
+  buttonSecondary: {
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    borderRadius: theme.radius,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 8,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  buttonSecondaryText: { color: theme.colors.text, fontWeight: '700' },
+  link: { color: theme.colors.accent, marginTop: 12, marginBottom: 12 },
+  error: { color: theme.colors.error },
+});
