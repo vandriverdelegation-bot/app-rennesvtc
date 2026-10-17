@@ -1,4 +1,5 @@
-const ADMIN_EMAIL = 'rennesvtc@gmail.com';
+// Tant qu'aucun domaine n'est verifie sur Resend, on ne peut envoyer qu'a l'adresse du compte Resend.
+const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
 
 async function sendAdminEmail(subject, text) {
   if (!process.env.RESEND_API_KEY) {
