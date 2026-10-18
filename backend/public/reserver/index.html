@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reserver une course</title>
+<style>
+  :root {
+    --bg: #0E0F10;
+    --card: #1B1C1E;
+    --card-border: #2A2B2E;
+    --accent: #47C415;
+    --accent-text: #0E0F10;
+    --text: #FFFFFF;
+    --text-muted: #9AA0A6;
+    --error: #FF5C5C;
+    --input: #1B1C1E;
+    --input-border: #33353A;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { color: var(--text-muted); margin: 0 0 24px; font-size: 14px; }
+  .logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 10px; margin-bottom: 12px; }
+  label { display: block; font-size: 12px; color: var(--text-muted); margin: 14px 0 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  input, select { display: block; width: 100%; padding: 12px; border: 1px solid var(--input-border); background: var(--input); color: var(--text); border-radius: 10px; font-size: 15px; }
+  input::placeholder { color: var(--text-muted); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .suggestions { background: var(--input); border: 1px solid var(--input-border); border-radius: 10px; margin-top: 4px; overflow: hidden; }
+  .suggestion { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
+  .suggestion:last-child { border-bottom: none; }
+  .suggestion:hover { background: var(--card); }
+  .gammes { display: flex; gap: 8px; margin-top: 6px; }
+  .gamme { flex: 1; text-align: center; padding: 12px 6px; border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer; }
+  .gamme.selected { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .checkbox-row input { width: auto; }
+  .price { font-size: 26px; font-weight: 800; color: var(--accent); margin: 18px 0 6px; }
+  button { width: 100%; background: var(--accent); color: var(--accent-text); border: none; border-radius: 10px; padding: 15px; font-weight: 700; font-size: 16px; margin-top: 20px; cursor: pointer; }
+  button:disabled { opacity: 0.5; }
+  .error { color: var(--error); font-size: 14px; margin-top: 10px; }
+  .confirmation { text-align: center; padding: 60px 16px; }
+  .confirmation h2 { color: var(--accent); }
+  .cgu-note { color: var(--text-muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="form-view">
+    <img id="logo" class="logo" style="display:none" />
+    <h1 id="title">RENNES <span class="accent">VTC</span></h1>
+    <p class="subtitle">Reservez votre course en quelques clics, sans compte ni application.</p>
+
+    <label>Gamme de vehicule</label>
+    <div class="gammes" id="gammes"></div>
+
+    <label>Depart</label>
+    <input id="pickup-input" placeholder="Adresse de depart" autocomplete="off" />
+    <div class="suggestions" id="pickup-suggestions" style="display:none"></div>
+
+    <label>Destination</label>
+    <input id="dropoff-input" placeholder="Adresse de destination" autocomplete="off" />
+    <div class="suggestions" id="dropoff-suggestions" style="display:none"></div>
+
+    <div class="row">
+      <div>
+        <label>Date (vide = des que possible)</label>
+        <input id="date" type="date" />
+      </div>
+      <div>
+        <label>Heure</label>
+        <input id="time" type="time" />
+      </div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="round-trip" />
+      <label style="margin:0;text-transform:none;font-weight:400;font-size:14px">Aller-retour</label>
+    </div>
+
+    <label>Mode de reglement</label>
+    <select id="payment-method">
+      <option value="carte_a_bord">CB a bord</option>
+      <option value="especes">Especes</option>
+      <option value="compte">En compte</option>
+    </select>
+
+    <label>Nom</label>
+    <input id="client-name" placeholder="Votre nom" />
+    <label>Telephone</label>
+    <input id="client-phone" placeholder="0600000000" />
+    <label>Email (optionnel, pour recevoir la confirmation)</label>
+    <input id="client-email" type="email" placeholder="vous@exemple.fr" />
+
+    <div id="price-display"></div>
+    <p id="error" class="error"></p>
+
+    <button id="submit-btn">Demander la course</button>
+    <p class="cgu-note" id="cgu-note" style="display:none"></p>
+  </div>
+
+  <div id="confirmation-view" style="display:none" class="confirmation">
+    <h2>Demande envoyee !</h2>
+    <p>Merci, votre demande a bien ete recue. Un chauffeur va vous etre attribue prochainement.</p>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://igrhehamvaaturnyttgb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+const CATEGORIES = ['confort', 'affaires', 'van'];
+
+let pickup = null; // { address, lat, lng }
+let dropoff = null;
+let vehicleCategory = new URLSearchParams(location.search).get('gamme') || null;
+let price = null;
+
+document.getElementById('gammes').innerHTML = CATEGORIES.map((c) => `
+  <div class="gamme ${c === vehicleCategory ? 'selected' : ''}" data-gamme="${c}">${VEHICLE_LABELS[c]}</div>
+`).join('');
+document.querySelectorAll('[data-gamme]').forEach((el) => {
+  el.addEventListener('click', () => {
+    vehicleCategory = el.dataset.gamme;
+    document.querySelectorAll('[data-gamme]').forEach((e) => e.classList.toggle('selected', e.dataset.gamme === vehicleCategory));
+    updatePrice();
+  });
+});
+
+supabase.from('app_settings').select('*').eq('id', true).single().then(({ data }) => {
+  if (!data) return;
+  if (data.accent_color) document.documentElement.style.setProperty('--accent', data.accent_color);
+  if (data.accent_contrast) document.documentElement.style.setProperty('--accent-text', data.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
+  if (data.app_name) document.getElementById('title').textContent = data.app_name;
+  if (data.logo_url) {
+    const logo = document.getElementById('logo');
+    logo.src = data.logo_url;
+    logo.style.display = 'block';
+  }
+  if (data.cgu_text) {
+    document.getElementById('cgu-note').style.display = 'block';
+    document.getElementById('cgu-note').textContent = 'En reservant, vous acceptez nos conditions generales d’utilisation.';
+  }
+});
+
+function setupAutocomplete(inputId, suggestionsId, onSelect) {
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(suggestionsId);
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value;
+    if (q.length < 3) { box.style.display = 'none'; return; }
+    timer = setTimeout(async () => {
+      const res = await fetch('/public/places/autocomplete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: q }),
+      });
+      const { suggestions } = await res.json();
+      if (!suggestions || suggestions.length === 0) { box.style.display = 'none'; return; }
+      box.innerHTML = suggestions.map((s) => `<div class="suggestion" data-place-id="${s.placeId}">${s.text}</div>`).join('');
+      box.style.display = 'block';
+      box.querySelectorAll('.suggestion').forEach((el) => {
+        el.addEventListener('click', async () => {
+          const r = await fetch('/public/places/details', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ placeId: el.dataset.placeId }),
+          });
+          const location = await r.json();
+          input.value = location.address;
+          box.style.display = 'none';
+          onSelect(location);
+        });
+      });
+    }, 300);
+  });
+}
+setupAutocomplete('pickup-input', 'pickup-suggestions', (loc) => { pickup = loc; updatePrice(); });
+setupAutocomplete('dropoff-input', 'dropoff-suggestions', (loc) => { dropoff = loc; updatePrice(); });
+
+async function updatePrice() {
+  const priceEl = document.getElementById('price-display');
+  if (!vehicleCategory || !pickup || !dropoff) { priceEl.innerHTML = ''; price = null; return; }
+  priceEl.innerHTML = '<p style="color:var(--text-muted)">Calcul du prix...</p>';
+  const date = document.getElementById('date').value;
+  const time = document.getElementById('time').value;
+  const when = date && time ? new Date(`${date}T${time}`).toISOString() : null;
+  const res = await fetch('/public/estimate-price', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vehicle_category: vehicleCategory, pickup, dropoff, when }),
+  });
+  const result = await res.json();
+  if (result.error) { priceEl.innerHTML = `<p class="error">${result.error}</p>`; price = null; return; }
+  price = result.price;
+  priceEl.innerHTML = result.manual
+    ? '<p class="price">Prix fixe par le chauffeur</p>'
+    : `<p class="price">${price} €</p>`;
+}
+document.getElementById('date').addEventListener('change', updatePrice);
+document.getElementById('time').addEventListener('change', updatePrice);
+
+document.getElementById('submit-btn').addEventListener('click', async () => {
+  const errorEl = document.getElementById('error');
+  errorEl.textContent = '';
+  const clientName = document.getElementById('client-name').value.trim();
+  const clientPhone = document.getElementById('client-phone').value.trim();
+  const clientEmail = document.getElementById('client-email').value.trim();
+  const paymentMethod = document.getElementById('payment-method').value;
+  const roundTrip = document.getElementById('round-trip').checked;
+  const date = document.getElementById('date').value;
+  const time = document.getElementById('time').value;
+
+  if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de vehicule.'; return; }
+  if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de depart et de destination dans la liste.'; return; }
+  if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et telephone sont requis.'; return; }
+  if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Envoi...';
+  const res = await fetch('/public/book', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clientName, clientPhone, clientEmail: clientEmail || null,
+      vehicleCategory, pickup, dropoff, roundTrip, paymentMethod, price,
+      scheduledAt: date && time ? new Date(`${date}T${time}`).toISOString() : null,
+    }),
+  });
+  const result = await res.json();
+  btn.disabled = false;
+  btn.textContent = 'Demander la course';
+  if (result.error) { errorEl.textContent = result.error; return; }
+
+  document.getElementById('form-view').style.display = 'none';
+  document.getElementById('confirmation-view').style.display = 'block';
+});
+</script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const cors = require('cors');
 const { supabaseAdmin } = require('./supabaseAdmin');
 const { sendEmail, sendAdminEmail } = require('./email');
 const { sendPush } = require('./push');
+const { computeTrajetSimplePrice } = require('../../packages/shared/pricingEngine');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -197,6 +198,111 @@ app.post('/notify/surcharge', requireSupabaseUser, async (req, res) => {
     await sendEmail(client.email, 'Majoration de prix sur votre course', `Bonjour,\n\n${message}\n\nRennes VTC`);
   }
   res.json({ ok: true });
+});
+
+// ---- Module de reservation web public (sans compte) ----
+// Le client en front-end n'a jamais besoin de la cle Google Maps : tous les
+// appels passent par le serveur, qui la detient seule.
+
+async function getDistanceKmServer(origin, destination) {
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
+  if (!meters) throw new Error("Impossible de calculer l'itineraire");
+  return meters / 1000;
+}
+
+app.post('/public/places/autocomplete', async (req, res) => {
+  const { input } = req.body;
+  if (!input || input.length < 3) return res.json({ suggestions: [] });
+  const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY },
+    body: JSON.stringify({ input, includedRegionCodes: ['fr'] }),
+  });
+  const data = await r.json();
+  const suggestions = (data.suggestions ?? [])
+    .map((s) => s.placePrediction)
+    .filter(Boolean)
+    .map((p) => ({ placeId: p.placeId, text: p.text.text }));
+  res.json({ suggestions });
+});
+
+app.post('/public/places/details', async (req, res) => {
+  const { placeId } = req.body;
+  const r = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+    headers: { 'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY, 'X-Goog-FieldMask': 'location,formattedAddress' },
+  });
+  const data = await r.json();
+  if (!data.location) return res.status(400).json({ error: 'Adresse introuvable' });
+  res.json({ address: data.formattedAddress, lat: data.location.latitude, lng: data.location.longitude });
+});
+
+app.post('/public/estimate-price', async (req, res) => {
+  const { vehicle_category, pickup, dropoff, when, passengerCount, childSeats, boosterSeats } = req.body;
+  if (!vehicle_category || !pickup || !dropoff) return res.status(400).json({ error: 'Parametres manquants' });
+  const [{ data: pricing }, { data: zones }] = await Promise.all([
+    supabaseAdmin.from('pricing_simple').select('*').eq('vehicle_category', vehicle_category).single(),
+    supabaseAdmin.from('pricing_zones').select('*').eq('vehicle_category', vehicle_category).eq('active', true),
+  ]);
+  if (!pricing) return res.status(400).json({ error: 'Tarification non configuree pour cette gamme.' });
+  try {
+    const km = await getDistanceKmServer(pickup, dropoff);
+    const result = computeTrajetSimplePrice({
+      pricing, zones: zones ?? [], pickup, dropoff, km,
+      when: when ? new Date(when) : new Date(),
+      passengerCount: passengerCount || 1, childSeats: childSeats || 0, boosterSeats: boosterSeats || 0, stopsCount: 0,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Cree une reservation depuis le module web public (pas de compte requis).
+app.post('/public/book', async (req, res) => {
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, paymentMethod, price } = req.body;
+  if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  const { data: ride, error } = await supabaseAdmin
+    .from('rides')
+    .insert({
+      client_id: null,
+      client_name: clientName,
+      client_phone: clientPhone,
+      vehicle_category: vehicleCategory,
+      pickup_address: pickup.address,
+      pickup_lat: pickup.lat,
+      pickup_lng: pickup.lng,
+      dropoff_address: dropoff.address,
+      dropoff_lat: dropoff.lat,
+      dropoff_lng: dropoff.lng,
+      round_trip: !!roundTrip,
+      payment_method: paymentMethod,
+      service_type: 'trajet_simple',
+      price,
+      created_by: 'web',
+      scheduled_at: scheduledAt || null,
+      status: 'pending',
+    })
+    .select()
+    .single();
+  if (error) return res.status(400).json({ error: error.message });
+
+  await sendAdminEmail(
+    'Nouvelle demande de course (reservation web)',
+    `${formatRideRecap(ride)}\nClient : ${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
+  );
+  if (clientEmail) {
+    await sendEmail(
+      clientEmail,
+      'Votre demande de course a bien ete recue',
+      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
+    );
+  }
+  res.json({ ok: true, id: ride.id });
 });
 
 app.listen(PORT, () => {

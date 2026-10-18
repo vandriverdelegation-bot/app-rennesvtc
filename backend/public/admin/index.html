@@ -76,6 +76,8 @@
     <div class="sidebar">
       <h1>RENNES <span class="accent">VTC</span></h1>
       <a class="nav-link active" data-page="dashboard">Tableau de bord</a>
+      <a class="nav-link" data-page="apparence">Apparence</a>
+      <a class="nav-link" data-page="reservation-web">Reservation web</a>
       <a class="nav-link" data-page="disponibilites">Disponibilites</a>
       <a class="nav-link" data-page="reservations">Reservations</a>
       <a class="nav-link" data-page="calendrier">Calendrier</a>
@@ -95,6 +97,97 @@
       <div class="page active" id="page-dashboard">
         <h2>Tableau de bord</h2>
         <div class="stat-grid" id="stats-grid"></div>
+      </div>
+
+      <div class="page" id="page-apparence">
+        <h2>Apparence</h2>
+        <div class="card">
+          <h3>Informations generales</h3>
+          <div class="price-row">
+            <div style="flex:1;min-width:220px">
+              <label>Nom de l'application</label>
+              <input id="app-name" />
+            </div>
+            <div>
+              <label>Couleur d'accent</label>
+              <input id="app-accent-color" type="color" style="width:70px;padding:4px" />
+            </div>
+            <div>
+              <label>Contraste du texte</label>
+              <select id="app-accent-contrast">
+                <option value="black">Noir</option>
+                <option value="white">Blanc</option>
+              </select>
+            </div>
+          </div>
+          <div class="price-row">
+            <div>
+              <label>Logo actuel</label>
+              <div><img id="app-logo-preview" style="width:80px;height:80px;object-fit:contain;background:#fff;border-radius:8px;margin-top:4px" /></div>
+            </div>
+            <div style="flex:1">
+              <label>Changer le logo</label>
+              <input id="app-logo-file" type="file" accept="image/*" />
+            </div>
+          </div>
+          <div>
+            <label>Description</label>
+            <textarea id="app-description" style="min-height:80px"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Contact</h3>
+          <div class="price-row">
+            <input id="app-contact-email" placeholder="Email" style="flex:1" />
+            <input id="app-contact-phone" placeholder="Telephone" style="flex:1" />
+            <input id="app-contact-website" placeholder="Site web" style="flex:1" />
+          </div>
+          <div class="price-row">
+            <input id="app-facebook" placeholder="Facebook" style="flex:1" />
+            <input id="app-instagram" placeholder="Instagram" style="flex:1" />
+            <input id="app-x" placeholder="X / Twitter" style="flex:1" />
+          </div>
+          <div class="price-row">
+            <input id="app-tiktok" placeholder="TikTok" style="flex:1" />
+            <input id="app-linkedin" placeholder="LinkedIn" style="flex:1" />
+            <input id="app-youtube" placeholder="YouTube" style="flex:1" />
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Numero de support</h3>
+          <div class="price-row">
+            <input id="app-support-phone" placeholder="0600000000" style="width:200px" />
+            <label><input type="checkbox" id="app-support-visible" style="width:auto" /> Afficher ce numero dans les apps</label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Conditions generales d'utilisation (CGU)</h3>
+          <textarea id="app-cgu" style="min-height:140px"></textarea>
+        </div>
+
+        <button id="app-settings-save">Enregistrer</button>
+        <p id="app-settings-status" style="color:var(--text-muted)"></p>
+      </div>
+
+      <div class="page" id="page-reservation-web">
+        <h2>Reservation web</h2>
+        <p style="color:var(--text-muted)">Permet a vos clients de reserver une course depuis votre site, un email ou un SMS, sans telecharger l'application.</p>
+        <div class="card">
+          <h3>Lien a partager</h3>
+          <div class="price-row">
+            <input id="reservation-web-link" readonly style="flex:1" />
+            <button class="secondary" id="reservation-web-copy">Copier le lien</button>
+            <button class="secondary" id="reservation-web-preview">Apercu</button>
+          </div>
+          <p style="color:var(--text-muted);font-size:13px">Astuce : ajoutez <code>?gamme=confort</code>, <code>affaires</code> ou <code>van</code> a la fin du lien pour pre-selectionner une gamme de vehicule.</p>
+        </div>
+        <div class="card">
+          <h3>Integrer sur votre site (iframe)</h3>
+          <textarea id="reservation-web-iframe" readonly style="min-height:70px" onclick="this.select()"></textarea>
+        </div>
       </div>
 
       <div class="page" id="page-disponibilites">
@@ -332,6 +425,8 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
   renderPricing();
   populateCategorySelect();
   renderHistory();
+  renderAppSettings();
+  renderReservationWeb();
 });
 
 let refreshing = false;
@@ -805,6 +900,91 @@ document.getElementById('clients-export').addEventListener('click', () => {
   link.download = `clients_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
 });
+
+// ---- Apparence ----
+
+async function renderAppSettings() {
+  const { data } = await supabase.from('app_settings').select('*').eq('id', true).single();
+  if (!data) return;
+  if (data.accent_color) {
+    document.documentElement.style.setProperty('--accent', data.accent_color);
+    document.documentElement.style.setProperty('--accent-text', data.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
+  }
+  if (data.app_name) {
+    document.querySelectorAll('.sidebar h1').forEach((h1) => { h1.textContent = data.app_name; });
+  }
+  document.getElementById('app-name').value = data.app_name ?? '';
+  document.getElementById('app-accent-color').value = data.accent_color ?? '#47C415';
+  document.getElementById('app-accent-contrast').value = data.accent_contrast ?? 'black';
+  document.getElementById('app-logo-preview').src = data.logo_url ?? '';
+  document.getElementById('app-description').value = data.description ?? '';
+  document.getElementById('app-contact-email').value = data.contact_email ?? '';
+  document.getElementById('app-contact-phone').value = data.contact_phone ?? '';
+  document.getElementById('app-contact-website').value = data.contact_website ?? '';
+  document.getElementById('app-facebook').value = data.facebook_url ?? '';
+  document.getElementById('app-instagram').value = data.instagram_url ?? '';
+  document.getElementById('app-x').value = data.x_url ?? '';
+  document.getElementById('app-tiktok').value = data.tiktok_url ?? '';
+  document.getElementById('app-linkedin').value = data.linkedin_url ?? '';
+  document.getElementById('app-youtube').value = data.youtube_url ?? '';
+  document.getElementById('app-support-phone').value = data.support_phone ?? '';
+  document.getElementById('app-support-visible').checked = !!data.support_phone_visible;
+  document.getElementById('app-cgu').value = data.cgu_text ?? '';
+}
+
+document.getElementById('app-settings-save').addEventListener('click', async () => {
+  const statusEl = document.getElementById('app-settings-status');
+  statusEl.textContent = 'Enregistrement...';
+
+  let logo_url;
+  const logoFile = document.getElementById('app-logo-file').files[0];
+  if (logoFile) {
+    const path = `logo-${Date.now()}-${logoFile.name}`;
+    const { error: uploadError } = await supabase.storage.from('branding').upload(path, logoFile);
+    if (uploadError) { statusEl.textContent = uploadError.message; return; }
+    logo_url = supabase.storage.from('branding').getPublicUrl(path).data.publicUrl;
+  }
+
+  const payload = {
+    app_name: document.getElementById('app-name').value.trim() || 'Rennes VTC',
+    accent_color: document.getElementById('app-accent-color').value,
+    accent_contrast: document.getElementById('app-accent-contrast').value,
+    description: document.getElementById('app-description').value.trim() || null,
+    contact_email: document.getElementById('app-contact-email').value.trim() || null,
+    contact_phone: document.getElementById('app-contact-phone').value.trim() || null,
+    contact_website: document.getElementById('app-contact-website').value.trim() || null,
+    facebook_url: document.getElementById('app-facebook').value.trim() || null,
+    instagram_url: document.getElementById('app-instagram').value.trim() || null,
+    x_url: document.getElementById('app-x').value.trim() || null,
+    tiktok_url: document.getElementById('app-tiktok').value.trim() || null,
+    linkedin_url: document.getElementById('app-linkedin').value.trim() || null,
+    youtube_url: document.getElementById('app-youtube').value.trim() || null,
+    support_phone: document.getElementById('app-support-phone').value.trim() || null,
+    support_phone_visible: document.getElementById('app-support-visible').checked,
+    cgu_text: document.getElementById('app-cgu').value.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (logo_url) payload.logo_url = logo_url;
+
+  const { error } = await supabase.from('app_settings').update(payload).eq('id', true);
+  statusEl.textContent = error ? error.message : 'Enregistre.';
+  document.getElementById('app-logo-file').value = '';
+  renderAppSettings();
+});
+
+// ---- Reservation web ----
+
+function renderReservationWeb() {
+  const link = `${location.origin}/reserver`;
+  document.getElementById('reservation-web-link').value = link;
+  document.getElementById('reservation-web-iframe').value = `<iframe src="${link}" style="width:100%;height:720px;border:0"></iframe>`;
+  document.getElementById('reservation-web-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('reservation-web-link').value);
+  });
+  document.getElementById('reservation-web-preview').addEventListener('click', () => {
+    window.open(link, '_blank');
+  });
+}
 
 let map, mapMarkers = {};
 function initMap() {
