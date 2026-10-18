@@ -113,7 +113,6 @@ export default function DriverSettings({ session, currentCategory, onSaved }) {
           onPress={() => handleSelect(c.value)}
           disabled={saving}
         >
-          <Text style={styles.optionIcon}>{c.icon}</Text>
           <Text style={currentCategory === c.value ? styles.optionTextSelected : styles.optionText}>
             {c.label}
           </Text>
@@ -183,7 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  optionIcon: { fontSize: 18 },
   optionText: { color: theme.colors.text },
   optionTextSelected: { color: theme.colors.accentText, fontWeight: '700' },
   error: { color: theme.colors.error },

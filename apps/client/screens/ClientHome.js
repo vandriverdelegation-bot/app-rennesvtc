@@ -59,9 +59,7 @@ function VehicleChoice({ value, onChange, photos }) {
         >
           {photos[o.value] ? (
             <Image source={{ uri: photos[o.value] }} style={styles.vehiclePhoto} resizeMode="cover" />
-          ) : (
-            <Text style={styles.choiceIcon}>{o.icon}</Text>
-          )}
+          ) : null}
           <Text style={value === o.value ? styles.choiceTextSelected : styles.choiceText}>{o.label}</Text>
         </TouchableOpacity>
       ))}
