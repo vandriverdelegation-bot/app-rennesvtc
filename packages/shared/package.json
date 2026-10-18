@@ -4,6 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
+    "expo-constants": "*",
     "expo-device": "*",
     "expo-notifications": "*"
   }

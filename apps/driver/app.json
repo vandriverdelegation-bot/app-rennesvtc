@@ -2,6 +2,7 @@
   "expo": {
     "name": "driver",
     "slug": "driver",
+    "owner": "rennesvtcs-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +21,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2cd7a7d9-ae1f-4448-b78e-1cc344e05f0b"
+      }
     }
   }
 }
