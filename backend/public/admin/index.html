@@ -109,6 +109,12 @@
           <input id="new-chauffeur-email" placeholder="Email" style="width:220px" />
           <input id="new-chauffeur-password" placeholder="Mot de passe" style="width:160px" />
           <select id="new-chauffeur-category"></select>
+          <select id="new-chauffeur-role">
+            <option value="secondaire">Secondaire</option>
+            <option value="principal">Principal</option>
+          </select>
+          <label><input type="checkbox" id="new-chauffeur-can-create" /> Peut creer une reservation</label>
+          <label><input type="checkbox" id="new-chauffeur-can-price" /> Peut modifier le prix</label>
           <button id="add-chauffeur">Ajouter</button>
         </div>
         <p id="chauffeur-error" class="error"></p>
@@ -242,7 +248,7 @@ async function renderStats() {
 async function renderChauffeurs() {
   const { data: chauffeurs } = await supabase
     .from('profiles')
-    .select('id, email, vehicle_category, push_token, created_at')
+    .select('id, email, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price')
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
@@ -254,19 +260,48 @@ async function renderChauffeurs() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Gamme</th><th>Notifications</th><th>Inscrit le</th></tr></thead>
+      <thead><tr><th>Email</th><th>Gamme</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th></th></tr></thead>
       <tbody>
         ${chauffeurs.map((c) => `
-          <tr>
+          <tr data-chauffeur-id="${c.id}">
             <td>${escapeHtml(c.email ?? '')}</td>
             <td>${c.vehicle_category ? VEHICLE_LABELS[c.vehicle_category] : '-'}</td>
+            <td>
+              <select class="edit-role">
+                <option value="secondaire" ${c.driver_role !== 'principal' ? 'selected' : ''}>Secondaire</option>
+                <option value="principal" ${c.driver_role === 'principal' ? 'selected' : ''}>Principal</option>
+              </select>
+            </td>
+            <td>
+              <label><input type="checkbox" class="edit-can-create" ${c.can_create_rides ? 'checked' : ''} /> Creer</label>
+              <label><input type="checkbox" class="edit-can-price" ${c.can_edit_price ? 'checked' : ''} /> Prix</label>
+            </td>
             <td>${c.push_token ? 'Activees' : 'Non activees'}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+            <td><button class="secondary save-chauffeur">Enregistrer</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+
+  container.querySelectorAll('.save-chauffeur').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      const id = row.dataset.chauffeurId;
+      const driver_role = row.querySelector('.edit-role').value;
+      const can_create_rides = row.querySelector('.edit-can-create').checked;
+      const can_edit_price = row.querySelector('.edit-can-price').checked;
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`/admin/chauffeurs/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price }),
+      });
+      btn.textContent = 'Enregistre !';
+      setTimeout(() => { btn.textContent = 'Enregistrer'; }, 1500);
+    });
+  });
 }
 
 document.getElementById('add-chauffeur').addEventListener('click', async () => {
@@ -275,13 +310,16 @@ document.getElementById('add-chauffeur').addEventListener('click', async () => {
   const email = document.getElementById('new-chauffeur-email').value.trim();
   const password = document.getElementById('new-chauffeur-password').value;
   const vehicle_category = document.getElementById('new-chauffeur-category').value;
+  const driver_role = document.getElementById('new-chauffeur-role').value;
+  const can_create_rides = document.getElementById('new-chauffeur-can-create').checked;
+  const can_edit_price = document.getElementById('new-chauffeur-can-price').checked;
   if (!email || !password) { errorEl.textContent = 'Email et mot de passe requis.'; return; }
 
   const { data: { session } } = await supabase.auth.getSession();
   const res = await fetch('/admin/chauffeurs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-    body: JSON.stringify({ email, password, vehicle_category }),
+    body: JSON.stringify({ email, password, vehicle_category, driver_role, can_create_rides, can_edit_price }),
   });
   const result = await res.json();
   if (!res.ok) { errorEl.textContent = result.error; return; }

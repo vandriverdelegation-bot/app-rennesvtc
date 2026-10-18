@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
+import CreateRide from './CreateRide';
 
 const PAYMENT_LABELS = {
   carte_a_bord: 'CB a bord',
@@ -19,7 +20,9 @@ const SERVICE_LABELS = {
 
 export default function DriverHome({ session }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
+  const [permissions, setPermissions] = useState({ can_create_rides: false });
   const [showSettings, setShowSettings] = useState(false);
+  const [showCreateRide, setShowCreateRide] = useState(false);
   const [activeRide, setActiveRide] = useState(undefined);
   const [pendingRides, setPendingRides] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
@@ -47,10 +50,13 @@ export default function DriverHome({ session }) {
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('vehicle_category')
+      .select('vehicle_category, can_create_rides, can_edit_price')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => setVehicleCategory(data?.vehicle_category ?? null));
+      .then(({ data }) => {
+        setVehicleCategory(data?.vehicle_category ?? null);
+        setPermissions({ can_create_rides: !!data?.can_create_rides, can_edit_price: !!data?.can_edit_price });
+      });
   }, []);
 
   useEffect(() => {
@@ -146,6 +152,21 @@ export default function DriverHome({ session }) {
     );
   }
 
+  if (showCreateRide) {
+    return (
+      <CreateRide
+        session={session}
+        vehicleCategory={vehicleCategory}
+        canEditPrice={permissions.can_edit_price}
+        onCancel={() => setShowCreateRide(false)}
+        onDone={() => {
+          setShowCreateRide(false);
+          refresh();
+        }}
+      />
+    );
+  }
+
   if (activeRide === undefined) {
     return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
   }
@@ -202,6 +223,11 @@ export default function DriverHome({ session }) {
           )}
         />
       )}
+      {permissions.can_create_rides ? (
+        <TouchableOpacity style={styles.buttonSecondary} onPress={() => setShowCreateRide(true)}>
+          <Text style={styles.buttonSecondaryText}>Creer une reservation</Text>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity onPress={() => setShowSettings(true)}>
         <Text style={styles.link}>Changer ma gamme de vehicule</Text>
       </TouchableOpacity>

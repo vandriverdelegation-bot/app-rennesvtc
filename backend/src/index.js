@@ -38,7 +38,7 @@ async function requireAdmin(req, res, next) {
 
 // Cree un compte chauffeur (reserve a l'admin, en attendant le vrai back-office de gestion de flotte).
 app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
-  const { email, password, vehicle_category } = req.body;
+  const { email, password, vehicle_category, driver_role, can_create_rides, can_edit_price } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'email et password sont requis' });
   }
@@ -54,11 +54,24 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: error.message });
   }
 
-  if (vehicle_category) {
-    await supabaseAdmin.from('profiles').update({ vehicle_category }).eq('id', data.user.id);
-  }
+  await supabaseAdmin
+    .from('profiles')
+    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price })
+    .eq('id', data.user.id);
 
   res.status(201).json({ id: data.user.id, email: data.user.email });
+});
+
+// Modifie la gamme/role/permissions d'un chauffeur existant.
+app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
+  const { vehicle_category, driver_role, can_create_rides, can_edit_price } = req.body;
+  const { error } = await supabaseAdmin
+    .from('profiles')
+    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price })
+    .eq('id', req.params.id)
+    .eq('role', 'chauffeur');
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // Previent l'admin par email qu'une nouvelle demande de course attend un dispatch.
