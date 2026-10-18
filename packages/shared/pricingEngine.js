@@ -1,6 +1,7 @@
 // Calcul du prix d'un trajet simple, fidele a l'ancien back-office :
-// tarif jour/nuit, majoration samedi/dimanche/jour ferie, zones a tarif
-// fixe, supplements (passagers, sieges auto, rehausseurs, points d'arret),
+// tarif jour/nuit (chacun avec ses propres majorations samedi/dimanche/
+// ferie), zones a tarif fixe (chaque zone a son propre tarif jour/nuit),
+// supplements (passagers, sieges auto, rehausseurs, points d'arret),
 // prise en charge, et mode Manuel (pas de calcul automatique).
 
 function easterSunday(year) {
@@ -65,18 +66,27 @@ function findMatchingZone(zones, point) {
   return (zones ?? []).find((z) => haversineKm({ lat: z.lat, lng: z.lng }, point) <= z.radius_km);
 }
 
-function isNightTime(pricing, when) {
-  if (!pricing.night_start || !pricing.night_end) return false;
-  const toMinutes = (t) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
+function toMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function isNightTime(start, end, when) {
+  if (!start || !end) return false;
   const minutes = when.getHours() * 60 + when.getMinutes();
-  const start = toMinutes(pricing.night_start);
-  const end = toMinutes(pricing.night_end);
-  if (start === end) return false;
-  if (start < end) return minutes >= start && minutes < end;
-  return minutes >= start || minutes < end; // plage a cheval sur minuit
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+  if (s === e) return false;
+  if (s < e) return minutes >= s && minutes < e;
+  return minutes >= s || minutes < e; // plage a cheval sur minuit
+}
+
+// Ajoute la majoration samedi/dimanche/ferie qui correspond au jour de la semaine.
+function applyWeekendSurcharge(price, when, surcharges) {
+  if (isFrenchHoliday(when)) return price + surcharges.holiday;
+  if (when.getDay() === 0) return price + surcharges.sunday;
+  if (when.getDay() === 6) return price + surcharges.saturday;
+  return price;
 }
 
 // Retourne { price, manual, zoneUsed } ou price est null si manual=true (prix a fixer manuellement).
@@ -90,31 +100,41 @@ function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when, p
   const zoneUsed = zonePickup ?? zoneDropoff ?? null;
 
   let price;
+  let passengerThreshold;
+  let pricePerPassenger;
+  let pickupFee;
+
   if (zoneUsed) {
-    price = zoneUsed.price;
+    const useNight = isNightTime(zoneUsed.night_start, zoneUsed.night_end, when);
+    price = useNight ? zoneUsed.night_price : zoneUsed.day_price;
+    price = Math.max(price, useNight ? zoneUsed.min_price_night : zoneUsed.min_price_day);
+    price = applyWeekendSurcharge(price, when, useNight
+      ? { saturday: zoneUsed.night_saturday_surcharge, sunday: zoneUsed.night_sunday_surcharge, holiday: zoneUsed.night_holiday_surcharge }
+      : { saturday: zoneUsed.day_saturday_surcharge, sunday: zoneUsed.day_sunday_surcharge, holiday: zoneUsed.day_holiday_surcharge });
+    passengerThreshold = zoneUsed.passenger_threshold;
+    pricePerPassenger = zoneUsed.price_per_passenger;
+    pickupFee = zoneUsed.pickup_fee;
   } else {
-    const night = isNightTime(pricing, when);
+    const night = isNightTime(pricing.night_start, pricing.night_end, when);
     const base = night ? pricing.base_price_night ?? pricing.base_price : pricing.base_price;
     const perKm = night ? pricing.price_per_km_night ?? pricing.price_per_km : pricing.price_per_km;
     const min = night ? pricing.min_price_night ?? pricing.min_price : pricing.min_price;
     price = Math.max(base + perKm * km, min);
+    price = applyWeekendSurcharge(price, when, night
+      ? { saturday: pricing.night_saturday_surcharge, sunday: pricing.night_sunday_surcharge, holiday: pricing.night_holiday_surcharge }
+      : { saturday: pricing.day_saturday_surcharge, sunday: pricing.day_sunday_surcharge, holiday: pricing.day_holiday_surcharge });
+    passengerThreshold = pricing.passenger_threshold;
+    pricePerPassenger = pricing.price_per_passenger;
+    pickupFee = pricing.pickup_fee;
   }
 
-  if (isFrenchHoliday(when)) {
-    price += pricing.holiday_surcharge;
-  } else if (when.getDay() === 0) {
-    price += pricing.sunday_surcharge;
-  } else if (when.getDay() === 6) {
-    price += pricing.saturday_surcharge;
-  }
-
-  if (passengerCount > pricing.passenger_threshold) {
-    price += (passengerCount - pricing.passenger_threshold) * pricing.price_per_passenger;
+  if (passengerCount > passengerThreshold) {
+    price += (passengerCount - passengerThreshold) * pricePerPassenger;
   }
   price += (childSeats ?? 0) * pricing.child_seat_price;
   price += (boosterSeats ?? 0) * pricing.booster_seat_price;
   price += (stopsCount ?? 0) * pricing.stop_price;
-  price += pricing.pickup_fee;
+  price += pickupFee;
 
   return { price: Math.round(price * 100) / 100, manual: false, zoneUsed };
 }

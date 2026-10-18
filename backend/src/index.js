@@ -3,10 +3,23 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const { supabaseAdmin } = require('./supabaseAdmin');
-const { sendAdminEmail } = require('./email');
+const { sendEmail, sendAdminEmail } = require('./email');
 const { sendPush } = require('./push');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
+
+function formatRideRecap(ride) {
+  const lines = [
+    `Depart : ${ride.pickup_address}`,
+    `Destination : ${ride.dropoff_address}`,
+    `Gamme : ${VEHICLE_LABELS[ride.vehicle_category] ?? ride.vehicle_category}`,
+    ride.scheduled_at ? `Date et heure : ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : null,
+    `Mode de reglement : ${PAYMENT_LABELS[ride.payment_method] ?? ride.payment_method}`,
+    ride.price != null ? `Prix : ${ride.price} euros` : 'Prix : a confirmer par le chauffeur',
+  ];
+  return lines.filter(Boolean).join('\n');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,19 +87,31 @@ app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Previent l'admin par email qu'une nouvelle demande de course attend un dispatch.
+// Previent l'admin par email qu'une nouvelle demande de course attend un dispatch,
+// et confirme au client que sa demande a bien ete recue.
 app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
   const { rideId } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('pickup_address, dropoff_address, vehicle_category, price')
+    .select('pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at, client_id')
     .eq('id', rideId)
     .single();
-  if (ride) {
-    await sendAdminEmail(
-      'Nouvelle demande de course',
-      `Gamme : ${VEHICLE_LABELS[ride.vehicle_category]}\nDepart : ${ride.pickup_address}\nDestination : ${ride.dropoff_address}\nPrix estime : ${ride.price} euros\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
-    );
+  if (!ride) return res.json({ ok: true });
+
+  await sendAdminEmail(
+    'Nouvelle demande de course',
+    `${formatRideRecap(ride)}\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
+  );
+
+  if (ride.client_id) {
+    const { data: client } = await supabaseAdmin.from('profiles').select('email').eq('id', ride.client_id).single();
+    if (client?.email) {
+      await sendEmail(
+        client.email,
+        'Votre demande de course a bien ete recue',
+        `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
+      );
+    }
   }
   res.json({ ok: true });
 });
@@ -113,23 +138,40 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Previent le client qu'un chauffeur a accepte sa course.
+// Previent le client qu'un chauffeur a accepte sa course (push + email avec
+// les coordonnees du chauffeur et un rappel complet de la reservation).
 app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   const { rideId } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('client_id')
+    .select('client_id, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
     .eq('id', rideId)
     .single();
-  if (!ride) return res.json({ ok: true });
+  if (!ride?.client_id) return res.json({ ok: true });
 
   const { data: client } = await supabaseAdmin
     .from('profiles')
-    .select('push_token')
+    .select('push_token, email')
     .eq('id', ride.client_id)
     .single();
 
   await sendPush([client?.push_token], 'Chauffeur trouve', 'Un chauffeur a accepte votre course.');
+
+  if (client?.email) {
+    const { data: driver } = await supabaseAdmin
+      .from('profiles')
+      .select('email, phone')
+      .eq('id', ride.driver_id)
+      .single();
+    const driverInfo = driver
+      ? `Chauffeur : ${driver.email}${driver.phone ? `\nTelephone du chauffeur : ${driver.phone}` : ''}`
+      : '';
+    await sendEmail(
+      client.email,
+      'Un chauffeur a accepte votre course',
+      `Bonjour,\n\nUn chauffeur a accepte votre course.\n\n${driverInfo}\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
+    );
+  }
   res.json({ ok: true });
 });
 
@@ -151,6 +193,9 @@ app.post('/notify/surcharge', requireSupabaseUser, async (req, res) => {
 
   const message = `Une majoration de ${amount} € a ete ajoutee a votre course (${reason || 'sans raison precisee'}). Nouveau prix : ${ride.price} €.`;
   await sendPush([client?.push_token], 'Majoration de prix', message);
+  if (client?.email) {
+    await sendEmail(client.email, 'Majoration de prix sur votre course', `Bonjour,\n\n${message}\n\nRennes VTC`);
+  }
   res.json({ ok: true });
 });
 

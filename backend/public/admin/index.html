@@ -295,6 +295,7 @@ function showPage(name) {
   if (name === 'disponibilites') renderAvailability();
   if (name === 'calendrier') renderCalendar();
   if (name === 'vehicules') renderVehicles();
+  if (name === 'tarifs' && zoneMap) setTimeout(() => zoneMap.invalidateSize(), 50);
 }
 
 async function handleLogin() {
@@ -936,7 +937,6 @@ async function renderPricing() {
   ]);
 
   const container = document.getElementById('pricing-section');
-  const [{ data: zones }] = await Promise.all([supabase.from('pricing_zones').select('*').order('created_at', { ascending: true })]);
 
   container.innerHTML = `
     <h3>Trajet simple</h3>
@@ -944,17 +944,14 @@ async function renderPricing() {
     <button id="save-simple">Enregistrer les tarifs</button>
 
     <h3 style="margin-top:24px">Zones de tarif fixe (trajet simple)</h3>
-    <p style="color:var(--text-muted);font-size:13px">Quand le depart (ou l'arrivee, selon la case cochee ci-dessus) tombe dans une zone, le prix de la zone remplace le calcul au km. Coordonnees : clic droit sur Google Maps &gt; copier les coordonnees.</p>
-    <div id="pricing-zones-list"></div>
+    <p style="color:var(--text-muted);font-size:13px">Quand le depart (ou l'arrivee, selon la case cochee ci-dessus) tombe dans une zone, le tarif de la zone remplace le calcul au km. Cliquez sur "Ajouter une zone" puis sur la carte pour placer une zone ; faites glisser le point sur le bord du cercle pour regler son rayon, et le point central pour la deplacer.</p>
     <div class="price-row">
-      <select id="new-zone-category">${CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('')}</select>
-      <input id="new-zone-name" placeholder="Nom de la zone" style="width:160px" />
-      <input id="new-zone-lat" placeholder="Latitude" style="width:100px" />
-      <input id="new-zone-lng" placeholder="Longitude" style="width:100px" />
-      <input id="new-zone-radius" placeholder="Rayon (km)" style="width:100px" />
-      <input id="new-zone-price" placeholder="Prix €" style="width:90px" />
-      <button id="add-zone">Ajouter une zone</button>
+      <select id="zone-category"></select>
+      <button class="secondary" id="zone-add-mode">+ Ajouter une zone</button>
     </div>
+    <div id="zone-map" style="width:100%;height:380px;border-radius:12px;margin:10px 0"></div>
+    <div id="zone-editor"></div>
+    <div id="zone-list" style="margin-top:10px"></div>
 
     <h3 style="margin-top:24px">Mise a disposition</h3>
     <div id="pricing-hourly-rows"></div>
@@ -974,7 +971,8 @@ async function renderPricing() {
   const SIMPLE_DEFAULTS = {
     base_price: 0, price_per_km: 0, min_price: 0,
     night_start: '', night_end: '', base_price_night: '', price_per_km_night: '', min_price_night: '',
-    saturday_surcharge: 0, sunday_surcharge: 0, holiday_surcharge: 0,
+    day_saturday_surcharge: 0, day_sunday_surcharge: 0, day_holiday_surcharge: 0,
+    night_saturday_surcharge: 0, night_sunday_surcharge: 0, night_holiday_surcharge: 0,
     price_per_passenger: 0, passenger_threshold: 0, child_seat_price: 0, booster_seat_price: 0,
     stop_price: 0, pickup_fee: 0, manual_mode: false, zone_pricing_pickup: false, zone_pricing_dropoff: false,
   };
@@ -999,10 +997,16 @@ async function renderPricing() {
           ${num('min_price_night', 'minimum €')}
         </div>
         <div class="price-row">
-          <strong style="width:100%;color:var(--text-muted);font-size:12px">MAJORATIONS</strong>
-          ${num('saturday_surcharge', 'samedi €')}
-          ${num('sunday_surcharge', 'dimanche €')}
-          ${num('holiday_surcharge', 'jour ferie €')}
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">MAJORATIONS DE JOUR</strong>
+          ${num('day_saturday_surcharge', 'samedi €')}
+          ${num('day_sunday_surcharge', 'dimanche €')}
+          ${num('day_holiday_surcharge', 'jour ferie €')}
+        </div>
+        <div class="price-row">
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">MAJORATIONS DE NUIT</strong>
+          ${num('night_saturday_surcharge', 'samedi €')}
+          ${num('night_sunday_surcharge', 'dimanche €')}
+          ${num('night_holiday_surcharge', 'jour ferie €')}
         </div>
         <div class="price-row">
           <strong style="width:100%;color:var(--text-muted);font-size:12px">SUPPLEMENTS</strong>
@@ -1022,18 +1026,7 @@ async function renderPricing() {
     `;
   }).join('');
 
-  document.getElementById('pricing-zones-list').innerHTML = (zones ?? []).length === 0
-    ? '<p style="color:var(--text-muted)">Aucune zone configuree.</p>'
-    : zones.map((z) => `
-      <div class="price-row">
-        <span class="cat">${VEHICLE_LABELS[z.vehicle_category]}</span>
-        <span style="width:160px">${escapeHtml(z.name)}</span>
-        <span style="width:140px;color:var(--text-muted)">${z.lat.toFixed(4)}, ${z.lng.toFixed(4)}</span>
-        <span style="width:80px">${z.radius_km} km</span>
-        <span style="width:70px">${z.price} €</span>
-        <button class="secondary" data-delete-zone="${z.id}">Supprimer</button>
-      </div>
-    `).join('');
+  initZoneUI();
 
   const hourlyById = Object.fromEntries((hourly ?? []).map((h) => [h.vehicle_category, h]));
   document.getElementById('pricing-hourly-rows').innerHTML = CATEGORIES.map((cat) => {
@@ -1079,29 +1072,6 @@ async function renderPricing() {
     alert(error ? error.message : 'Tarifs trajet simple enregistres.');
   });
 
-  document.getElementById('add-zone').addEventListener('click', async () => {
-    const vehicle_category = document.getElementById('new-zone-category').value;
-    const name = document.getElementById('new-zone-name').value.trim();
-    const lat = parseFloat(document.getElementById('new-zone-lat').value);
-    const lng = parseFloat(document.getElementById('new-zone-lng').value);
-    const radius_km = parseFloat(document.getElementById('new-zone-radius').value);
-    const price = parseFloat(document.getElementById('new-zone-price').value);
-    if (!name || isNaN(lat) || isNaN(lng) || !radius_km || !price) {
-      alert('Nom, latitude, longitude, rayon et prix sont requis.');
-      return;
-    }
-    const { error } = await supabase.from('pricing_zones').insert({ vehicle_category, name, lat, lng, radius_km, price });
-    if (error) { alert(error.message); return; }
-    renderPricing();
-  });
-
-  container.querySelectorAll('[data-delete-zone]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Supprimer cette zone ?')) return;
-      await supabase.from('pricing_zones').delete().eq('id', btn.dataset.deleteZone);
-      renderPricing();
-    });
-  });
 
   document.getElementById('save-hourly').addEventListener('click', async () => {
     const rows = document.querySelectorAll('[data-hourly]');
@@ -1140,6 +1110,201 @@ async function renderPricing() {
       await supabase.from('forfaits').delete().eq('id', btn.dataset.deleteForfait);
       renderPricing();
     });
+  });
+}
+
+// ---- Carte interactive des zones de tarif (par gamme) ----
+
+const ZONE_COLORS = ['#E53935', '#43A047', '#1E88E5', '#8E24AA', '#FB8C00', '#00897B'];
+const ZONE_DEFAULTS = {
+  name: 'Nouvelle zone',
+  day_start: '07:00', day_end: '19:00', day_price: 0,
+  day_saturday_surcharge: 0, day_sunday_surcharge: 0, day_holiday_surcharge: 0,
+  night_start: '19:00', night_end: '07:00', night_price: 0,
+  night_saturday_surcharge: 0, night_sunday_surcharge: 0, night_holiday_surcharge: 0,
+  min_price_day: 0, min_price_night: 0,
+  price_per_passenger: 0, passenger_threshold: 0, pickup_fee: 0,
+  active: true,
+};
+
+let zoneMap = null;
+let zoneLayers = {}; // id -> { circle, centerMarker, edgeMarker }
+let zonesById = {};
+let zoneCategory = null;
+let zoneAddArmed = false;
+let zoneEditingId = null; // null = aucun editeur ouvert, 'new' = creation, sinon id existant
+
+function initZoneUI() {
+  if (!zoneCategory) zoneCategory = CATEGORIES[0];
+  document.getElementById('zone-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}" ${c === zoneCategory ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('');
+  document.getElementById('zone-category').addEventListener('change', (e) => {
+    zoneCategory = e.target.value;
+    zoneEditingId = null;
+    document.getElementById('zone-editor').innerHTML = '';
+    loadZonesForCategory();
+  });
+  document.getElementById('zone-add-mode').addEventListener('click', () => {
+    zoneAddArmed = true;
+    alert('Cliquez sur la carte pour placer la nouvelle zone.');
+  });
+
+  // renderPricing() peut reconstruire #zone-map (innerHTML) a chaque appel :
+  // on detruit toute ancienne instance Leaflet liee a un conteneur disparu.
+  if (zoneMap) { zoneMap.remove(); zoneMap = null; zoneLayers = {}; }
+  zoneMap = L.map('zone-map', { scrollWheelZoom: false }).setView([48.1173, -1.6778], 11);
+  zoneMap.on('click', () => zoneMap.scrollWheelZoom.enable());
+  zoneMap.getContainer().addEventListener('mouseleave', () => zoneMap.scrollWheelZoom.disable());
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(zoneMap);
+  zoneMap.on('click', (e) => {
+    if (!zoneAddArmed) return;
+    zoneAddArmed = false;
+    const id = 'new';
+    const zone = { id, vehicle_category: zoneCategory, lat: e.latlng.lat, lng: e.latlng.lng, radius_km: 2, ...ZONE_DEFAULTS };
+    zonesById[id] = zone;
+    drawZone(zone);
+    openZoneEditor(zone);
+  });
+  setTimeout(() => zoneMap.invalidateSize(), 50);
+  loadZonesForCategory();
+}
+
+async function loadZonesForCategory() {
+  Object.values(zoneLayers).forEach((l) => { zoneMap.removeLayer(l.circle); zoneMap.removeLayer(l.centerMarker); zoneMap.removeLayer(l.edgeMarker); });
+  zoneLayers = {};
+  zonesById = {};
+  const { data: zones } = await supabase.from('pricing_zones').select('*').eq('vehicle_category', zoneCategory).order('created_at', { ascending: true });
+  (zones ?? []).forEach((z) => { zonesById[z.id] = z; drawZone(z); });
+  renderZoneList(zones ?? []);
+  setTimeout(() => zoneMap.invalidateSize(), 50);
+}
+
+function drawZone(zone) {
+  const color = ZONE_COLORS[Object.keys(zoneLayers).length % ZONE_COLORS.length];
+  const center = L.latLng(zone.lat, zone.lng);
+  const circle = L.circle(center, { radius: zone.radius_km * 1000, color, fillOpacity: 0.15 }).addTo(zoneMap);
+  const edgePoint = L.latLng(zone.lat + zone.radius_km / 111, zone.lng);
+  const centerMarker = L.marker(center, { draggable: true, title: zone.name }).addTo(zoneMap);
+  const edgeMarker = L.marker(edgePoint, { draggable: true, icon: L.divIcon({ className: '', html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid white"></div>` }) }).addTo(zoneMap);
+
+  centerMarker.on('drag', (e) => {
+    const newCenter = e.latlng;
+    circle.setLatLng(newCenter);
+    const radiusKm = zoneLayers[zone.id].radius_km;
+    edgeMarker.setLatLng(L.latLng(newCenter.lat + radiusKm / 111, newCenter.lng));
+    zoneLayers[zone.id].lat = newCenter.lat;
+    zoneLayers[zone.id].lng = newCenter.lng;
+  });
+  edgeMarker.on('drag', (e) => {
+    const radiusKm = zoneMap.distance(circle.getLatLng(), e.latlng) / 1000;
+    circle.setRadius(radiusKm * 1000);
+    zoneLayers[zone.id].radius_km = radiusKm;
+  });
+  centerMarker.on('click', () => openZoneEditor(zonesById[zone.id] ?? zone));
+  circle.on('click', () => openZoneEditor(zonesById[zone.id] ?? zone));
+
+  zoneLayers[zone.id] = { circle, centerMarker, edgeMarker, lat: zone.lat, lng: zone.lng, radius_km: zone.radius_km };
+}
+
+function renderZoneList(zones) {
+  document.getElementById('zone-list').innerHTML = zones.length === 0
+    ? '<p style="color:var(--text-muted)">Aucune zone configuree pour cette gamme.</p>'
+    : zones.map((z) => `
+      <div class="price-row">
+        <span style="width:180px">${escapeHtml(z.name)}</span>
+        <span style="width:100px;color:var(--text-muted)">${z.radius_km.toFixed(2)} km</span>
+        <span style="width:140px">jour ${z.day_price}€ / nuit ${z.night_price}€</span>
+        <button class="secondary" data-edit-zone="${z.id}">Modifier</button>
+      </div>
+    `).join('');
+  document.querySelectorAll('[data-edit-zone]').forEach((btn) => {
+    btn.addEventListener('click', () => openZoneEditor(zonesById[btn.dataset.editZone]));
+  });
+}
+
+function openZoneEditor(zone) {
+  zoneEditingId = zone.id;
+  const z = { ...ZONE_DEFAULTS, ...zone };
+  const num = (field, label, step = '0.01') => `<input type="number" step="${step}" data-zone-field="${field}" value="${z[field]}" style="width:90px" /><label>${label}</label>`;
+  document.getElementById('zone-editor').innerHTML = `
+    <div class="card">
+      <div class="price-row">
+        <input data-zone-field="name" value="${escapeHtml(z.name)}" placeholder="Nom de la zone" style="width:220px" />
+        <span style="color:var(--text-muted)">Rayon : ${(zoneLayers[zone.id]?.radius_km ?? z.radius_km).toFixed(2)} km (ajustable sur la carte)</span>
+      </div>
+      <div class="price-row">
+        <strong style="width:100%;color:var(--text-muted);font-size:12px">TARIF DE JOUR</strong>
+        <input type="time" data-zone-field="day_start" value="${z.day_start}" style="width:110px" /><label>debut</label>
+        <input type="time" data-zone-field="day_end" value="${z.day_end}" style="width:110px" /><label>fin</label>
+        ${num('day_price', '€')}
+        ${num('min_price_day', 'minimum €')}
+      </div>
+      <div class="price-row">
+        ${num('day_saturday_surcharge', 'samedi €')}
+        ${num('day_sunday_surcharge', 'dimanche €')}
+        ${num('day_holiday_surcharge', 'jour ferie €')}
+      </div>
+      <div class="price-row">
+        <strong style="width:100%;color:var(--text-muted);font-size:12px">TARIF DE NUIT</strong>
+        <input type="time" data-zone-field="night_start" value="${z.night_start}" style="width:110px" /><label>debut</label>
+        <input type="time" data-zone-field="night_end" value="${z.night_end}" style="width:110px" /><label>fin</label>
+        ${num('night_price', '€')}
+        ${num('min_price_night', 'minimum €')}
+      </div>
+      <div class="price-row">
+        ${num('night_saturday_surcharge', 'samedi €')}
+        ${num('night_sunday_surcharge', 'dimanche €')}
+        ${num('night_holiday_surcharge', 'jour ferie €')}
+      </div>
+      <div class="price-row">
+        <strong style="width:100%;color:var(--text-muted);font-size:12px">SUPPLEMENTS</strong>
+        ${num('price_per_passenger', '€/passager')}
+        ${num('passenger_threshold', 'a partir du passager n°', '1')}
+        ${num('pickup_fee', 'prise en charge fixe €')}
+      </div>
+      <div class="price-row">
+        <button id="zone-save">Enregistrer la zone</button>
+        ${zone.id !== 'new' ? '<button class="secondary" id="zone-delete">Supprimer</button>' : ''}
+        <button class="secondary" id="zone-cancel">Annuler</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('zone-save').addEventListener('click', async () => {
+    const fields = document.querySelectorAll('[data-zone-field]');
+    const payload = { vehicle_category: zoneCategory, lat: zoneLayers[zone.id].lat, lng: zoneLayers[zone.id].lng, radius_km: zoneLayers[zone.id].radius_km };
+    fields.forEach((input) => {
+      const field = input.dataset.zoneField;
+      if (field === 'name') payload.name = input.value.trim() || 'Zone sans nom';
+      else if (input.type === 'time') payload[field] = input.value || null;
+      else payload[field] = parseFloat(input.value) || 0;
+    });
+    let error;
+    if (zoneEditingId === 'new') {
+      ({ error } = await supabase.from('pricing_zones').insert(payload));
+    } else {
+      ({ error } = await supabase.from('pricing_zones').update(payload).eq('id', zoneEditingId));
+    }
+    if (error) { alert(error.message); return; }
+    zoneEditingId = null;
+    document.getElementById('zone-editor').innerHTML = '';
+    loadZonesForCategory();
+  });
+
+  const deleteBtn = document.getElementById('zone-delete');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Supprimer cette zone ?')) return;
+      await supabase.from('pricing_zones').delete().eq('id', zoneEditingId);
+      zoneEditingId = null;
+      document.getElementById('zone-editor').innerHTML = '';
+      loadZonesForCategory();
+    });
+  }
+
+  document.getElementById('zone-cancel').addEventListener('click', () => {
+    zoneEditingId = null;
+    document.getElementById('zone-editor').innerHTML = '';
+    if (zone.id === 'new') loadZonesForCategory(); // retire le cercle temporaire
   });
 }
 

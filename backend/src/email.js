@@ -1,7 +1,9 @@
-// Tant qu'aucun domaine n'est verifie sur Resend, on ne peut envoyer qu'a l'adresse du compte Resend.
+// Tant qu'aucun domaine n'est verifie sur Resend, le sandbox ne peut envoyer
+// qu'a l'adresse du compte Resend (ADMIN_EMAIL) - les emails aux clients
+// echoueront silencieusement (log seulement) jusqu'a verification du domaine.
 const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
 
-async function sendAdminEmail(subject, text) {
+async function sendEmail(to, subject, text) {
   if (!process.env.RESEND_API_KEY) {
     console.log('RESEND_API_KEY non configure, email non envoye:', subject);
     return;
@@ -15,7 +17,7 @@ async function sendAdminEmail(subject, text) {
       },
       body: JSON.stringify({
         from: 'Rennes VTC <onboarding@resend.dev>',
-        to: ADMIN_EMAIL,
+        to,
         subject,
         text,
       }),
@@ -29,4 +31,8 @@ async function sendAdminEmail(subject, text) {
   }
 }
 
-module.exports = { sendAdminEmail };
+function sendAdminEmail(subject, text) {
+  return sendEmail(ADMIN_EMAIL, subject, text);
+}
+
+module.exports = { sendEmail, sendAdminEmail };
