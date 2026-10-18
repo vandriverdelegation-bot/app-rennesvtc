@@ -76,8 +76,11 @@
     <div class="sidebar">
       <h1>RENNES <span class="accent">VTC</span></h1>
       <a class="nav-link active" data-page="dashboard">Tableau de bord</a>
+      <a class="nav-link" data-page="disponibilites">Disponibilites</a>
       <a class="nav-link" data-page="reservations">Reservations</a>
+      <a class="nav-link" data-page="calendrier">Calendrier</a>
       <a class="nav-link" data-page="chauffeurs">Chauffeurs</a>
+      <a class="nav-link" data-page="vehicules">Vehicules</a>
       <a class="nav-link" data-page="clients">Clients</a>
       <a class="nav-link" data-page="tarifs">Tarifs</a>
       <a class="nav-link" data-page="carte">Carte interactive</a>
@@ -94,11 +97,82 @@
         <div class="stat-grid" id="stats-grid"></div>
       </div>
 
+      <div class="page" id="page-disponibilites">
+        <h2>Disponibilites</h2>
+        <div id="availability-list"></div>
+      </div>
+
+      <div class="page" id="page-calendrier">
+        <h2>Calendrier</h2>
+        <div class="price-row">
+          <select id="calendar-driver-filter"><option value="">Tous les chauffeurs</option></select>
+          <button class="secondary" id="calendar-prev">&larr; Precedent</button>
+          <button class="secondary" id="calendar-today">Aujourd'hui</button>
+          <button class="secondary" id="calendar-next">Suivant &rarr;</button>
+        </div>
+        <h3 id="calendar-month-label"></h3>
+        <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
+        <div id="calendar-day-detail" style="margin-top:16px"></div>
+      </div>
+
       <div class="page" id="page-reservations">
         <h2>Nouvelles demandes</h2>
         <div id="pending-list"></div>
         <h2 style="margin-top:32px">En cours</h2>
         <div id="active-list"></div>
+
+        <h2 style="margin-top:32px">Creer une reservation</h2>
+        <div class="card">
+          <div class="price-row">
+            <input id="new-ride-client-name" placeholder="Nom du client" style="width:180px" />
+            <input id="new-ride-client-phone" placeholder="Telephone" style="width:140px" />
+            <select id="new-ride-category"></select>
+          </div>
+          <div class="price-row">
+            <input id="new-ride-pickup" placeholder="Adresse de depart" style="width:260px" />
+            <input id="new-ride-dropoff" placeholder="Adresse de destination" style="width:260px" />
+          </div>
+          <div class="price-row">
+            <input id="new-ride-date" type="date" style="width:160px" />
+            <input id="new-ride-time" type="time" style="width:120px" />
+            <select id="new-ride-payment">
+              <option value="carte_a_bord">CB a bord</option>
+              <option value="especes">Especes</option>
+              <option value="compte">En compte</option>
+            </select>
+          </div>
+          <div class="price-row">
+            <input id="new-ride-price" type="number" step="0.01" placeholder="Prix €" style="width:100px" />
+            <select id="new-ride-driver">
+              <option value="">Laisser en attente (dispatch normal)</option>
+            </select>
+          </div>
+          <button id="add-ride">Creer la reservation</button>
+          <p id="new-ride-error" class="error"></p>
+        </div>
+
+        <h2 style="margin-top:32px">Historique complet</h2>
+        <div class="price-row">
+          <input id="filter-date-start" type="date" style="width:150px" />
+          <input id="filter-date-end" type="date" style="width:150px" />
+          <select id="filter-status">
+            <option value="">Tous les statuts</option>
+            <option value="pending">En attente</option>
+            <option value="dispatched">Dispatchee</option>
+            <option value="accepted">Acceptee</option>
+            <option value="completed">Terminee</option>
+            <option value="cancelled">Annulee</option>
+          </select>
+          <select id="filter-payment">
+            <option value="">Tous les paiements</option>
+            <option value="carte_a_bord">CB a bord</option>
+            <option value="especes">Especes</option>
+            <option value="compte">En compte</option>
+          </select>
+          <button id="filter-apply" class="secondary">Filtrer</button>
+          <button id="filter-export" class="secondary">Exporter en CSV</button>
+        </div>
+        <div id="history-list"></div>
       </div>
 
       <div class="page" id="page-chauffeurs">
@@ -118,6 +192,35 @@
           <button id="add-chauffeur">Ajouter</button>
         </div>
         <p id="chauffeur-error" class="error"></p>
+      </div>
+
+      <div class="page" id="page-vehicules">
+        <h2>Vehicules</h2>
+        <div id="vehicles-list"></div>
+        <h3 style="margin-top:24px">Ajouter un vehicule</h3>
+        <div class="card">
+          <div class="price-row">
+            <input id="new-vehicle-name" placeholder="Nom affiche (ex: Mercedes Classe E)" style="width:220px" />
+            <select id="new-vehicle-category"></select>
+            <select id="new-vehicle-driver"><option value="">Non assigne</option></select>
+          </div>
+          <div class="price-row">
+            <input id="new-vehicle-plate" placeholder="Plaque d'immatriculation" style="width:150px" />
+            <input id="new-vehicle-color" placeholder="Couleur" style="width:120px" />
+            <input id="new-vehicle-seats" type="number" placeholder="Places" style="width:80px" value="4" />
+          </div>
+          <div class="price-row">
+            <input id="new-vehicle-bags-s" type="number" placeholder="Bagages S" style="width:100px" value="0" />
+            <input id="new-vehicle-bags-m" type="number" placeholder="Bagages M" style="width:100px" value="0" />
+            <input id="new-vehicle-bags-l" type="number" placeholder="Bagages L" style="width:100px" value="0" />
+          </div>
+          <div class="price-row">
+            <input id="new-vehicle-options" placeholder="Options (separees par des virgules : climatisation, wifi...)" style="width:340px" />
+            <input id="new-vehicle-photo" placeholder="URL photo (optionnel)" style="width:220px" />
+          </div>
+          <button id="add-vehicle">Ajouter le vehicule</button>
+          <p id="new-vehicle-error" class="error"></p>
+        </div>
       </div>
 
       <div class="page" id="page-clients">
@@ -167,6 +270,9 @@ function showPage(name) {
   document.querySelectorAll('.nav-link').forEach((l) => l.classList.toggle('active', l.dataset.page === name));
   document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${name}`));
   if (name === 'carte') initMap();
+  if (name === 'disponibilites') renderAvailability();
+  if (name === 'calendrier') renderCalendar();
+  if (name === 'vehicules') renderVehicles();
 }
 
 async function handleLogin() {
@@ -198,6 +304,7 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
   refresh();
   renderPricing();
   populateCategorySelect();
+  renderHistory();
 });
 
 let refreshing = false;
@@ -218,6 +325,277 @@ setInterval(refresh, 5000);
 
 function populateCategorySelect() {
   document.getElementById('new-chauffeur-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+  document.getElementById('new-ride-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+  populateNewRideDrivers();
+}
+
+async function populateNewRideDrivers() {
+  const category = document.getElementById('new-ride-category').value;
+  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur').eq('vehicle_category', category);
+  const select = document.getElementById('new-ride-driver');
+  select.innerHTML = '<option value="">Laisser en attente (dispatch normal)</option>' +
+    (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+}
+document.getElementById('new-ride-category').addEventListener('change', populateNewRideDrivers);
+
+document.getElementById('add-ride').addEventListener('click', async () => {
+  const errorEl = document.getElementById('new-ride-error');
+  errorEl.textContent = '';
+  const client_name = document.getElementById('new-ride-client-name').value.trim();
+  const client_phone = document.getElementById('new-ride-client-phone').value.trim();
+  const vehicle_category = document.getElementById('new-ride-category').value;
+  const pickup_address = document.getElementById('new-ride-pickup').value.trim();
+  const dropoff_address = document.getElementById('new-ride-dropoff').value.trim();
+  const date = document.getElementById('new-ride-date').value;
+  const time = document.getElementById('new-ride-time').value;
+  const payment_method = document.getElementById('new-ride-payment').value;
+  const price = parseFloat(document.getElementById('new-ride-price').value);
+  const driverId = document.getElementById('new-ride-driver').value;
+
+  if (!client_name || !client_phone || !pickup_address || !dropoff_address || !price) {
+    errorEl.textContent = 'Nom, telephone, adresses et prix sont requis.';
+    return;
+  }
+
+  const payload = {
+    client_id: null,
+    client_name,
+    client_phone,
+    vehicle_category,
+    pickup_address,
+    dropoff_address,
+    payment_method,
+    service_type: 'trajet_simple',
+    price,
+    created_by: 'admin',
+    scheduled_at: date && time ? new Date(`${date}T${time}`).toISOString() : null,
+    status: driverId ? 'accepted' : 'pending',
+    driver_id: driverId || null,
+  };
+  const { error } = await supabase.from('rides').insert(payload);
+  if (error) { errorEl.textContent = error.message; return; }
+
+  document.getElementById('new-ride-client-name').value = '';
+  document.getElementById('new-ride-client-phone').value = '';
+  document.getElementById('new-ride-pickup').value = '';
+  document.getElementById('new-ride-dropoff').value = '';
+  document.getElementById('new-ride-price').value = '';
+  refresh();
+});
+
+const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+async function populateVehicleForm() {
+  document.getElementById('new-vehicle-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur');
+  document.getElementById('new-vehicle-driver').innerHTML = '<option value="">Non assigne</option>' +
+    (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+}
+
+async function renderVehicles() {
+  await populateVehicleForm();
+  const { data: vehicles } = await supabase
+    .from('vehicles')
+    .select('*, profiles(email)')
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('vehicles-list');
+  if (!vehicles || vehicles.length === 0) {
+    container.innerHTML = '<p>Aucun vehicule pour le moment.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Nom</th><th>Gamme</th><th>Plaque</th><th>Couleur</th><th>Places</th><th>Bagages</th><th>Options</th><th>Chauffeur</th><th>Actif</th><th></th></tr></thead>
+      <tbody>
+        ${vehicles.map((v) => `
+          <tr>
+            <td>${escapeHtml(v.display_name)}${v.photo_url ? `<br/><img src="${escapeHtml(v.photo_url)}" style="width:80px;border-radius:6px;margin-top:4px" />` : ''}</td>
+            <td>${VEHICLE_LABELS[v.vehicle_category]}</td>
+            <td>${escapeHtml(v.plate ?? '-')}</td>
+            <td>${escapeHtml(v.color ?? '-')}</td>
+            <td>${v.seats}</td>
+            <td>S:${v.bags_s} M:${v.bags_m} L:${v.bags_l}</td>
+            <td>${(v.options ?? []).map(escapeHtml).join(', ') || '-'}</td>
+            <td>${escapeHtml(v.profiles?.email ?? 'Non assigne')}</td>
+            <td><input type="checkbox" data-vehicle-active="${v.id}" ${v.active ? 'checked' : ''} style="width:auto" /></td>
+            <td><button class="secondary" data-delete-vehicle="${v.id}">Supprimer</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  container.querySelectorAll('[data-vehicle-active]').forEach((checkbox) => {
+    checkbox.addEventListener('change', async () => {
+      await supabase.from('vehicles').update({ active: checkbox.checked }).eq('id', checkbox.dataset.vehicleActive);
+    });
+  });
+  container.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Supprimer ce vehicule ?')) return;
+      await supabase.from('vehicles').delete().eq('id', btn.dataset.deleteVehicle);
+      renderVehicles();
+    });
+  });
+}
+
+document.getElementById('add-vehicle').addEventListener('click', async () => {
+  const errorEl = document.getElementById('new-vehicle-error');
+  errorEl.textContent = '';
+  const display_name = document.getElementById('new-vehicle-name').value.trim();
+  const vehicle_category = document.getElementById('new-vehicle-category').value;
+  const driver_id = document.getElementById('new-vehicle-driver').value || null;
+  const plate = document.getElementById('new-vehicle-plate').value.trim() || null;
+  const color = document.getElementById('new-vehicle-color').value.trim() || null;
+  const seats = parseInt(document.getElementById('new-vehicle-seats').value, 10) || 4;
+  const bags_s = parseInt(document.getElementById('new-vehicle-bags-s').value, 10) || 0;
+  const bags_m = parseInt(document.getElementById('new-vehicle-bags-m').value, 10) || 0;
+  const bags_l = parseInt(document.getElementById('new-vehicle-bags-l').value, 10) || 0;
+  const options = document.getElementById('new-vehicle-options').value.split(',').map((o) => o.trim()).filter(Boolean);
+  const photo_url = document.getElementById('new-vehicle-photo').value.trim() || null;
+
+  if (!display_name) { errorEl.textContent = 'Le nom affiche est requis.'; return; }
+
+  const { error } = await supabase.from('vehicles').insert({
+    display_name, vehicle_category, driver_id, plate, color, seats, bags_s, bags_m, bags_l, options, photo_url,
+  });
+  if (error) { errorEl.textContent = error.message; return; }
+
+  document.getElementById('new-vehicle-name').value = '';
+  document.getElementById('new-vehicle-plate').value = '';
+  document.getElementById('new-vehicle-color').value = '';
+  document.getElementById('new-vehicle-options').value = '';
+  document.getElementById('new-vehicle-photo').value = '';
+  renderVehicles();
+});
+
+async function renderAvailability() {
+  const container = document.getElementById('availability-list');
+  const { data: drivers } = await supabase
+    .from('profiles')
+    .select('id, email, phone, online_status, vehicle_category')
+    .eq('role', 'chauffeur')
+    .order('email', { ascending: true });
+
+  if (!drivers || drivers.length === 0) {
+    container.innerHTML = '<p>Aucun chauffeur pour le moment.</p>';
+    return;
+  }
+
+  const { data: availabilityRows } = await supabase.from('driver_availability').select('*');
+  const availabilityByDriver = {};
+  (availabilityRows ?? []).forEach((row) => {
+    (availabilityByDriver[row.driver_id] ??= []).push(row);
+  });
+
+  const rows = await Promise.all(drivers.map(async (d) => {
+    const { data: lastRide } = await supabase
+      .from('rides')
+      .select('created_at, pickup_address, dropoff_address')
+      .eq('driver_id', d.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { driver: d, lastRide, availability: availabilityByDriver[d.id] ?? [] };
+  }));
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Chauffeur</th><th>Statut</th><th>Derniere reservation</th><th>Agenda</th></tr></thead>
+      <tbody>
+        ${rows.map(({ driver: d, lastRide, availability }) => `
+          <tr>
+            <td>${escapeHtml(d.email ?? '')}${d.phone ? '<br/><span style="color:var(--text-muted)">' + escapeHtml(d.phone) + '</span>' : ''}</td>
+            <td>${d.online_status ? '🟢 En ligne' : '⚪ Hors ligne'}</td>
+            <td>${lastRide ? new Date(lastRide.created_at).toLocaleDateString('fr-FR') + ' - ' + escapeHtml(lastRide.pickup_address) : 'Aucune'}</td>
+            <td>${
+              availability.length === 0
+                ? 'Non renseigne'
+                : availability
+                    .sort((a, b) => a.day_of_week - b.day_of_week)
+                    .map((a) => `${DAY_LABELS[a.day_of_week]} ${a.start_time.slice(0, 5)}-${a.end_time.slice(0, 5)}`)
+                    .join(' · ')
+            }</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+let calendarDate = new Date();
+let calendarDriverFilter = '';
+
+async function populateCalendarDriverFilter() {
+  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur');
+  const select = document.getElementById('calendar-driver-filter');
+  select.innerHTML = '<option value="">Tous les chauffeurs</option>' +
+    (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+  select.value = calendarDriverFilter;
+}
+
+document.getElementById('calendar-prev').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); });
+document.getElementById('calendar-next').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); });
+document.getElementById('calendar-today').addEventListener('click', () => { calendarDate = new Date(); renderCalendar(); });
+document.getElementById('calendar-driver-filter').addEventListener('change', (e) => { calendarDriverFilter = e.target.value; renderCalendar(); });
+
+async function renderCalendar() {
+  await populateCalendarDriverFilter();
+  document.getElementById('calendar-driver-filter').value = calendarDriverFilter;
+
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  document.getElementById('calendar-month-label').textContent =
+    calendarDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+
+  let query = supabase
+    .from('rides')
+    .select('id, created_at, scheduled_at, pickup_address, dropoff_address, driver_id')
+    .gte('created_at', monthStart.toISOString())
+    .lte('created_at', monthEnd.toISOString());
+  if (calendarDriverFilter) query = query.eq('driver_id', calendarDriverFilter);
+  const { data: rides } = await query;
+
+  const countsByDay = {};
+  (rides ?? []).forEach((r) => {
+    const day = new Date(r.scheduled_at ?? r.created_at).getDate();
+    countsByDay[day] = (countsByDay[day] ?? 0) + 1;
+  });
+
+  const firstWeekday = (monthStart.getDay() + 6) % 7; // 0 = lundi
+  const daysInMonth = monthEnd.getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push('<div></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const count = countsByDay[day] ?? 0;
+    cells.push(`
+      <div data-calendar-day="${day}" style="cursor:pointer;border:1px solid var(--card-border);border-radius:8px;padding:8px;min-height:60px;background:var(--card)">
+        <div style="color:var(--text-muted);font-size:12px">${day}</div>
+        ${count > 0 ? `<div style="color:var(--accent);font-weight:700">${count} course${count > 1 ? 's' : ''}</div>` : ''}
+      </div>
+    `);
+  }
+  document.getElementById('calendar-grid').innerHTML =
+    DAY_LABELS.slice(1).concat(DAY_LABELS[0]).map((l) => `<div style="color:var(--text-muted);font-size:12px;text-align:center">${l}</div>`).join('') +
+    cells.join('');
+
+  document.querySelectorAll('[data-calendar-day]').forEach((cell) => {
+    cell.addEventListener('click', () => {
+      const day = parseInt(cell.dataset.calendarDay, 10);
+      const dayRides = (rides ?? []).filter((r) => new Date(r.scheduled_at ?? r.created_at).getDate() === day);
+      const detail = document.getElementById('calendar-day-detail');
+      if (dayRides.length === 0) { detail.innerHTML = '<p>Aucune course ce jour.</p>'; return; }
+      detail.innerHTML = `
+        <h3>${day} ${calendarDate.toLocaleDateString('fr-FR', { month: 'long' })}</h3>
+        ${dayRides.map((r) => `<div class="card">${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>`).join('')}
+      `;
+    });
+  });
 }
 
 async function renderStats() {
@@ -410,7 +788,7 @@ async function renderPending() {
     if (!driversByCategory[ride.vehicle_category]) {
       const { data: drivers } = await supabase
         .from('profiles')
-        .select('id, email')
+        .select('id, email, online_status')
         .eq('role', 'chauffeur')
         .eq('vehicle_category', ride.vehicle_category);
       driversByCategory[ride.vehicle_category] = drivers ?? [];
@@ -419,14 +797,17 @@ async function renderPending() {
 
   container.innerHTML = rides.map((ride) => {
     const drivers = driversByCategory[ride.vehicle_category];
-    const options = drivers.map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+    const onlineCount = drivers.filter((d) => d.online_status).length;
+    const options = drivers
+      .map((d) => `<option value="${d.id}">${escapeHtml(d.email)}${d.online_status ? ' 🟢' : ' ⚪'}</option>`)
+      .join('');
     return `
       <div class="card">
         <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${PAYMENT_LABELS[ride.payment_method]} - ${ride.price} &euro;</div>
         <div><strong>Depart</strong> ${escapeHtml(ride.pickup_address)}</div>
         <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}</div>
         <div style="margin-top:10px">
-          <button data-dispatch-all="${ride.id}">Dispatcher a tous (${drivers.length} chauffeur${drivers.length > 1 ? 's' : ''})</button>
+          <button data-dispatch-all="${ride.id}">Dispatcher a tous (${drivers.length} chauffeur${drivers.length > 1 ? 's' : ''}, ${onlineCount} en ligne)</button>
         </div>
         <div style="margin-top:6px">
           <select data-driver-select="${ride.id}">
@@ -468,10 +849,14 @@ async function dispatchRide(rideId, driverId) {
   refresh();
 }
 
+const RIDE_STEP_LABELS = {
+  not_started: 'Pas commencee', en_route: 'Chauffeur en route', on_site: 'Sur place / en cours', completed: 'Terminee',
+};
+
 async function renderActive() {
   const { data: rides } = await supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount')
     .in('status', ['dispatched', 'accepted'])
     .order('created_at', { ascending: true });
 
@@ -483,11 +868,52 @@ async function renderActive() {
 
   container.innerHTML = rides.map((ride) => `
     <div class="card">
-      <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${ride.price} &euro; - ${ride.status === 'accepted' ? 'Acceptee' : 'Dispatchee'}</div>
+      <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${ride.price != null ? ride.price + ' €' : 'prix a fixer'}${ride.surcharge_amount ? ' (+' + ride.surcharge_amount + ' € majoration)' : ''} - ${ride.status === 'accepted' ? 'Acceptee' : 'Dispatchee'}</div>
       <div><strong>Depart</strong> ${escapeHtml(ride.pickup_address)}</div>
       <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}</div>
+      <div><strong>Etape</strong> ${RIDE_STEP_LABELS[ride.ride_step] ?? ride.ride_step}</div>
+      <div style="margin-top:10px">
+        <button class="secondary" data-redispatch="${ride.id}">Dispatcher a nouveau</button>
+        <button class="secondary" data-surcharge="${ride.id}">Ajouter une majoration</button>
+        ${ride.status === 'accepted' && ride.ride_step !== 'completed' ? `<button class="secondary" data-force-complete="${ride.id}">Forcer : Terminee</button>` : ''}
+      </div>
     </div>
   `).join('');
+
+  container.querySelectorAll('[data-redispatch]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Renvoyer cette course dans le dispatch (le chauffeur actuel la perd) ?')) return;
+      await supabase.from('rides').update({ status: 'dispatched', driver_id: null, dispatched_to: null }).eq('id', btn.dataset.redispatch);
+      refresh();
+    });
+  });
+  container.querySelectorAll('[data-surcharge]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const amount = parseFloat(prompt('Montant de la majoration (€) :'));
+      if (!amount) return;
+      const reason = prompt('Raison de la majoration :') ?? '';
+      const ride = rides.find((r) => r.id === btn.dataset.surcharge);
+      const { error } = await supabase
+        .from('rides')
+        .update({ price: (ride.price ?? 0) + amount, surcharge_amount: (ride.surcharge_amount ?? 0) + amount, surcharge_reason: reason })
+        .eq('id', ride.id);
+      if (error) { alert(error.message); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch('/notify/surcharge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ rideId: ride.id, amount, reason }),
+      }).catch(() => {});
+      refresh();
+    });
+  });
+  container.querySelectorAll('[data-force-complete]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm("Forcer le statut 'Terminee' pour cette course ?")) return;
+      await supabase.from('rides').update({ status: 'completed', ride_step: 'completed' }).eq('id', btn.dataset.forceComplete);
+      refresh();
+    });
+  });
 }
 
 async function renderPricing() {
@@ -498,10 +924,25 @@ async function renderPricing() {
   ]);
 
   const container = document.getElementById('pricing-section');
+  const [{ data: zones }] = await Promise.all([supabase.from('pricing_zones').select('*').order('created_at', { ascending: true })]);
+
   container.innerHTML = `
     <h3>Trajet simple</h3>
     <div id="pricing-simple-rows"></div>
-    <button id="save-simple">Enregistrer</button>
+    <button id="save-simple">Enregistrer les tarifs</button>
+
+    <h3 style="margin-top:24px">Zones de tarif fixe (trajet simple)</h3>
+    <p style="color:var(--text-muted);font-size:13px">Quand le depart (ou l'arrivee, selon la case cochee ci-dessus) tombe dans une zone, le prix de la zone remplace le calcul au km. Coordonnees : clic droit sur Google Maps &gt; copier les coordonnees.</p>
+    <div id="pricing-zones-list"></div>
+    <div class="price-row">
+      <select id="new-zone-category">${CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('')}</select>
+      <input id="new-zone-name" placeholder="Nom de la zone" style="width:160px" />
+      <input id="new-zone-lat" placeholder="Latitude" style="width:100px" />
+      <input id="new-zone-lng" placeholder="Longitude" style="width:100px" />
+      <input id="new-zone-radius" placeholder="Rayon (km)" style="width:100px" />
+      <input id="new-zone-price" placeholder="Prix €" style="width:90px" />
+      <button id="add-zone">Ajouter une zone</button>
+    </div>
 
     <h3 style="margin-top:24px">Mise a disposition</h3>
     <div id="pricing-hourly-rows"></div>
@@ -518,20 +959,69 @@ async function renderPricing() {
   `;
 
   const simpleById = Object.fromEntries((simple ?? []).map((s) => [s.vehicle_category, s]));
+  const SIMPLE_DEFAULTS = {
+    base_price: 0, price_per_km: 0, min_price: 0,
+    night_start: '', night_end: '', base_price_night: '', price_per_km_night: '', min_price_night: '',
+    saturday_surcharge: 0, sunday_surcharge: 0, holiday_surcharge: 0,
+    price_per_passenger: 0, passenger_threshold: 0, child_seat_price: 0, booster_seat_price: 0,
+    stop_price: 0, pickup_fee: 0, manual_mode: false, zone_pricing_pickup: false, zone_pricing_dropoff: false,
+  };
   document.getElementById('pricing-simple-rows').innerHTML = CATEGORIES.map((cat) => {
-    const s = simpleById[cat] ?? { base_price: 0, price_per_km: 0, min_price: 0 };
+    const s = { ...SIMPLE_DEFAULTS, ...simpleById[cat] };
+    const num = (field, label, step = '0.01') => `<input type="number" step="${step}" data-simple="${cat}" data-field="${field}" value="${s[field]}" style="width:90px" /><label>${label}</label>`;
     return `
-      <div class="price-row">
-        <span class="cat">${VEHICLE_LABELS[cat]}</span>
-        <input type="number" step="0.01" data-simple="${cat}" data-field="base_price" value="${s.base_price}" />
-        <label>prise en charge €</label>
-        <input type="number" step="0.01" data-simple="${cat}" data-field="price_per_km" value="${s.price_per_km}" />
-        <label>par km €</label>
-        <input type="number" step="0.01" data-simple="${cat}" data-field="min_price" value="${s.min_price}" />
-        <label>minimum €</label>
+      <div class="card">
+        <div class="meta">${VEHICLE_LABELS[cat]}</div>
+        <div class="price-row">
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">TARIF DE JOUR</strong>
+          ${num('base_price', 'prise en charge €')}
+          ${num('price_per_km', 'par km €')}
+          ${num('min_price', 'minimum €')}
+        </div>
+        <div class="price-row">
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">TARIF DE NUIT (vide = pas de tarif de nuit)</strong>
+          <input type="time" data-simple="${cat}" data-field="night_start" value="${s.night_start ?? ''}" style="width:110px" /><label>debut</label>
+          <input type="time" data-simple="${cat}" data-field="night_end" value="${s.night_end ?? ''}" style="width:110px" /><label>fin</label>
+          ${num('base_price_night', 'prise en charge €')}
+          ${num('price_per_km_night', 'par km €')}
+          ${num('min_price_night', 'minimum €')}
+        </div>
+        <div class="price-row">
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">MAJORATIONS</strong>
+          ${num('saturday_surcharge', 'samedi €')}
+          ${num('sunday_surcharge', 'dimanche €')}
+          ${num('holiday_surcharge', 'jour ferie €')}
+        </div>
+        <div class="price-row">
+          <strong style="width:100%;color:var(--text-muted);font-size:12px">SUPPLEMENTS</strong>
+          ${num('price_per_passenger', '€/passager')}
+          ${num('passenger_threshold', 'a partir du passager n°', '1')}
+          ${num('child_seat_price', '€/siege auto')}
+          ${num('booster_seat_price', '€/rehausseur')}
+          ${num('stop_price', '€/point d’arret')}
+          ${num('pickup_fee', 'prise en charge fixe €')}
+        </div>
+        <div class="price-row">
+          <label><input type="checkbox" data-simple="${cat}" data-field="manual_mode" data-checkbox="1" ${s.manual_mode ? 'checked' : ''} style="width:auto" /> Mode Manuel (prix saisi par le chauffeur)</label>
+          <label><input type="checkbox" data-simple="${cat}" data-field="zone_pricing_pickup" data-checkbox="1" ${s.zone_pricing_pickup ? 'checked' : ''} style="width:auto" /> Tarif fixe par zone (depart)</label>
+          <label><input type="checkbox" data-simple="${cat}" data-field="zone_pricing_dropoff" data-checkbox="1" ${s.zone_pricing_dropoff ? 'checked' : ''} style="width:auto" /> Tarif fixe par zone (arrivee)</label>
+        </div>
       </div>
     `;
   }).join('');
+
+  document.getElementById('pricing-zones-list').innerHTML = (zones ?? []).length === 0
+    ? '<p style="color:var(--text-muted)">Aucune zone configuree.</p>'
+    : zones.map((z) => `
+      <div class="price-row">
+        <span class="cat">${VEHICLE_LABELS[z.vehicle_category]}</span>
+        <span style="width:160px">${escapeHtml(z.name)}</span>
+        <span style="width:140px;color:var(--text-muted)">${z.lat.toFixed(4)}, ${z.lng.toFixed(4)}</span>
+        <span style="width:80px">${z.radius_km} km</span>
+        <span style="width:70px">${z.price} €</span>
+        <button class="secondary" data-delete-zone="${z.id}">Supprimer</button>
+      </div>
+    `).join('');
 
   const hourlyById = Object.fromEntries((hourly ?? []).map((h) => [h.vehicle_category, h]));
   document.getElementById('pricing-hourly-rows').innerHTML = CATEGORIES.map((cat) => {
@@ -557,16 +1047,48 @@ async function renderPricing() {
     </div>
   `).join('');
 
+  const TIME_FIELDS = ['night_start', 'night_end'];
   document.getElementById('save-simple').addEventListener('click', async () => {
     const rows = document.querySelectorAll('[data-simple]');
     const byCategory = {};
     rows.forEach((input) => {
       const cat = input.dataset.simple;
+      const field = input.dataset.field;
       byCategory[cat] = byCategory[cat] ?? { vehicle_category: cat };
-      byCategory[cat][input.dataset.field] = parseFloat(input.value) || 0;
+      if (input.dataset.checkbox) {
+        byCategory[cat][field] = input.checked;
+      } else if (TIME_FIELDS.includes(field)) {
+        byCategory[cat][field] = input.value || null;
+      } else {
+        byCategory[cat][field] = parseFloat(input.value) || 0;
+      }
     });
     const { error } = await supabase.from('pricing_simple').upsert(Object.values(byCategory));
     alert(error ? error.message : 'Tarifs trajet simple enregistres.');
+  });
+
+  document.getElementById('add-zone').addEventListener('click', async () => {
+    const vehicle_category = document.getElementById('new-zone-category').value;
+    const name = document.getElementById('new-zone-name').value.trim();
+    const lat = parseFloat(document.getElementById('new-zone-lat').value);
+    const lng = parseFloat(document.getElementById('new-zone-lng').value);
+    const radius_km = parseFloat(document.getElementById('new-zone-radius').value);
+    const price = parseFloat(document.getElementById('new-zone-price').value);
+    if (!name || isNaN(lat) || isNaN(lng) || !radius_km || !price) {
+      alert('Nom, latitude, longitude, rayon et prix sont requis.');
+      return;
+    }
+    const { error } = await supabase.from('pricing_zones').insert({ vehicle_category, name, lat, lng, radius_km, price });
+    if (error) { alert(error.message); return; }
+    renderPricing();
+  });
+
+  container.querySelectorAll('[data-delete-zone]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Supprimer cette zone ?')) return;
+      await supabase.from('pricing_zones').delete().eq('id', btn.dataset.deleteZone);
+      renderPricing();
+    });
   });
 
   document.getElementById('save-hourly').addEventListener('click', async () => {
@@ -608,6 +1130,72 @@ async function renderPricing() {
     });
   });
 }
+
+async function fetchHistoryRows() {
+  let query = supabase
+    .from('rides')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const dateStart = document.getElementById('filter-date-start').value;
+  const dateEnd = document.getElementById('filter-date-end').value;
+  const status = document.getElementById('filter-status').value;
+  const payment = document.getElementById('filter-payment').value;
+  if (dateStart) query = query.gte('created_at', dateStart);
+  if (dateEnd) query = query.lte('created_at', dateEnd + 'T23:59:59');
+  if (status) query = query.eq('status', status);
+  if (payment) query = query.eq('payment_method', payment);
+
+  const { data } = await query;
+  return data ?? [];
+}
+
+async function renderHistory() {
+  const rides = await fetchHistoryRows();
+  const container = document.getElementById('history-list');
+  if (rides.length === 0) {
+    container.innerHTML = '<p>Aucune reservation pour ces filtres.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th></tr></thead>
+      <tbody>
+        ${rides.map((r) => `
+          <tr>
+            <td>${new Date(r.created_at).toLocaleString('fr-FR')}</td>
+            <td>${escapeHtml(r.client_name ?? r.client_phone ?? '(compte client)')}</td>
+            <td>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</td>
+            <td>${VEHICLE_LABELS[r.vehicle_category]}</td>
+            <td>${r.status}</td>
+            <td>${PAYMENT_LABELS[r.payment_method] ?? ''}</td>
+            <td>${r.price != null ? r.price + ' €' : '-'}</td>
+            <td>${r.created_by}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('filter-apply').addEventListener('click', renderHistory);
+
+document.getElementById('filter-export').addEventListener('click', async () => {
+  const rides = await fetchHistoryRows();
+  const header = ['Date', 'Client', 'Telephone', 'Depart', 'Destination', 'Gamme', 'Statut', 'Paiement', 'Prix', 'Origine'];
+  const rows = rides.map((r) => [
+    new Date(r.created_at).toLocaleString('fr-FR'), r.client_name ?? '', r.client_phone ?? '',
+    r.pickup_address, r.dropoff_address, VEHICLE_LABELS[r.vehicle_category], r.status,
+    PAYMENT_LABELS[r.payment_method] ?? '', r.price ?? '', r.created_by,
+  ]);
+  const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+});
 
 function escapeHtml(text) {
   const div = document.createElement('div');

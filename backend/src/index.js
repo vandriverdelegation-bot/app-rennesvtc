@@ -133,6 +133,27 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Previent le client d'une majoration de prix ajoutee par l'admin.
+app.post('/notify/surcharge', requireSupabaseUser, async (req, res) => {
+  const { rideId, amount, reason } = req.body;
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('client_id, price')
+    .eq('id', rideId)
+    .single();
+  if (!ride?.client_id) return res.json({ ok: true });
+
+  const { data: client } = await supabaseAdmin
+    .from('profiles')
+    .select('push_token, email')
+    .eq('id', ride.client_id)
+    .single();
+
+  const message = `Une majoration de ${amount} € a ete ajoutee a votre course (${reason || 'sans raison precisee'}). Nouveau prix : ${ride.price} €.`;
+  await sendPush([client?.push_token], 'Majoration de prix', message);
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Backend demarre sur http://localhost:${PORT}`);
 });

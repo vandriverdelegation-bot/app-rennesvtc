@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
+
+function parseDateTime(dateStr, timeStr) {
+  if (!dateStr && !timeStr) return null;
+  const [day, month, year] = dateStr.split('/').map((n) => parseInt(n, 10));
+  const [hour, minute] = timeStr.split(':').map((n) => parseInt(n, 10));
+  if (!day || !month || !year || isNaN(hour) || isNaN(minute)) return undefined; // invalide
+  return new Date(year, month - 1, day, hour, minute);
+}
 
 const PAYMENT_METHODS = [
   { value: 'carte_a_bord', label: 'CB a bord' },
@@ -19,40 +27,53 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [laterDate, setLaterDate] = useState(''); // JJ/MM/AAAA, vide = course immediate
   const [laterTime, setLaterTime] = useState(''); // HH:MM
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [passengerCount, setPassengerCount] = useState('1');
+  const [childSeats, setChildSeats] = useState(0);
+  const [boosterSeats, setBoosterSeats] = useState(0);
   const [price, setPrice] = useState(null);
+  const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     setPrice(null);
+    setPriceManual(false);
     setPriceError('');
     if (!pickup || !dropoff) return;
-    supabase
-      .from('pricing_simple')
-      .select('base_price, price_per_km, min_price')
-      .eq('vehicle_category', vehicleCategory)
-      .single()
-      .then(async ({ data }) => {
-        if (!data) return;
-        try {
-          const km = await getDistanceKm(pickup, dropoff);
-          const estimated = data.base_price + data.price_per_km * km;
-          setPrice(Math.round(Math.max(estimated, data.min_price) * 100) / 100);
-        } catch (e) {
-          setPriceError("Impossible de calculer le prix pour cet itineraire.");
-        }
-      });
-  }, [pickup, dropoff]);
+    const when = parseDateTime(laterDate, laterTime) || new Date();
+    Promise.all([
+      supabase.from('pricing_simple').select('*').eq('vehicle_category', vehicleCategory).single(),
+      supabase.from('pricing_zones').select('*').eq('vehicle_category', vehicleCategory).eq('active', true),
+    ]).then(async ([{ data: pricing }, { data: zones }]) => {
+      if (!pricing) return;
+      try {
+        const km = await getDistanceKm(pickup, dropoff);
+        const result = computeTrajetSimplePrice({
+          pricing,
+          zones: zones ?? [],
+          pickup,
+          dropoff,
+          km,
+          when,
+          passengerCount: parseInt(passengerCount, 10) || 1,
+          childSeats,
+          boosterSeats,
+          stopsCount: 0,
+        });
+        setPrice(result.price);
+        setPriceManual(result.manual);
+      } catch (e) {
+        setPriceError("Impossible de calculer le prix pour cet itineraire.");
+      }
+    });
+  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats]);
 
   function parseScheduledAt() {
     if (!laterDate && !laterTime) return null;
-    const [day, month, year] = laterDate.split('/').map((n) => parseInt(n, 10));
-    const [hour, minute] = laterTime.split(':').map((n) => parseInt(n, 10));
-    if (!day || !month || !year || isNaN(hour) || isNaN(minute)) {
-      throw new Error('Date/heure invalide (format JJ/MM/AAAA et HH:MM).');
-    }
-    return new Date(year, month - 1, day, hour, minute).toISOString();
+    const when = parseDateTime(laterDate, laterTime);
+    if (!when) throw new Error('Date/heure invalide (format JJ/MM/AAAA et HH:MM).');
+    return when.toISOString();
   }
 
   async function handleCreate() {
@@ -69,8 +90,12 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       setErrorMsg('Choisissez un mode de reglement.');
       return;
     }
-    if (!price) {
+    if (!price && !priceManual) {
       setErrorMsg('Le prix est en cours de calcul, patientez.');
+      return;
+    }
+    if (priceManual && !price) {
+      setErrorMsg('Saisissez le prix (tarification en mode Manuel pour cette gamme).');
       return;
     }
     let scheduled_at;
@@ -97,6 +122,10 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       payment_method: paymentMethod,
       service_type: 'trajet_simple',
       price,
+      created_by: 'chauffeur',
+      passenger_count: parseInt(passengerCount, 10) || 1,
+      child_seats: childSeats,
+      booster_seats: boosterSeats,
       scheduled_at,
       status: 'accepted',
     });
@@ -132,6 +161,34 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         <TextInput style={[styles.input, styles.rowInput]} value={laterTime} onChangeText={setLaterTime} placeholder="HH:MM" placeholderTextColor={theme.colors.textMuted} />
       </View>
 
+      <Text style={styles.label}>Passagers / sieges</Text>
+      <View style={styles.row}>
+        <TextInput
+          style={[styles.input, styles.rowInput]}
+          value={passengerCount}
+          onChangeText={setPassengerCount}
+          placeholder="Passagers"
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="numeric"
+        />
+        <TextInput
+          style={[styles.input, styles.rowInput]}
+          value={String(childSeats)}
+          onChangeText={(t) => setChildSeats(parseInt(t, 10) || 0)}
+          placeholder="Sieges auto"
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="numeric"
+        />
+        <TextInput
+          style={[styles.input, styles.rowInput]}
+          value={String(boosterSeats)}
+          onChangeText={(t) => setBoosterSeats(parseInt(t, 10) || 0)}
+          placeholder="Rehausseurs"
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="numeric"
+        />
+      </View>
+
       <Text style={styles.label}>Mode de reglement</Text>
       <View style={styles.row}>
         {PAYMENT_METHODS.map((m) => (
@@ -146,9 +203,10 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       </View>
 
       <Text style={styles.label}>Prix</Text>
+      {priceManual ? <Text style={styles.hint}>Tarification en mode Manuel pour cette gamme : saisissez le prix.</Text> : null}
       {priceError ? <Text style={styles.error}>{priceError}</Text> : null}
-      {price === null && !priceError && pickup && dropoff ? <ActivityIndicator color={theme.colors.accent} /> : null}
-      {canEditPrice ? (
+      {price === null && !priceManual && !priceError && pickup && dropoff ? <ActivityIndicator color={theme.colors.accent} /> : null}
+      {canEditPrice || priceManual ? (
         <TextInput
           style={styles.input}
           value={price !== null ? String(price) : ''}

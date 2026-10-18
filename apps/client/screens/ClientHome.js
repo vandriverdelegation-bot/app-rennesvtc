@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
-import { VEHICLE_CATEGORIES, theme } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
 
@@ -60,7 +60,11 @@ export default function ClientHome({ session }) {
   const [forfaits, setForfaits] = useState([]);
   const [selectedForfaitId, setSelectedForfaitId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [passengerCount, setPassengerCount] = useState('1');
+  const [childSeats, setChildSeats] = useState(0);
+  const [boosterSeats, setBoosterSeats] = useState(0);
   const [price, setPrice] = useState(null);
+  const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -97,6 +101,7 @@ export default function ClientHome({ session }) {
   // Calcule automatiquement le prix estime des que les informations necessaires sont disponibles.
   useEffect(() => {
     setPrice(null);
+    setPriceManual(false);
     setPriceError('');
     if (!vehicleCategory || !serviceType) return;
 
@@ -127,23 +132,33 @@ export default function ClientHome({ session }) {
 
     if (serviceType === 'trajet_simple') {
       if (!pickup || !dropoff) return;
-      supabase
-        .from('pricing_simple')
-        .select('base_price, price_per_km, min_price')
-        .eq('vehicle_category', vehicleCategory)
-        .single()
-        .then(async ({ data }) => {
-          if (!data) return;
-          try {
-            const km = await getDistanceKm(pickup, dropoff);
-            const estimated = data.base_price + data.price_per_km * km;
-            setPrice(Math.round(Math.max(estimated, data.min_price) * 100) / 100);
-          } catch (e) {
-            setPriceError("Impossible de calculer le prix pour cet itineraire.");
-          }
-        });
+      Promise.all([
+        supabase.from('pricing_simple').select('*').eq('vehicle_category', vehicleCategory).single(),
+        supabase.from('pricing_zones').select('*').eq('vehicle_category', vehicleCategory).eq('active', true),
+      ]).then(async ([{ data: pricing }, { data: zones }]) => {
+        if (!pricing) return;
+        try {
+          const km = await getDistanceKm(pickup, dropoff);
+          const result = computeTrajetSimplePrice({
+            pricing,
+            zones: zones ?? [],
+            pickup,
+            dropoff,
+            km,
+            when: new Date(),
+            passengerCount: parseInt(passengerCount, 10) || 1,
+            childSeats,
+            boosterSeats,
+            stopsCount: 0,
+          });
+          setPrice(result.price);
+          setPriceManual(result.manual);
+        } catch (e) {
+          setPriceError("Impossible de calculer le prix pour cet itineraire.");
+        }
+      });
     }
-  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits]);
+  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, passengerCount, childSeats, boosterSeats]);
 
   async function handleRequestRide() {
     setErrorMsg('');
@@ -167,7 +182,7 @@ export default function ClientHome({ session }) {
       setErrorMsg('Choisissez un mode de reglement.');
       return;
     }
-    if (!price) {
+    if (!price && !priceManual) {
       setErrorMsg('Le prix est en cours de calcul, patientez.');
       return;
     }
@@ -185,7 +200,11 @@ export default function ClientHome({ session }) {
         vehicle_category: vehicleCategory,
         payment_method: paymentMethod,
         service_type: serviceType,
-        price,
+        price: priceManual ? null : price,
+        created_by: 'client',
+        passenger_count: parseInt(passengerCount, 10) || 1,
+        child_seats: childSeats,
+        booster_seats: boosterSeats,
         duration_hours: serviceType === 'mise_a_disposition' ? parseFloat(durationHours) : null,
         forfait_id: serviceType === 'forfait' ? selectedForfaitId : null,
       })
@@ -207,6 +226,9 @@ export default function ClientHome({ session }) {
     setServiceType(null);
     setSelectedForfaitId(null);
     setPaymentMethod(null);
+    setPassengerCount('1');
+    setChildSeats(0);
+    setBoosterSeats(0);
     fetchActiveRide();
   }
 
@@ -251,7 +273,7 @@ export default function ClientHome({ session }) {
             {' · '}
             {PAYMENT_METHODS.find((m) => m.value === activeRide.payment_method)?.label}
             {' · '}
-            {activeRide.price} €
+            {activeRide.price != null ? `${activeRide.price} €` : 'Prix fixe par le chauffeur'}
           </Text>
         </View>
       </View>
@@ -278,6 +300,44 @@ export default function ClientHome({ session }) {
 
       <SectionCard title="Service">
         <SegmentedChoice options={SERVICE_TYPES} value={serviceType} onChange={setServiceType} />
+
+        {serviceType === 'trajet_simple' && (
+          <View style={styles.choiceRow}>
+            <View style={styles.inlineField}>
+              <Text style={styles.inlineLabel}>Passagers</Text>
+              <TextInput
+                style={styles.durationInput}
+                keyboardType="numeric"
+                value={passengerCount}
+                onChangeText={setPassengerCount}
+              />
+            </View>
+            <View style={styles.inlineField}>
+              <Text style={styles.inlineLabel}>Sieges auto</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setChildSeats(Math.max(0, childSeats - 1))}>
+                  <Text style={styles.stepperText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{childSeats}</Text>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setChildSeats(childSeats + 1)}>
+                  <Text style={styles.stepperText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.inlineField}>
+              <Text style={styles.inlineLabel}>Rehausseurs</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setBoosterSeats(Math.max(0, boosterSeats - 1))}>
+                  <Text style={styles.stepperText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{boosterSeats}</Text>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setBoosterSeats(boosterSeats + 1)}>
+                  <Text style={styles.stepperText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         {serviceType === 'mise_a_disposition' && (
           <View style={styles.inlineField}>
@@ -320,7 +380,11 @@ export default function ClientHome({ session }) {
       </SectionCard>
 
       {priceError ? <Text style={styles.error}>{priceError}</Text> : null}
-      {price ? <Text style={styles.priceEstimate}>Prix estime : {price} €</Text> : null}
+      {priceManual ? (
+        <Text style={styles.priceEstimate}>Prix fixe par le chauffeur a la prise en charge</Text>
+      ) : price ? (
+        <Text style={styles.priceEstimate}>Prix estime : {price} €</Text>
+      ) : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleRequestRide} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? '...' : 'Demander une course'}</Text>
@@ -376,6 +440,19 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   priceEstimate: { fontSize: 20, fontWeight: '800', color: theme.colors.accent, marginTop: 4 },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepperBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperText: { color: theme.colors.text, fontSize: 16, fontWeight: '700' },
+  stepperValue: { color: theme.colors.text, fontSize: 15, minWidth: 16, textAlign: 'center' },
   button: {
     width: '100%',
     backgroundColor: theme.colors.accent,

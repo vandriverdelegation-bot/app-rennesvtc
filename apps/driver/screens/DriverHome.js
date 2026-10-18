@@ -31,7 +31,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: active } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price, ride_step')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .maybeSingle();
@@ -124,7 +124,16 @@ export default function DriverHome({ session }) {
   async function handleComplete() {
     await supabase
       .from('rides')
-      .update({ status: 'completed' })
+      .update({ status: 'completed', ride_step: 'completed' })
+      .eq('id', activeRide.id)
+      .eq('driver_id', session.user.id);
+    refresh();
+  }
+
+  async function handleAdvanceStep(nextStep) {
+    await supabase
+      .from('rides')
+      .update({ ride_step: nextStep })
       .eq('id', activeRide.id)
       .eq('driver_id', session.user.id);
     refresh();
@@ -188,9 +197,21 @@ export default function DriverHome({ session }) {
         <TouchableOpacity style={styles.button} onPress={handleNavigate}>
           <Text style={styles.buttonText}>Naviguer vers le depart</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.buttonSecondary} onPress={handleComplete}>
-          <Text style={styles.buttonSecondaryText}>Terminer la course</Text>
-        </TouchableOpacity>
+        {(activeRide.ride_step ?? 'not_started') === 'not_started' && (
+          <TouchableOpacity style={styles.buttonSecondary} onPress={() => handleAdvanceStep('en_route')}>
+            <Text style={styles.buttonSecondaryText}>Je suis en route</Text>
+          </TouchableOpacity>
+        )}
+        {activeRide.ride_step === 'en_route' && (
+          <TouchableOpacity style={styles.buttonSecondary} onPress={() => handleAdvanceStep('on_site')}>
+            <Text style={styles.buttonSecondaryText}>Je suis arrive</Text>
+          </TouchableOpacity>
+        )}
+        {activeRide.ride_step === 'on_site' && (
+          <TouchableOpacity style={styles.buttonSecondary} onPress={handleComplete}>
+            <Text style={styles.buttonSecondaryText}>Terminer la course</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
