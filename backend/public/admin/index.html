@@ -231,6 +231,10 @@
 
       <div class="page" id="page-clients">
         <h2>Clients</h2>
+        <div class="price-row">
+          <input id="clients-search" placeholder="Rechercher par email" style="width:260px" />
+          <button class="secondary" id="clients-export">Exporter en CSV</button>
+        </div>
         <div id="clients-list"></div>
       </div>
 
@@ -241,7 +245,7 @@
 
       <div class="page" id="page-carte">
         <h2>Carte interactive</h2>
-        <p style="color:var(--text-muted)">Affiche les chauffeurs actuellement en course (la position n'est suivie que pendant une course).</p>
+        <p style="color:var(--text-muted)">Point bleu : chauffeur en course. Point vert : chauffeur en ligne et disponible (position mise a jour toutes les minutes tant qu'il est en ligne).</p>
         <div id="map"></div>
       </div>
     </div>
@@ -747,26 +751,32 @@ document.getElementById('add-chauffeur').addEventListener('click', async () => {
   renderChauffeurs();
 });
 
-async function renderClients() {
-  const { data: clients } = await supabase
-    .from('profiles')
-    .select('id, email, created_at')
-    .eq('role', 'client')
-    .order('created_at', { ascending: false });
+let clientsCache = [];
 
+async function fetchClientsWithCounts() {
+  const [{ data: clients }, { data: rides }] = await Promise.all([
+    supabase.from('profiles').select('id, email, created_at').eq('role', 'client').order('created_at', { ascending: false }),
+    supabase.from('rides').select('client_id').not('client_id', 'is', null),
+  ]);
+  const countByClient = {};
+  (rides ?? []).forEach((r) => { countByClient[r.client_id] = (countByClient[r.client_id] ?? 0) + 1; });
+  return (clients ?? []).map((c) => ({ ...c, rideCount: countByClient[c.id] ?? 0 }));
+}
+
+function renderClientsTable(clients) {
   const container = document.getElementById('clients-list');
-  if (!clients || clients.length === 0) {
+  if (clients.length === 0) {
     container.innerHTML = '<p>Aucun client pour le moment.</p>';
     return;
   }
-
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Inscrit le</th></tr></thead>
+      <thead><tr><th>Email</th><th>Reservations</th><th>Inscrit le</th></tr></thead>
       <tbody>
         ${clients.map((c) => `
           <tr>
             <td>${escapeHtml(c.email ?? '')}</td>
+            <td>${c.rideCount}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
           </tr>
         `).join('')}
@@ -774,6 +784,27 @@ async function renderClients() {
     </table>
   `;
 }
+
+async function renderClients() {
+  clientsCache = await fetchClientsWithCounts();
+  renderClientsTable(clientsCache);
+}
+
+document.getElementById('clients-search').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  renderClientsTable(q ? clientsCache.filter((c) => (c.email ?? '').toLowerCase().includes(q)) : clientsCache);
+});
+
+document.getElementById('clients-export').addEventListener('click', () => {
+  const header = ['Email', 'Reservations', 'Inscrit le'];
+  const rows = clientsCache.map((c) => [c.email ?? '', c.rideCount, new Date(c.created_at).toLocaleDateString('fr-FR')]);
+  const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `clients_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+});
 
 let map, mapMarkers = {};
 function initMap() {
@@ -785,27 +816,44 @@ function initMap() {
   updateMapMarkers();
 }
 
+const AVAILABLE_DRIVER_ICON = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;border-radius:50%;background:#47C415;border:2px solid white"></div>',
+});
+
 async function updateMapMarkers() {
   if (!map) return;
-  const { data: rides } = await supabase
-    .from('rides')
-    .select('id, driver_lat, driver_lng, pickup_address, dropoff_address')
-    .eq('status', 'accepted')
-    .not('driver_lat', 'is', null);
+  const [{ data: rides }, { data: drivers }] = await Promise.all([
+    supabase.from('rides').select('id, driver_lat, driver_lng, pickup_address, dropoff_address').eq('status', 'accepted').not('driver_lat', 'is', null),
+    supabase.from('profiles').select('id, email, vehicle_category, last_lat, last_lng').eq('role', 'chauffeur').eq('online_status', true).not('last_lat', 'is', null),
+  ]);
 
-  const activeIds = new Set((rides ?? []).map((r) => r.id));
+  const currentIds = new Set([...(rides ?? []).map((r) => `ride-${r.id}`), ...(drivers ?? []).map((d) => `driver-${d.id}`)]);
   Object.keys(mapMarkers).forEach((id) => {
-    if (!activeIds.has(id)) { map.removeLayer(mapMarkers[id]); delete mapMarkers[id]; }
+    if (!currentIds.has(id)) { map.removeLayer(mapMarkers[id]); delete mapMarkers[id]; }
   });
 
   (rides ?? []).forEach((ride) => {
+    const key = `ride-${ride.id}`;
     const latlng = [ride.driver_lat, ride.driver_lng];
-    if (mapMarkers[ride.id]) {
-      mapMarkers[ride.id].setLatLng(latlng);
+    if (mapMarkers[key]) {
+      mapMarkers[key].setLatLng(latlng);
     } else {
-      mapMarkers[ride.id] = L.marker(latlng)
+      mapMarkers[key] = L.marker(latlng)
         .addTo(map)
-        .bindPopup(`${escapeHtml(ride.pickup_address)} &rarr; ${escapeHtml(ride.dropoff_address)}`);
+        .bindPopup(`En course : ${escapeHtml(ride.pickup_address)} &rarr; ${escapeHtml(ride.dropoff_address)}`);
+    }
+  });
+
+  (drivers ?? []).forEach((driver) => {
+    const key = `driver-${driver.id}`;
+    const latlng = [driver.last_lat, driver.last_lng];
+    if (mapMarkers[key]) {
+      mapMarkers[key].setLatLng(latlng);
+    } else {
+      mapMarkers[key] = L.marker(latlng, { icon: AVAILABLE_DRIVER_ICON })
+        .addTo(map)
+        .bindPopup(`Disponible : ${escapeHtml(driver.email)} (${VEHICLE_LABELS[driver.vehicle_category] ?? ''})`);
     }
   });
 }

@@ -21,6 +21,7 @@ const SERVICE_LABELS = {
 export default function DriverHome({ session }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
   const [permissions, setPermissions] = useState({ can_create_rides: false });
+  const [onlineStatus, setOnlineStatus] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateRide, setShowCreateRide] = useState(false);
   const [activeRide, setActiveRide] = useState(undefined);
@@ -47,17 +48,38 @@ export default function DriverHome({ session }) {
     }
   }
 
-  useEffect(() => {
-    supabase
+  async function fetchProfile() {
+    const { data } = await supabase
       .from('profiles')
-      .select('vehicle_category, can_create_rides, can_edit_price')
+      .select('vehicle_category, can_create_rides, can_edit_price, online_status')
       .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => {
-        setVehicleCategory(data?.vehicle_category ?? null);
-        setPermissions({ can_create_rides: !!data?.can_create_rides, can_edit_price: !!data?.can_edit_price });
-      });
+      .single();
+    setVehicleCategory(data?.vehicle_category ?? null);
+    setPermissions({ can_create_rides: !!data?.can_create_rides, can_edit_price: !!data?.can_edit_price });
+    setOnlineStatus(!!data?.online_status);
+  }
+
+  useEffect(() => {
+    fetchProfile();
   }, []);
+
+  // Tant que le chauffeur est en ligne, transmet periodiquement sa position
+  // pour que l'admin le voie sur la carte meme hors course.
+  useEffect(() => {
+    if (!onlineStatus) return;
+    async function pingLocation() {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await supabase
+        .from('profiles')
+        .update({ last_lat: position.coords.latitude, last_lng: position.coords.longitude })
+        .eq('id', session.user.id);
+    }
+    pingLocation();
+    const interval = setInterval(pingLocation, 60000);
+    return () => clearInterval(interval);
+  }, [onlineStatus]);
 
   useEffect(() => {
     if (!vehicleCategory) return;
@@ -155,6 +177,7 @@ export default function DriverHome({ session }) {
         currentCategory={vehicleCategory}
         onSaved={(category) => {
           setVehicleCategory(category);
+          fetchProfile();
           setShowSettings(false);
         }}
       />
