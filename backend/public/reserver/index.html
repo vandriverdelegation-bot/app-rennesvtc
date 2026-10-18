@@ -36,6 +36,7 @@
   .gammes { display: flex; gap: 8px; margin-top: 6px; }
   .gamme { flex: 1; text-align: center; padding: 8px 6px; border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer; }
   .gamme-photo { width: 100%; height: 44px; object-fit: cover; border-radius: 8px; margin-bottom: 4px; display: block; }
+  .gamme-icon { font-size: 26px; margin-bottom: 4px; }
   .gamme.selected { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
   .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
   .checkbox-row input { width: auto; }
@@ -127,6 +128,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+const VEHICLE_ICONS = { confort: '🚗', affaires: '🚘', van: '🚐' };
 const CATEGORIES = ['confort', 'affaires', 'van'];
 
 let pickup = null; // { address, lat, lng }
@@ -137,7 +139,7 @@ let price = null;
 function renderGammes(photos) {
   document.getElementById('gammes').innerHTML = CATEGORIES.map((c) => `
     <div class="gamme ${c === vehicleCategory ? 'selected' : ''}" data-gamme="${c}">
-      ${photos[c] ? `<img src="${photos[c]}" class="gamme-photo" />` : ''}
+      ${photos[c] ? `<img src="${photos[c]}" class="gamme-photo" />` : `<div class="gamme-icon">${VEHICLE_ICONS[c]}</div>`}
       ${VEHICLE_LABELS[c]}
     </div>
   `).join('');
