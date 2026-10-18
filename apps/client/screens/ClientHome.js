@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
@@ -41,6 +41,27 @@ function SegmentedChoice({ options, value, onChange }) {
   );
 }
 
+function VehicleChoice({ value, onChange, photos }) {
+  return (
+    <View style={styles.choiceRow}>
+      {VEHICLE_CATEGORIES.map((o) => (
+        <TouchableOpacity
+          key={o.value}
+          style={[styles.vehicleOption, value === o.value && styles.choiceOptionSelected]}
+          onPress={() => onChange(o.value)}
+        >
+          {photos[o.value] ? (
+            <Image source={{ uri: photos[o.value] }} style={styles.vehiclePhoto} resizeMode="cover" />
+          ) : (
+            <Text style={styles.choiceIcon}>{o.icon}</Text>
+          )}
+          <Text style={value === o.value ? styles.choiceTextSelected : styles.choiceText}>{o.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 function SectionCard({ title, children }) {
   return (
     <View style={styles.card}>
@@ -57,6 +78,7 @@ export default function ClientHome({ session }) {
   const [stops, setStops] = useState([]); // points d'arret intermediaires
   const [roundTrip, setRoundTrip] = useState(false);
   const [vehicleCategory, setVehicleCategory] = useState(null);
+  const [vehiclePhotos, setVehiclePhotos] = useState({});
   const [serviceType, setServiceType] = useState(null);
   const [durationHours, setDurationHours] = useState('2');
   const [forfaits, setForfaits] = useState([]);
@@ -89,6 +111,23 @@ export default function ClientHome({ session }) {
     fetchActiveRide();
     const interval = setInterval(fetchActiveRide, 3000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Photo d'un vehicule actif par gamme, pour illustrer le choix de gamme.
+  useEffect(() => {
+    supabase
+      .from('vehicles')
+      .select('vehicle_category, photo_url')
+      .eq('active', true)
+      .not('photo_url', 'is', null)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        const photos = {};
+        (data ?? []).forEach((v) => {
+          if (!photos[v.vehicle_category]) photos[v.vehicle_category] = v.photo_url;
+        });
+        setVehiclePhotos(photos);
+      });
   }, []);
 
   useEffect(() => {
@@ -323,7 +362,7 @@ export default function ClientHome({ session }) {
       </SectionCard>
 
       <SectionCard title="Gamme de vehicule">
-        <SegmentedChoice options={VEHICLE_CATEGORIES} value={vehicleCategory} onChange={setVehicleCategory} />
+        <VehicleChoice value={vehicleCategory} onChange={setVehicleCategory} photos={vehiclePhotos} />
       </SectionCard>
 
       <SectionCard title="Service">
@@ -451,6 +490,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 6,
     alignItems: 'center',
+  },
+  vehicleOption: {
+    flex: 1,
+    minWidth: 90,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: theme.radius,
+    padding: 8,
+    alignItems: 'center',
+  },
+  vehiclePhoto: {
+    width: '100%',
+    height: 50,
+    borderRadius: theme.radius - 4,
+    marginBottom: 4,
   },
   choiceOptionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   choiceIcon: { fontSize: 18, marginBottom: 2 },

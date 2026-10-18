@@ -34,7 +34,8 @@
   .suggestion:last-child { border-bottom: none; }
   .suggestion:hover { background: var(--card); }
   .gammes { display: flex; gap: 8px; margin-top: 6px; }
-  .gamme { flex: 1; text-align: center; padding: 12px 6px; border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer; }
+  .gamme { flex: 1; text-align: center; padding: 8px 6px; border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer; }
+  .gamme-photo { width: 100%; height: 44px; object-fit: cover; border-radius: 8px; margin-bottom: 4px; display: block; }
   .gamme.selected { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
   .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
   .checkbox-row input { width: auto; }
@@ -123,15 +124,26 @@ let dropoff = null;
 let vehicleCategory = new URLSearchParams(location.search).get('gamme') || null;
 let price = null;
 
-document.getElementById('gammes').innerHTML = CATEGORIES.map((c) => `
-  <div class="gamme ${c === vehicleCategory ? 'selected' : ''}" data-gamme="${c}">${VEHICLE_LABELS[c]}</div>
-`).join('');
-document.querySelectorAll('[data-gamme]').forEach((el) => {
-  el.addEventListener('click', () => {
-    vehicleCategory = el.dataset.gamme;
-    document.querySelectorAll('[data-gamme]').forEach((e) => e.classList.toggle('selected', e.dataset.gamme === vehicleCategory));
-    updatePrice();
+function renderGammes(photos) {
+  document.getElementById('gammes').innerHTML = CATEGORIES.map((c) => `
+    <div class="gamme ${c === vehicleCategory ? 'selected' : ''}" data-gamme="${c}">
+      ${photos[c] ? `<img src="${photos[c]}" class="gamme-photo" />` : ''}
+      ${VEHICLE_LABELS[c]}
+    </div>
+  `).join('');
+  document.querySelectorAll('[data-gamme]').forEach((el) => {
+    el.addEventListener('click', () => {
+      vehicleCategory = el.dataset.gamme;
+      document.querySelectorAll('[data-gamme]').forEach((e) => e.classList.toggle('selected', e.dataset.gamme === vehicleCategory));
+      updatePrice();
+    });
   });
+}
+renderGammes({});
+supabase.from('vehicles').select('vehicle_category, photo_url').eq('active', true).not('photo_url', 'is', null).order('created_at', { ascending: true }).then(({ data }) => {
+  const photos = {};
+  (data ?? []).forEach((v) => { if (!photos[v.vehicle_category]) photos[v.vehicle_category] = v.photo_url; });
+  if (Object.keys(photos).length) renderGammes(photos);
 });
 
 supabase.from('app_settings').select('*').eq('id', true).single().then(({ data }) => {

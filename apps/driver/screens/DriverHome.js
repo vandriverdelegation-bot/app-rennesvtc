@@ -5,6 +5,7 @@ import { theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
+import RideMiniMap from './RideMiniMap';
 
 const PAYMENT_LABELS = {
   carte_a_bord: 'CB a bord',
@@ -17,6 +18,12 @@ const SERVICE_LABELS = {
   mise_a_disposition: 'Mise a disposition',
   forfait: 'Forfait',
 };
+
+function formatRideDateTime(scheduledAt) {
+  if (!scheduledAt) return 'Des que possible';
+  const d = new Date(scheduledAt);
+  return d.toLocaleDateString('fr-FR') + ' a ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function DriverHome({ session }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
@@ -41,7 +48,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, status, payment_method, service_type, price')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       setPendingRides(pending ?? []);
@@ -252,10 +259,18 @@ export default function DriverHome({ session }) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.card}>
+              <Text style={styles.label}>Date et heure</Text>
+              <Text style={styles.value}>{formatRideDateTime(item.scheduled_at)}</Text>
               <Text style={styles.label}>Depart</Text>
               <Text style={styles.value}>{item.pickup_address}</Text>
               <Text style={styles.label}>Destination</Text>
               <Text style={styles.value}>{item.dropoff_address}</Text>
+              <RideMiniMap
+                pickupLat={item.pickup_lat}
+                pickupLng={item.pickup_lng}
+                dropoffLat={item.dropoff_lat}
+                dropoffLng={item.dropoff_lng}
+              />
               <Text style={styles.label}>Service</Text>
               <Text style={styles.priceValue}>{SERVICE_LABELS[item.service_type]} · {item.price} €</Text>
               <Text style={styles.label}>Reglement</Text>
