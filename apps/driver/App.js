@@ -8,19 +8,35 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import { registerPushToken, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
+
+// Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
+function renderAppName(appName) {
+  const words = appName.trim().split(' ');
+  const last = words.pop();
+  return (
+    <>
+      {words.length ? words.join(' ') + ' ' : ''}
+      <Text style={{ color: theme.colors.accent }}>{last}</Text>
+    </>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [appName, setAppName] = useState('RENNES VTC');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchAppSettings(supabase).then((settings) => {
+      if (settings?.app_name) setAppName(settings.app_name);
+    });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setCheckingSession(false);
@@ -85,9 +101,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.logo}>
-        RENNES <Text style={styles.logoAccent}>VTC</Text>
-      </Text>
+      <Text style={styles.logo}>{renderAppName(appName)}</Text>
       <Text style={styles.title}>Connexion chauffeur</Text>
       <TextInput
         style={styles.input}
@@ -133,7 +147,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: { fontSize: 24, fontWeight: '800', color: theme.colors.text, letterSpacing: 1, marginBottom: 24 },
-  logoAccent: { color: theme.colors.accent },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 4, color: theme.colors.text },
   input: {
     width: '100%',

@@ -9,13 +9,26 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import { registerPushToken, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import ClientHome from './screens/ClientHome';
+
+// Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
+function renderAppName(appName) {
+  const words = appName.trim().split(' ');
+  const last = words.pop();
+  return (
+    <>
+      {words.length ? words.join(' ') + ' ' : ''}
+      <Text style={{ color: theme.colors.accent }}>{last}</Text>
+    </>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [appName, setAppName] = useState('RENNES VTC');
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,6 +36,9 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchAppSettings(supabase).then((settings) => {
+      if (settings?.app_name) setAppName(settings.app_name);
+    });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setCheckingSession(false);
@@ -75,9 +91,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.logoRow}>
-        <Text style={styles.logo}>
-          RENNES <Text style={styles.logoAccent}>VTC</Text>
-        </Text>
+        <Text style={styles.logo}>{renderAppName(appName)}</Text>
       </View>
       <Text style={styles.title}>{mode === 'login' ? 'Connexion' : 'Creer un compte'}</Text>
       <TextInput
@@ -129,7 +143,6 @@ const styles = StyleSheet.create({
   },
   logoRow: { marginBottom: 24, alignItems: 'center' },
   logo: { fontSize: 26, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
-  logoAccent: { color: theme.colors.accent },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 12, color: theme.colors.text },
   input: {
     width: '100%',
