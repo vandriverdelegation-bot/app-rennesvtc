@@ -16,7 +16,6 @@ function parseDateTime(dateStr, timeStr) {
 const PAYMENT_METHODS = [
   { value: 'carte_a_bord', label: 'CB a bord' },
   { value: 'especes', label: 'Especes' },
-  { value: 'compte', label: 'En compte' },
 ];
 
 export default function CreateRide({ session, vehicleCategory, canEditPrice, onDone, onCancel }) {
@@ -26,6 +25,8 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [dropoff, setDropoff] = useState(null);
   const [stops, setStops] = useState([]);
   const [roundTrip, setRoundTrip] = useState(false);
+  const [returnDate, setReturnDate] = useState('');
+  const [returnTime, setReturnTime] = useState('');
   const [laterDate, setLaterDate] = useState(''); // JJ/MM/AAAA, vide = course immediate
   const [laterTime, setLaterTime] = useState(''); // HH:MM
   const [paymentMethod, setPaymentMethod] = useState(null);
@@ -107,6 +108,15 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       setErrorMsg(e.message);
       return;
     }
+    let return_scheduled_at = null;
+    if (roundTrip) {
+      const returnWhen = parseDateTime(returnDate, returnTime);
+      if (!returnWhen) {
+        setErrorMsg('Date/heure de retour invalide (format JJ/MM/AAAA et HH:MM).');
+        return;
+      }
+      return_scheduled_at = returnWhen.toISOString();
+    }
 
     setSubmitting(true);
     const { error } = await supabase.from('rides').insert({
@@ -130,6 +140,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       booster_seats: boosterSeats,
       stop_addresses: stops.filter(Boolean).map((s) => s.address),
       round_trip: roundTrip,
+      return_scheduled_at,
       scheduled_at,
       status: 'accepted',
     });
@@ -182,6 +193,16 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         </View>
         <Text style={styles.label}>Aller-retour</Text>
       </TouchableOpacity>
+
+      {roundTrip && (
+        <>
+          <Text style={styles.label}>Date et heure du retour</Text>
+          <View style={styles.row}>
+            <TextInput style={[styles.input, styles.rowInput]} value={returnDate} onChangeText={setReturnDate} placeholder="JJ/MM/AAAA" placeholderTextColor={theme.colors.textMuted} />
+            <TextInput style={[styles.input, styles.rowInput]} value={returnTime} onChangeText={setReturnTime} placeholder="HH:MM" placeholderTextColor={theme.colors.textMuted} />
+          </View>
+        </>
+      )}
 
       <Text style={styles.label}>Date et heure (laisser vide pour tout de suite)</Text>
       <View style={styles.row}>

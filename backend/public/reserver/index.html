@@ -82,11 +82,21 @@
       <label style="margin:0;text-transform:none;font-weight:400;font-size:14px">Aller-retour</label>
     </div>
 
+    <div class="row" id="return-datetime-row" style="display:none">
+      <div>
+        <label>Date du retour</label>
+        <input id="return-date" type="date" />
+      </div>
+      <div>
+        <label>Heure du retour</label>
+        <input id="return-time" type="time" />
+      </div>
+    </div>
+
     <label>Mode de reglement</label>
     <select id="payment-method">
       <option value="carte_a_bord">CB a bord</option>
       <option value="especes">Especes</option>
-      <option value="compte">En compte</option>
     </select>
 
     <label>Nom</label>
@@ -195,6 +205,10 @@ function setupAutocomplete(inputId, suggestionsId, onSelect) {
 setupAutocomplete('pickup-input', 'pickup-suggestions', (loc) => { pickup = loc; updatePrice(); });
 setupAutocomplete('dropoff-input', 'dropoff-suggestions', (loc) => { dropoff = loc; updatePrice(); });
 
+document.getElementById('round-trip').addEventListener('change', (e) => {
+  document.getElementById('return-datetime-row').style.display = e.target.checked ? 'flex' : 'none';
+});
+
 async function updatePrice() {
   const priceEl = document.getElementById('price-display');
   if (!vehicleCategory || !pickup || !dropoff) { priceEl.innerHTML = ''; price = null; return; }
@@ -231,6 +245,9 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de depart et de destination dans la liste.'; return; }
   if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et telephone sont requis.'; return; }
   if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
+  const returnDate = document.getElementById('return-date').value;
+  const returnTime = document.getElementById('return-time').value;
+  if (roundTrip && (!returnDate || !returnTime)) { errorEl.textContent = 'Indiquez la date et l’heure du retour.'; return; }
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
@@ -241,6 +258,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
       clientName, clientPhone, clientEmail: clientEmail || null,
       vehicleCategory, pickup, dropoff, roundTrip, paymentMethod, price,
       scheduledAt: date && time ? new Date(`${date}T${time}`).toISOString() : null,
+      returnAt: roundTrip && returnDate && returnTime ? new Date(`${returnDate}T${returnTime}`).toISOString() : null,
     }),
   });
   const result = await res.json();

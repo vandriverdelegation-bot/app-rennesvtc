@@ -16,6 +16,7 @@ function formatRideRecap(ride) {
     `Destination : ${ride.dropoff_address}`,
     `Gamme : ${VEHICLE_LABELS[ride.vehicle_category] ?? ride.vehicle_category}`,
     ride.scheduled_at ? `Date et heure : ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : null,
+    ride.round_trip && ride.return_scheduled_at ? `Retour : ${new Date(ride.return_scheduled_at).toLocaleString('fr-FR')}` : null,
     `Mode de reglement : ${PAYMENT_LABELS[ride.payment_method] ?? ride.payment_method}`,
     ride.price != null ? `Prix : ${ride.price} euros` : 'Prix : a confirmer par le chauffeur',
   ];
@@ -262,9 +263,12 @@ app.post('/public/estimate-price', async (req, res) => {
 
 // Cree une reservation depuis le module web public (pas de compte requis).
 app.post('/public/book', async (req, res) => {
-  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, paymentMethod, price } = req.body;
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price } = req.body;
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
+  }
+  if (paymentMethod === 'compte') {
+    return res.status(400).json({ error: 'Ce mode de reglement est reserve au back-office.' });
   }
   const { data: ride, error } = await supabaseAdmin
     .from('rides')
@@ -280,6 +284,7 @@ app.post('/public/book', async (req, res) => {
       dropoff_lat: dropoff.lat,
       dropoff_lng: dropoff.lng,
       round_trip: !!roundTrip,
+      return_scheduled_at: roundTrip ? returnAt || null : null,
       payment_method: paymentMethod,
       service_type: 'trajet_simple',
       price,

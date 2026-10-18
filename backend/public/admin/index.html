@@ -57,6 +57,10 @@
   th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--card-border); font-size: 14px; }
   th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
   #map { width: 100%; height: 480px; border-radius: 12px; }
+  .suggestions { background: var(--input); border: 1px solid var(--input-border); border-radius: 8px; margin: -4px 0 6px; overflow: hidden; }
+  .suggestion { padding: 8px 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--card-border); }
+  .suggestion:last-child { border-bottom: none; }
+  .suggestion:hover { background: var(--card); }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -221,14 +225,25 @@
             <input id="new-ride-client-phone" placeholder="Telephone" style="width:140px" />
             <select id="new-ride-category"></select>
           </div>
-          <div class="price-row">
-            <input id="new-ride-pickup" placeholder="Adresse de depart" style="width:260px" />
-            <input id="new-ride-dropoff" placeholder="Adresse de destination" style="width:260px" />
+          <div class="price-row" style="align-items:flex-start">
+            <div style="width:260px">
+              <input id="new-ride-pickup" placeholder="Adresse de depart" autocomplete="off" />
+              <div class="suggestions" id="new-ride-pickup-suggestions" style="display:none"></div>
+            </div>
+            <div style="width:260px">
+              <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
+              <div class="suggestions" id="new-ride-dropoff-suggestions" style="display:none"></div>
+            </div>
           </div>
           <div class="price-row">
             <input id="new-ride-stops" placeholder="Points d'arret (separes par ;)" style="width:260px" />
             <label><input type="checkbox" id="new-ride-round-trip" style="width:auto" /> Aller-retour</label>
             <input id="new-ride-tags" placeholder="Tags (separes par ,)" style="width:200px" />
+          </div>
+          <div class="price-row" id="new-ride-return-row" style="display:none">
+            <label style="width:auto">Retour :</label>
+            <input id="new-ride-return-date" type="date" style="width:160px" />
+            <input id="new-ride-return-time" type="time" style="width:120px" />
           </div>
           <div class="price-row">
             <input id="new-ride-date" type="date" style="width:160px" />
@@ -451,6 +466,47 @@ function populateCategorySelect() {
   populateNewRideDrivers();
 }
 
+// Autocomplete d'adresse via le proxy backend (meme pattern que /reserver).
+function setupAdminAutocomplete(inputId, suggestionsId, onSelect) {
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(suggestionsId);
+  let timer;
+  input.addEventListener('input', () => {
+    onSelect(null);
+    clearTimeout(timer);
+    const q = input.value;
+    if (q.length < 3) { box.style.display = 'none'; return; }
+    timer = setTimeout(async () => {
+      const res = await fetch('/public/places/autocomplete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: q }),
+      });
+      const { suggestions } = await res.json();
+      if (!suggestions || suggestions.length === 0) { box.style.display = 'none'; return; }
+      box.innerHTML = suggestions.map((s) => `<div class="suggestion" data-place-id="${s.placeId}">${escapeHtml(s.text)}</div>`).join('');
+      box.style.display = 'block';
+      box.querySelectorAll('.suggestion').forEach((el) => {
+        el.addEventListener('click', async () => {
+          const r = await fetch('/public/places/details', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ placeId: el.dataset.placeId }),
+          });
+          const location = await r.json();
+          input.value = location.address;
+          box.style.display = 'none';
+          onSelect(location);
+        });
+      });
+    }, 300);
+  });
+}
+
+let newRidePickup = null;
+let newRideDropoff = null;
+setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; });
+setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; });
+document.getElementById('new-ride-round-trip').addEventListener('change', (e) => {
+  document.getElementById('new-ride-return-row').style.display = e.target.checked ? 'flex' : 'none';
+});
+
 async function populateNewRideDrivers() {
   const category = document.getElementById('new-ride-category').value;
   const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur').eq('vehicle_category', category);
@@ -466,8 +522,6 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const client_name = document.getElementById('new-ride-client-name').value.trim();
   const client_phone = document.getElementById('new-ride-client-phone').value.trim();
   const vehicle_category = document.getElementById('new-ride-category').value;
-  const pickup_address = document.getElementById('new-ride-pickup').value.trim();
-  const dropoff_address = document.getElementById('new-ride-dropoff').value.trim();
   const date = document.getElementById('new-ride-date').value;
   const time = document.getElementById('new-ride-time').value;
   const payment_method = document.getElementById('new-ride-payment').value;
@@ -475,10 +529,16 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const driverId = document.getElementById('new-ride-driver').value;
   const stop_addresses = document.getElementById('new-ride-stops').value.split(';').map((s) => s.trim()).filter(Boolean);
   const round_trip = document.getElementById('new-ride-round-trip').checked;
+  const return_date = document.getElementById('new-ride-return-date').value;
+  const return_time = document.getElementById('new-ride-return-time').value;
   const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
 
-  if (!client_name || !client_phone || !pickup_address || !dropoff_address || !price) {
-    errorEl.textContent = 'Nom, telephone, adresses et prix sont requis.';
+  if (!client_name || !client_phone || !newRidePickup || !newRideDropoff || !price) {
+    errorEl.textContent = 'Nom, telephone, adresses (choisies dans la liste) et prix sont requis.';
+    return;
+  }
+  if (round_trip && (!return_date || !return_time)) {
+    errorEl.textContent = 'Indiquez la date et l\'heure du retour.';
     return;
   }
 
@@ -487,10 +547,15 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     client_name,
     client_phone,
     vehicle_category,
-    pickup_address,
-    dropoff_address,
+    pickup_address: newRidePickup.address,
+    pickup_lat: newRidePickup.lat,
+    pickup_lng: newRidePickup.lng,
+    dropoff_address: newRideDropoff.address,
+    dropoff_lat: newRideDropoff.lat,
+    dropoff_lng: newRideDropoff.lng,
     stop_addresses,
     round_trip,
+    return_scheduled_at: round_trip ? new Date(`${return_date}T${return_time}`).toISOString() : null,
     tags,
     payment_method,
     service_type: 'trajet_simple',
@@ -506,9 +571,16 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-client-name').value = '';
   document.getElementById('new-ride-client-phone').value = '';
   document.getElementById('new-ride-pickup').value = '';
+  document.getElementById('new-ride-pickup-suggestions').style.display = 'none';
+  document.getElementById('new-ride-dropoff-suggestions').style.display = 'none';
+  newRidePickup = null;
+  newRideDropoff = null;
   document.getElementById('new-ride-dropoff').value = '';
   document.getElementById('new-ride-stops').value = '';
   document.getElementById('new-ride-round-trip').checked = false;
+  document.getElementById('new-ride-return-row').style.display = 'none';
+  document.getElementById('new-ride-return-date').value = '';
+  document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
   document.getElementById('new-ride-price').value = '';
   refresh();
@@ -1615,6 +1687,8 @@ document.getElementById('filter-export').addEventListener('click', async () => {
 
 let currentRide = null;
 let currentRideTab = 'course';
+let rmPickupLoc = null;
+let rmDropoffLoc = null;
 
 function toLocalDatetimeInput(iso) {
   const d = new Date(iso);
@@ -1680,15 +1754,21 @@ async function renderRideCourseTab() {
       <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
     </div>
     <div style="margin-top:10px"><strong>Adresses</strong></div>
-    <textarea id="rm-pickup" placeholder="Depart" style="min-height:36px">${escapeHtml(ride.pickup_address ?? '')}</textarea>
+    <input id="rm-pickup" placeholder="Depart" autocomplete="off" value="${escapeHtml(ride.pickup_address ?? '')}" />
+    <div class="suggestions" id="rm-pickup-suggestions" style="display:none"></div>
     <textarea id="rm-stops" placeholder="Points d'arret (un par ligne)" style="min-height:36px">${(ride.stop_addresses ?? []).join('\n')}</textarea>
-    <textarea id="rm-dropoff" placeholder="Destination" style="min-height:36px">${escapeHtml(ride.dropoff_address ?? '')}</textarea>
+    <input id="rm-dropoff" placeholder="Destination" autocomplete="off" value="${escapeHtml(ride.dropoff_address ?? '')}" />
+    <div class="suggestions" id="rm-dropoff-suggestions" style="display:none"></div>
     <label><input type="checkbox" id="rm-round-trip" ${ride.round_trip ? 'checked' : ''} style="width:auto" /> Aller-retour</label>
     <button class="secondary" id="rm-save-addresses">Enregistrer les adresses</button>
 
     <div style="margin-top:10px"><strong>Date et heure</strong></div>
     <input type="datetime-local" id="rm-scheduled" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" style="width:220px" />
     <button class="secondary" id="rm-save-scheduled">Enregistrer</button>
+
+    <div style="margin-top:10px"><strong>Date et heure du retour (si aller-retour)</strong></div>
+    <input type="datetime-local" id="rm-return-scheduled" value="${ride.return_scheduled_at ? toLocalDatetimeInput(ride.return_scheduled_at) : ''}" style="width:220px" />
+    <button class="secondary" id="rm-save-return-scheduled">Enregistrer</button>
 
     <div style="margin-top:10px"><strong>Options</strong></div>
     <div class="price-row">
@@ -1714,6 +1794,11 @@ async function renderRideCourseTab() {
     <button class="secondary" id="rm-save-tags">Enregistrer les tags</button>
   `;
 
+  rmPickupLoc = { address: ride.pickup_address, lat: ride.pickup_lat, lng: ride.pickup_lng };
+  rmDropoffLoc = { address: ride.dropoff_address, lat: ride.dropoff_lat, lng: ride.dropoff_lng };
+  setupAdminAutocomplete('rm-pickup', 'rm-pickup-suggestions', (loc) => { rmPickupLoc = loc; });
+  setupAdminAutocomplete('rm-dropoff', 'rm-dropoff-suggestions', (loc) => { rmDropoffLoc = loc; });
+
   document.getElementById('rm-save-status').addEventListener('click', async () => {
     await supabase.from('rides').update({ status: document.getElementById('rm-status').value }).eq('id', ride.id);
     await refreshRideModal();
@@ -1730,13 +1815,27 @@ async function renderRideCourseTab() {
     const dropoff_address = document.getElementById('rm-dropoff').value.trim();
     const stop_addresses = document.getElementById('rm-stops').value.split('\n').map((s) => s.trim()).filter(Boolean);
     const round_trip = document.getElementById('rm-round-trip').checked;
-    await supabase.from('rides').update({ pickup_address, dropoff_address, stop_addresses, round_trip }).eq('id', ride.id);
+    await supabase.from('rides').update({
+      pickup_address,
+      pickup_lat: rmPickupLoc?.lat ?? ride.pickup_lat,
+      pickup_lng: rmPickupLoc?.lng ?? ride.pickup_lng,
+      dropoff_address,
+      dropoff_lat: rmDropoffLoc?.lat ?? ride.dropoff_lat,
+      dropoff_lng: rmDropoffLoc?.lng ?? ride.dropoff_lng,
+      stop_addresses,
+      round_trip,
+    }).eq('id', ride.id);
     await refreshRideModal();
     refresh();
   });
   document.getElementById('rm-save-scheduled').addEventListener('click', async () => {
     const val = document.getElementById('rm-scheduled').value;
     await supabase.from('rides').update({ scheduled_at: val ? new Date(val).toISOString() : null }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  document.getElementById('rm-save-return-scheduled').addEventListener('click', async () => {
+    const val = document.getElementById('rm-return-scheduled').value;
+    await supabase.from('rides').update({ return_scheduled_at: val ? new Date(val).toISOString() : null }).eq('id', ride.id);
     await refreshRideModal();
   });
   document.getElementById('rm-save-options').addEventListener('click', async () => {

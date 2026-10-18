@@ -15,8 +15,15 @@ const STATUS_LABELS = {
 const PAYMENT_METHODS = [
   { value: 'carte_a_bord', label: 'CB a bord', icon: '💳' },
   { value: 'especes', label: 'Especes', icon: '💶' },
-  { value: 'compte', label: 'En compte', icon: '🧾' },
 ];
+
+function parseDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const [day, month, year] = dateStr.split('/').map((n) => parseInt(n, 10));
+  const [hour, minute] = timeStr.split(':').map((n) => parseInt(n, 10));
+  if (!day || !month || !year || isNaN(hour) || isNaN(minute)) return undefined; // invalide
+  return new Date(year, month - 1, day, hour, minute);
+}
 
 const SERVICE_TYPES = [
   { value: 'trajet_simple', label: 'Trajet simple', icon: '📍' },
@@ -77,6 +84,8 @@ export default function ClientHome({ session }) {
   const [dropoff, setDropoff] = useState(null);
   const [stops, setStops] = useState([]); // points d'arret intermediaires
   const [roundTrip, setRoundTrip] = useState(false);
+  const [returnDate, setReturnDate] = useState('');
+  const [returnTime, setReturnTime] = useState('');
   const [vehicleCategory, setVehicleCategory] = useState(null);
   const [vehiclePhotos, setVehiclePhotos] = useState({});
   const [serviceType, setServiceType] = useState(null);
@@ -227,6 +236,15 @@ export default function ClientHome({ session }) {
       setErrorMsg('Le prix est en cours de calcul, patientez.');
       return;
     }
+    let returnScheduledAt = null;
+    if (roundTrip) {
+      const parsed = parseDateTime(returnDate, returnTime);
+      if (!parsed) {
+        setErrorMsg('Indiquez la date et l\'heure du retour (JJ/MM/AAAA et HH:MM).');
+        return;
+      }
+      returnScheduledAt = parsed.toISOString();
+    }
     setSubmitting(true);
     const { data: ride, error } = await supabase
       .from('rides')
@@ -248,6 +266,7 @@ export default function ClientHome({ session }) {
         booster_seats: boosterSeats,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
+        return_scheduled_at: returnScheduledAt,
         duration_hours: serviceType === 'mise_a_disposition' ? parseFloat(durationHours) : null,
         forfait_id: serviceType === 'forfait' ? selectedForfaitId : null,
       })
@@ -267,6 +286,8 @@ export default function ClientHome({ session }) {
     setDropoff(null);
     setStops([]);
     setRoundTrip(false);
+    setReturnDate('');
+    setReturnTime('');
     setVehicleCategory(null);
     setServiceType(null);
     setSelectedForfaitId(null);
@@ -359,6 +380,24 @@ export default function ClientHome({ session }) {
           </View>
           <Text style={styles.inlineLabel}>Aller-retour</Text>
         </TouchableOpacity>
+        {roundTrip && (
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.durationInput, { flex: 1 }]}
+              value={returnDate}
+              onChangeText={setReturnDate}
+              placeholder="Retour : JJ/MM/AAAA"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+            <TextInput
+              style={[styles.durationInput, { flex: 1 }]}
+              value={returnTime}
+              onChangeText={setReturnTime}
+              placeholder="HH:MM"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+        )}
       </SectionCard>
 
       <SectionCard title="Gamme de vehicule">
