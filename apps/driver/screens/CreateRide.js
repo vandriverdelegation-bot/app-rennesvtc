@@ -24,6 +24,8 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [clientPhone, setClientPhone] = useState('');
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
+  const [stops, setStops] = useState([]);
+  const [roundTrip, setRoundTrip] = useState(false);
   const [laterDate, setLaterDate] = useState(''); // JJ/MM/AAAA, vide = course immediate
   const [laterTime, setLaterTime] = useState(''); // HH:MM
   const [paymentMethod, setPaymentMethod] = useState(null);
@@ -59,7 +61,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
           passengerCount: parseInt(passengerCount, 10) || 1,
           childSeats,
           boosterSeats,
-          stopsCount: 0,
+          stopsCount: stops.length,
         });
         setPrice(result.price);
         setPriceManual(result.manual);
@@ -67,7 +69,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         setPriceError("Impossible de calculer le prix pour cet itineraire.");
       }
     });
-  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats]);
+  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops]);
 
   function parseScheduledAt() {
     if (!laterDate && !laterTime) return null;
@@ -126,6 +128,8 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       passenger_count: parseInt(passengerCount, 10) || 1,
       child_seats: childSeats,
       booster_seats: boosterSeats,
+      stop_addresses: stops.filter(Boolean).map((s) => s.address),
+      round_trip: roundTrip,
       scheduled_at,
       status: 'accepted',
     });
@@ -152,8 +156,32 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       <Text style={styles.label}>Depart</Text>
       <AddressAutocomplete placeholder="Adresse de depart" onSelect={setPickup} />
 
+      {stops.map((stop, i) => (
+        <View key={i} style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <AddressAutocomplete
+              placeholder={`Point d'arret ${i + 1}`}
+              onSelect={(loc) => setStops((prev) => prev.map((s, idx) => (idx === i ? loc : s)))}
+            />
+          </View>
+          <TouchableOpacity onPress={() => setStops((prev) => prev.filter((_, idx) => idx !== i))}>
+            <Text style={styles.removeStop}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <TouchableOpacity onPress={() => setStops((prev) => [...prev, null])}>
+        <Text style={styles.link}>+ Ajouter un point d'arret</Text>
+      </TouchableOpacity>
+
       <Text style={styles.label}>Destination</Text>
       <AddressAutocomplete placeholder="Adresse de destination" onSelect={setDropoff} />
+
+      <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
+        <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
+          {roundTrip ? <Text style={styles.checkboxMark}>✓</Text> : null}
+        </View>
+        <Text style={styles.label}>Aller-retour</Text>
+      </TouchableOpacity>
 
       <Text style={styles.label}>Date et heure (laisser vide pour tout de suite)</Text>
       <View style={styles.row}>
@@ -259,6 +287,18 @@ const styles = StyleSheet.create({
   choiceText: { color: theme.colors.text },
   choiceTextSelected: { color: theme.colors.accentText, fontWeight: '700' },
   priceValue: { color: theme.colors.accent, fontWeight: '700', fontSize: 18 },
+  removeStop: { color: theme.colors.error, fontSize: 16, paddingHorizontal: 6, alignSelf: 'center' },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  checkboxMark: { color: theme.colors.accentText, fontSize: 13, fontWeight: '700' },
   button: {
     backgroundColor: theme.colors.accent,
     borderRadius: theme.radius,

@@ -54,6 +54,8 @@ export default function ClientHome({ session }) {
   const [activeRide, setActiveRide] = useState(undefined); // undefined = chargement initial
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
+  const [stops, setStops] = useState([]); // points d'arret intermediaires
+  const [roundTrip, setRoundTrip] = useState(false);
   const [vehicleCategory, setVehicleCategory] = useState(null);
   const [serviceType, setServiceType] = useState(null);
   const [durationHours, setDurationHours] = useState('2');
@@ -73,7 +75,7 @@ export default function ClientHome({ session }) {
     const { data } = await supabase
       .from('rides')
       .select(
-        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price'
+        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, stop_addresses, round_trip'
       )
       .eq('client_id', session.user.id)
       .in('status', ['pending', 'dispatched', 'accepted'])
@@ -149,7 +151,7 @@ export default function ClientHome({ session }) {
             passengerCount: parseInt(passengerCount, 10) || 1,
             childSeats,
             boosterSeats,
-            stopsCount: 0,
+            stopsCount: stops.length,
           });
           setPrice(result.price);
           setPriceManual(result.manual);
@@ -158,7 +160,7 @@ export default function ClientHome({ session }) {
         }
       });
     }
-  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, passengerCount, childSeats, boosterSeats]);
+  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, passengerCount, childSeats, boosterSeats, stops]);
 
   async function handleRequestRide() {
     setErrorMsg('');
@@ -205,6 +207,8 @@ export default function ClientHome({ session }) {
         passenger_count: parseInt(passengerCount, 10) || 1,
         child_seats: childSeats,
         booster_seats: boosterSeats,
+        stop_addresses: stops.filter(Boolean).map((s) => s.address),
+        round_trip: roundTrip,
         duration_hours: serviceType === 'mise_a_disposition' ? parseFloat(durationHours) : null,
         forfait_id: serviceType === 'forfait' ? selectedForfaitId : null,
       })
@@ -222,6 +226,8 @@ export default function ClientHome({ session }) {
     }).catch(() => {});
     setPickup(null);
     setDropoff(null);
+    setStops([]);
+    setRoundTrip(false);
     setVehicleCategory(null);
     setServiceType(null);
     setSelectedForfaitId(null);
@@ -290,8 +296,30 @@ export default function ClientHome({ session }) {
 
       <SectionCard title="Trajet">
         <AddressAutocomplete placeholder="Adresse de depart" onSelect={setPickup} />
+        {stops.map((stop, i) => (
+          <View key={i} style={styles.stopRow}>
+            <View style={{ flex: 1 }}>
+              <AddressAutocomplete
+                placeholder={`Point d'arret ${i + 1}`}
+                onSelect={(loc) => setStops((prev) => prev.map((s, idx) => (idx === i ? loc : s)))}
+              />
+            </View>
+            <TouchableOpacity onPress={() => setStops((prev) => prev.filter((_, idx) => idx !== i))}>
+              <Text style={styles.removeStop}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => setStops((prev) => [...prev, null])}>
+          <Text style={styles.link}>+ Ajouter un point d'arret</Text>
+        </TouchableOpacity>
         <View style={{ height: 8 }} />
         <AddressAutocomplete placeholder="Destination" onSelect={setDropoff} />
+        <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
+          <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
+            {roundTrip ? <Text style={styles.checkboxMark}>✓</Text> : null}
+          </View>
+          <Text style={styles.inlineLabel}>Aller-retour</Text>
+        </TouchableOpacity>
       </SectionCard>
 
       <SectionCard title="Gamme de vehicule">
@@ -440,6 +468,21 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   priceEstimate: { fontSize: 20, fontWeight: '800', color: theme.colors.accent, marginTop: 4 },
+  stopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  removeStop: { color: theme.colors.error, fontSize: 16, paddingHorizontal: 6 },
+  link: { color: theme.colors.accent, marginTop: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  checkboxMark: { color: theme.colors.accentText, fontSize: 13, fontWeight: '700' },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepperBtn: {
     width: 32,

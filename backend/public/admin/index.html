@@ -133,6 +133,11 @@
             <input id="new-ride-dropoff" placeholder="Adresse de destination" style="width:260px" />
           </div>
           <div class="price-row">
+            <input id="new-ride-stops" placeholder="Points d'arret (separes par ;)" style="width:260px" />
+            <label><input type="checkbox" id="new-ride-round-trip" style="width:auto" /> Aller-retour</label>
+            <input id="new-ride-tags" placeholder="Tags (separes par ,)" style="width:200px" />
+          </div>
+          <div class="price-row">
             <input id="new-ride-date" type="date" style="width:160px" />
             <input id="new-ride-time" type="time" style="width:120px" />
             <select id="new-ride-payment">
@@ -169,6 +174,7 @@
             <option value="especes">Especes</option>
             <option value="compte">En compte</option>
           </select>
+          <input id="filter-tag" placeholder="Tag" style="width:120px" />
           <button id="filter-apply" class="secondary">Filtrer</button>
           <button id="filter-export" class="secondary">Exporter en CSV</button>
         </div>
@@ -216,7 +222,7 @@
           </div>
           <div class="price-row">
             <input id="new-vehicle-options" placeholder="Options (separees par des virgules : climatisation, wifi...)" style="width:340px" />
-            <input id="new-vehicle-photo" placeholder="URL photo (optionnel)" style="width:220px" />
+            <input id="new-vehicle-photo" type="file" accept="image/*" style="width:220px" />
           </div>
           <button id="add-vehicle">Ajouter le vehicule</button>
           <p id="new-vehicle-error" class="error"></p>
@@ -351,6 +357,9 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const payment_method = document.getElementById('new-ride-payment').value;
   const price = parseFloat(document.getElementById('new-ride-price').value);
   const driverId = document.getElementById('new-ride-driver').value;
+  const stop_addresses = document.getElementById('new-ride-stops').value.split(';').map((s) => s.trim()).filter(Boolean);
+  const round_trip = document.getElementById('new-ride-round-trip').checked;
+  const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
 
   if (!client_name || !client_phone || !pickup_address || !dropoff_address || !price) {
     errorEl.textContent = 'Nom, telephone, adresses et prix sont requis.';
@@ -364,6 +373,9 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     vehicle_category,
     pickup_address,
     dropoff_address,
+    stop_addresses,
+    round_trip,
+    tags,
     payment_method,
     service_type: 'trajet_simple',
     price,
@@ -379,6 +391,9 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-client-phone').value = '';
   document.getElementById('new-ride-pickup').value = '';
   document.getElementById('new-ride-dropoff').value = '';
+  document.getElementById('new-ride-stops').value = '';
+  document.getElementById('new-ride-round-trip').checked = false;
+  document.getElementById('new-ride-tags').value = '';
   document.getElementById('new-ride-price').value = '';
   refresh();
 });
@@ -454,9 +469,17 @@ document.getElementById('add-vehicle').addEventListener('click', async () => {
   const bags_m = parseInt(document.getElementById('new-vehicle-bags-m').value, 10) || 0;
   const bags_l = parseInt(document.getElementById('new-vehicle-bags-l').value, 10) || 0;
   const options = document.getElementById('new-vehicle-options').value.split(',').map((o) => o.trim()).filter(Boolean);
-  const photo_url = document.getElementById('new-vehicle-photo').value.trim() || null;
+  const photoFile = document.getElementById('new-vehicle-photo').files[0];
 
   if (!display_name) { errorEl.textContent = 'Le nom affiche est requis.'; return; }
+
+  let photo_url = null;
+  if (photoFile) {
+    const path = `${Date.now()}-${photoFile.name}`;
+    const { error: uploadError } = await supabase.storage.from('vehicle-photos').upload(path, photoFile);
+    if (uploadError) { errorEl.textContent = uploadError.message; return; }
+    photo_url = supabase.storage.from('vehicle-photos').getPublicUrl(path).data.publicUrl;
+  }
 
   const { error } = await supabase.from('vehicles').insert({
     display_name, vehicle_category, driver_id, plate, color, seats, bags_s, bags_m, bags_l, options, photo_url,
@@ -856,7 +879,7 @@ const RIDE_STEP_LABELS = {
 async function renderActive() {
   const { data: rides } = await supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount, stop_addresses, round_trip, tags')
     .in('status', ['dispatched', 'accepted'])
     .order('created_at', { ascending: true });
 
@@ -870,15 +893,29 @@ async function renderActive() {
     <div class="card">
       <div class="meta">${VEHICLE_LABELS[ride.vehicle_category]} - ${SERVICE_LABELS[ride.service_type]} - ${ride.price != null ? ride.price + ' €' : 'prix a fixer'}${ride.surcharge_amount ? ' (+' + ride.surcharge_amount + ' € majoration)' : ''} - ${ride.status === 'accepted' ? 'Acceptee' : 'Dispatchee'}</div>
       <div><strong>Depart</strong> ${escapeHtml(ride.pickup_address)}</div>
-      <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}</div>
+      ${(ride.stop_addresses ?? []).map((s) => `<div><strong>Arret</strong> ${escapeHtml(s)}</div>`).join('')}
+      <div><strong>Destination</strong> ${escapeHtml(ride.dropoff_address)}${ride.round_trip ? ' (aller-retour)' : ''}</div>
       <div><strong>Etape</strong> ${RIDE_STEP_LABELS[ride.ride_step] ?? ride.ride_step}</div>
+      <div><strong>Tags</strong> ${(ride.tags ?? []).map(escapeHtml).join(', ') || '-'}</div>
       <div style="margin-top:10px">
         <button class="secondary" data-redispatch="${ride.id}">Dispatcher a nouveau</button>
         <button class="secondary" data-surcharge="${ride.id}">Ajouter une majoration</button>
+        <button class="secondary" data-edit-tags="${ride.id}">Modifier les tags</button>
         ${ride.status === 'accepted' && ride.ride_step !== 'completed' ? `<button class="secondary" data-force-complete="${ride.id}">Forcer : Terminee</button>` : ''}
       </div>
     </div>
   `).join('');
+
+  container.querySelectorAll('[data-edit-tags]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ride = rides.find((r) => r.id === btn.dataset.editTags);
+      const input = prompt('Tags (separes par des virgules) :', (ride.tags ?? []).join(', '));
+      if (input === null) return;
+      const tags = input.split(',').map((t) => t.trim()).filter(Boolean);
+      await supabase.from('rides').update({ tags }).eq('id', ride.id);
+      refresh();
+    });
+  });
 
   container.querySelectorAll('[data-redispatch]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -1134,7 +1171,7 @@ async function renderPricing() {
 async function fetchHistoryRows() {
   let query = supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone, tags, stop_addresses, round_trip')
     .order('created_at', { ascending: false })
     .limit(500);
 
@@ -1142,10 +1179,12 @@ async function fetchHistoryRows() {
   const dateEnd = document.getElementById('filter-date-end').value;
   const status = document.getElementById('filter-status').value;
   const payment = document.getElementById('filter-payment').value;
+  const tag = document.getElementById('filter-tag').value.trim();
   if (dateStart) query = query.gte('created_at', dateStart);
   if (dateEnd) query = query.lte('created_at', dateEnd + 'T23:59:59');
   if (status) query = query.eq('status', status);
   if (payment) query = query.eq('payment_method', payment);
+  if (tag) query = query.contains('tags', [tag]);
 
   const { data } = await query;
   return data ?? [];
@@ -1160,18 +1199,19 @@ async function renderHistory() {
   }
   container.innerHTML = `
     <table>
-      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th></tr></thead>
+      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th><th>Tags</th></tr></thead>
       <tbody>
         ${rides.map((r) => `
           <tr>
             <td>${new Date(r.created_at).toLocaleString('fr-FR')}</td>
             <td>${escapeHtml(r.client_name ?? r.client_phone ?? '(compte client)')}</td>
-            <td>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</td>
+            <td>${escapeHtml(r.pickup_address)}${(r.stop_addresses ?? []).length ? ' (+' + r.stop_addresses.length + ' arret' + (r.stop_addresses.length > 1 ? 's' : '') + ')' : ''} &rarr; ${escapeHtml(r.dropoff_address)}${r.round_trip ? ' (A/R)' : ''}</td>
             <td>${VEHICLE_LABELS[r.vehicle_category]}</td>
             <td>${r.status}</td>
             <td>${PAYMENT_LABELS[r.payment_method] ?? ''}</td>
             <td>${r.price != null ? r.price + ' €' : '-'}</td>
             <td>${r.created_by}</td>
+            <td>${(r.tags ?? []).map(escapeHtml).join(', ') || '-'}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -1183,11 +1223,12 @@ document.getElementById('filter-apply').addEventListener('click', renderHistory)
 
 document.getElementById('filter-export').addEventListener('click', async () => {
   const rides = await fetchHistoryRows();
-  const header = ['Date', 'Client', 'Telephone', 'Depart', 'Destination', 'Gamme', 'Statut', 'Paiement', 'Prix', 'Origine'];
+  const header = ['Date', 'Client', 'Telephone', 'Depart', 'Points d’arret', 'Destination', 'Aller-retour', 'Gamme', 'Statut', 'Paiement', 'Prix', 'Origine', 'Tags'];
   const rows = rides.map((r) => [
     new Date(r.created_at).toLocaleString('fr-FR'), r.client_name ?? '', r.client_phone ?? '',
-    r.pickup_address, r.dropoff_address, VEHICLE_LABELS[r.vehicle_category], r.status,
-    PAYMENT_LABELS[r.payment_method] ?? '', r.price ?? '', r.created_by,
+    r.pickup_address, (r.stop_addresses ?? []).join(' | '), r.dropoff_address, r.round_trip ? 'Oui' : 'Non',
+    VEHICLE_LABELS[r.vehicle_category], r.status,
+    PAYMENT_LABELS[r.payment_method] ?? '', r.price ?? '', r.created_by, (r.tags ?? []).join(' | '),
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
