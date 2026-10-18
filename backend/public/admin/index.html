@@ -23,7 +23,7 @@
   h1 .accent { color: var(--accent); }
   h2 { font-size: 18px; margin: 0 0 16px; }
   h3 { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  input, select { display: block; width: 100%; padding: 10px; margin: 6px 0; border: 1px solid var(--input-border); background: var(--input); color: var(--text); border-radius: 8px; }
+  input, select, textarea { display: block; width: 100%; padding: 10px; margin: 6px 0; border: 1px solid var(--input-border); background: var(--input); color: var(--text); border-radius: 8px; font-family: inherit; }
   input::placeholder { color: var(--text-muted); }
   button { background: var(--accent); color: var(--accent-text); border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; margin: 4px 4px 4px 0; font-weight: 700; }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -243,6 +243,22 @@
         <h2>Carte interactive</h2>
         <p style="color:var(--text-muted)">Affiche les chauffeurs actuellement en course (la position n'est suivie que pendant une course).</p>
         <div id="map"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ride-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center">
+    <div style="background:var(--card);border:1px solid var(--card-border);border-radius:12px;width:600px;max-width:94vw;max-height:88vh;overflow-y:auto;padding:20px">
+      <div style="display:flex;gap:16px;border-bottom:1px solid var(--card-border);margin-bottom:16px">
+        <a class="ride-tab-link active" data-tab="course" style="padding-bottom:10px;cursor:pointer;color:var(--accent);font-weight:700;border-bottom:2px solid var(--accent)">Course</a>
+        <a class="ride-tab-link" data-tab="client" style="padding-bottom:10px;cursor:pointer;color:var(--text-muted);font-weight:700">Client</a>
+        <a class="ride-tab-link" data-tab="paiement" style="padding-bottom:10px;cursor:pointer;color:var(--text-muted);font-weight:700">Paiement</a>
+      </div>
+      <div id="ride-tab-course" class="ride-tab"></div>
+      <div id="ride-tab-client" class="ride-tab" style="display:none"></div>
+      <div id="ride-tab-paiement" class="ride-tab" style="display:none"></div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button class="secondary" id="ride-modal-close">Fermer</button>
       </div>
     </div>
   </div>
@@ -838,11 +854,15 @@ async function renderPending() {
             ${options}
           </select>
           <button class="secondary" data-dispatch-one="${ride.id}">Dispatcher a ce chauffeur</button>
+          <button class="secondary" data-view-ride="${ride.id}">Voir</button>
         </div>
       </div>
     `;
   }).join('');
 
+  container.querySelectorAll('[data-view-ride]').forEach((btn) => {
+    btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
+  });
   container.querySelectorAll('[data-dispatch-all]').forEach((btn) => {
     btn.addEventListener('click', () => dispatchRide(btn.dataset.dispatchAll, null));
   });
@@ -898,58 +918,13 @@ async function renderActive() {
       <div><strong>Etape</strong> ${RIDE_STEP_LABELS[ride.ride_step] ?? ride.ride_step}</div>
       <div><strong>Tags</strong> ${(ride.tags ?? []).map(escapeHtml).join(', ') || '-'}</div>
       <div style="margin-top:10px">
-        <button class="secondary" data-redispatch="${ride.id}">Dispatcher a nouveau</button>
-        <button class="secondary" data-surcharge="${ride.id}">Ajouter une majoration</button>
-        <button class="secondary" data-edit-tags="${ride.id}">Modifier les tags</button>
-        ${ride.status === 'accepted' && ride.ride_step !== 'completed' ? `<button class="secondary" data-force-complete="${ride.id}">Forcer : Terminee</button>` : ''}
+        <button class="secondary" data-view-ride="${ride.id}">Voir</button>
       </div>
     </div>
   `).join('');
 
-  container.querySelectorAll('[data-edit-tags]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const ride = rides.find((r) => r.id === btn.dataset.editTags);
-      const input = prompt('Tags (separes par des virgules) :', (ride.tags ?? []).join(', '));
-      if (input === null) return;
-      const tags = input.split(',').map((t) => t.trim()).filter(Boolean);
-      await supabase.from('rides').update({ tags }).eq('id', ride.id);
-      refresh();
-    });
-  });
-
-  container.querySelectorAll('[data-redispatch]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Renvoyer cette course dans le dispatch (le chauffeur actuel la perd) ?')) return;
-      await supabase.from('rides').update({ status: 'dispatched', driver_id: null, dispatched_to: null }).eq('id', btn.dataset.redispatch);
-      refresh();
-    });
-  });
-  container.querySelectorAll('[data-surcharge]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const amount = parseFloat(prompt('Montant de la majoration (€) :'));
-      if (!amount) return;
-      const reason = prompt('Raison de la majoration :') ?? '';
-      const ride = rides.find((r) => r.id === btn.dataset.surcharge);
-      const { error } = await supabase
-        .from('rides')
-        .update({ price: (ride.price ?? 0) + amount, surcharge_amount: (ride.surcharge_amount ?? 0) + amount, surcharge_reason: reason })
-        .eq('id', ride.id);
-      if (error) { alert(error.message); return; }
-      const { data: { session } } = await supabase.auth.getSession();
-      fetch('/notify/surcharge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ rideId: ride.id, amount, reason }),
-      }).catch(() => {});
-      refresh();
-    });
-  });
-  container.querySelectorAll('[data-force-complete]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm("Forcer le statut 'Terminee' pour cette course ?")) return;
-      await supabase.from('rides').update({ status: 'completed', ride_step: 'completed' }).eq('id', btn.dataset.forceComplete);
-      refresh();
-    });
+  container.querySelectorAll('[data-view-ride]').forEach((btn) => {
+    btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
   });
 }
 
@@ -1199,7 +1174,7 @@ async function renderHistory() {
   }
   container.innerHTML = `
     <table>
-      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th><th>Tags</th></tr></thead>
+      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th><th>Tags</th><th></th></tr></thead>
       <tbody>
         ${rides.map((r) => `
           <tr>
@@ -1212,11 +1187,15 @@ async function renderHistory() {
             <td>${r.price != null ? r.price + ' €' : '-'}</td>
             <td>${r.created_by}</td>
             <td>${(r.tags ?? []).map(escapeHtml).join(', ') || '-'}</td>
+            <td><button class="secondary" data-view-ride="${r.id}">Voir</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+  container.querySelectorAll('[data-view-ride]').forEach((btn) => {
+    btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
+  });
 }
 
 document.getElementById('filter-apply').addEventListener('click', renderHistory);
@@ -1237,6 +1216,258 @@ document.getElementById('filter-export').addEventListener('click', async () => {
   link.download = `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
 });
+
+// ---- Fiche detaillee d'une reservation (onglets Course / Client / Paiement) ----
+
+let currentRide = null;
+let currentRideTab = 'course';
+
+function toLocalDatetimeInput(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+async function openRideModal(rideId) {
+  const { data: ride } = await supabase.from('rides').select('*').eq('id', rideId).single();
+  if (!ride) { alert('Reservation introuvable.'); return; }
+  currentRide = ride;
+  document.getElementById('ride-modal-backdrop').style.display = 'flex';
+  selectRideTab('course');
+  await renderRideCourseTab();
+  await renderRideClientTab();
+  await renderRidePaiementTab();
+}
+
+function selectRideTab(tab) {
+  currentRideTab = tab;
+  document.querySelectorAll('.ride-tab-link').forEach((l) => {
+    const active = l.dataset.tab === tab;
+    l.style.color = active ? 'var(--accent)' : 'var(--text-muted)';
+    l.style.borderBottom = active ? '2px solid var(--accent)' : 'none';
+  });
+  document.querySelectorAll('.ride-tab').forEach((t) => { t.style.display = t.id === `ride-tab-${tab}` ? 'block' : 'none'; });
+}
+
+document.querySelectorAll('.ride-tab-link').forEach((link) => {
+  link.addEventListener('click', () => selectRideTab(link.dataset.tab));
+});
+document.getElementById('ride-modal-close').addEventListener('click', () => {
+  document.getElementById('ride-modal-backdrop').style.display = 'none';
+  currentRide = null;
+});
+
+async function refreshRideModal() {
+  if (!currentRide) return;
+  const { data: ride } = await supabase.from('rides').select('*').eq('id', currentRide.id).single();
+  currentRide = ride;
+  await renderRideCourseTab();
+  await renderRideClientTab();
+  await renderRidePaiementTab();
+}
+
+async function renderRideCourseTab() {
+  const ride = currentRide;
+  let driverLabel = 'Non assigne';
+  if (ride.driver_id) {
+    const { data: driver } = await supabase.from('profiles').select('email').eq('id', ride.driver_id).single();
+    driverLabel = driver?.email ?? 'Chauffeur inconnu';
+  }
+  const steps = ['not_started', 'en_route', 'on_site', 'completed'];
+  const el = document.getElementById('ride-tab-course');
+  el.innerHTML = `
+    <div class="price-row"><strong>Statut</strong>
+      <select id="rm-status">
+        ${['pending', 'dispatched', 'accepted', 'completed', 'cancelled'].map((s) => `<option value="${s}" ${ride.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+      <button class="secondary" id="rm-save-status">Enregistrer</button>
+    </div>
+    <div class="price-row"><strong>Chauffeur</strong> ${escapeHtml(driverLabel)}
+      <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
+    </div>
+    <div style="margin-top:10px"><strong>Adresses</strong></div>
+    <textarea id="rm-pickup" placeholder="Depart" style="min-height:36px">${escapeHtml(ride.pickup_address ?? '')}</textarea>
+    <textarea id="rm-stops" placeholder="Points d'arret (un par ligne)" style="min-height:36px">${(ride.stop_addresses ?? []).join('\n')}</textarea>
+    <textarea id="rm-dropoff" placeholder="Destination" style="min-height:36px">${escapeHtml(ride.dropoff_address ?? '')}</textarea>
+    <label><input type="checkbox" id="rm-round-trip" ${ride.round_trip ? 'checked' : ''} style="width:auto" /> Aller-retour</label>
+    <button class="secondary" id="rm-save-addresses">Enregistrer les adresses</button>
+
+    <div style="margin-top:10px"><strong>Date et heure</strong></div>
+    <input type="datetime-local" id="rm-scheduled" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" style="width:220px" />
+    <button class="secondary" id="rm-save-scheduled">Enregistrer</button>
+
+    <div style="margin-top:10px"><strong>Options</strong></div>
+    <div class="price-row">
+      <input type="number" id="rm-passengers" value="${ride.passenger_count ?? 1}" style="width:80px" /><label>passagers</label>
+      <input type="number" id="rm-child-seats" value="${ride.child_seats ?? 0}" style="width:80px" /><label>sieges auto</label>
+      <input type="number" id="rm-booster-seats" value="${ride.booster_seats ?? 0}" style="width:80px" /><label>rehausseurs</label>
+      <button class="secondary" id="rm-save-options">Enregistrer</button>
+    </div>
+
+    <div style="margin-top:10px"><strong>Note du client</strong></div>
+    <textarea id="rm-client-note" style="min-height:50px">${escapeHtml(ride.client_note ?? '')}</textarea>
+    <div style="margin-top:6px"><strong>Note pour le chauffeur</strong></div>
+    <textarea id="rm-driver-note" style="min-height:50px">${escapeHtml(ride.driver_note ?? '')}</textarea>
+    <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
+
+    <div style="margin-top:10px"><strong>Etape de la course</strong></div>
+    <div class="price-row">
+      ${steps.map((s) => `<button class="secondary" data-rm-step="${s}" style="${ride.ride_step === s ? 'border-color:var(--accent);color:var(--accent)' : ''}">${RIDE_STEP_LABELS[s]}</button>`).join('')}
+    </div>
+
+    <div style="margin-top:10px"><strong>Tags</strong></div>
+    <input id="rm-tags" value="${escapeHtml((ride.tags ?? []).join(', '))}" placeholder="separes par des virgules" />
+    <button class="secondary" id="rm-save-tags">Enregistrer les tags</button>
+  `;
+
+  document.getElementById('rm-save-status').addEventListener('click', async () => {
+    await supabase.from('rides').update({ status: document.getElementById('rm-status').value }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-redispatch').addEventListener('click', async () => {
+    if (!confirm('Renvoyer cette course dans le dispatch (le chauffeur actuel la perd) ?')) return;
+    await supabase.from('rides').update({ status: 'dispatched', driver_id: null, dispatched_to: null }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-save-addresses').addEventListener('click', async () => {
+    const pickup_address = document.getElementById('rm-pickup').value.trim();
+    const dropoff_address = document.getElementById('rm-dropoff').value.trim();
+    const stop_addresses = document.getElementById('rm-stops').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const round_trip = document.getElementById('rm-round-trip').checked;
+    await supabase.from('rides').update({ pickup_address, dropoff_address, stop_addresses, round_trip }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-save-scheduled').addEventListener('click', async () => {
+    const val = document.getElementById('rm-scheduled').value;
+    await supabase.from('rides').update({ scheduled_at: val ? new Date(val).toISOString() : null }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  document.getElementById('rm-save-options').addEventListener('click', async () => {
+    const passenger_count = parseInt(document.getElementById('rm-passengers').value, 10) || 1;
+    const child_seats = parseInt(document.getElementById('rm-child-seats').value, 10) || 0;
+    const booster_seats = parseInt(document.getElementById('rm-booster-seats').value, 10) || 0;
+    await supabase.from('rides').update({ passenger_count, child_seats, booster_seats }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  document.getElementById('rm-save-notes').addEventListener('click', async () => {
+    const client_note = document.getElementById('rm-client-note').value.trim() || null;
+    const driver_note = document.getElementById('rm-driver-note').value.trim() || null;
+    await supabase.from('rides').update({ client_note, driver_note }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  el.querySelectorAll('[data-rm-step]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ride_step = btn.dataset.rmStep;
+      const patch = { ride_step };
+      if (ride_step === 'completed') patch.status = 'completed';
+      await supabase.from('rides').update(patch).eq('id', ride.id);
+      await refreshRideModal();
+      refresh();
+    });
+  });
+  document.getElementById('rm-save-tags').addEventListener('click', async () => {
+    const tags = document.getElementById('rm-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
+    await supabase.from('rides').update({ tags }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+}
+
+async function renderRideClientTab() {
+  const ride = currentRide;
+  const el = document.getElementById('ride-tab-client');
+  let clientInfo;
+  if (ride.client_id) {
+    const { data: client } = await supabase.from('profiles').select('email').eq('id', ride.client_id).single();
+    clientInfo = `<div><strong>Compte client</strong> ${escapeHtml(client?.email ?? 'inconnu')}</div>`;
+  } else {
+    clientInfo = `
+      <div><strong>Nom</strong></div>
+      <input id="rm-client-name" value="${escapeHtml(ride.client_name ?? '')}" />
+      <div style="margin-top:6px"><strong>Telephone</strong></div>
+      <input id="rm-client-phone" value="${escapeHtml(ride.client_phone ?? '')}" />
+      <button class="secondary" id="rm-save-client-contact">Enregistrer</button>
+    `;
+  }
+  const { data: clients } = await supabase.from('profiles').select('id, email').eq('role', 'client').order('email', { ascending: true });
+  el.innerHTML = `
+    ${clientInfo}
+    <div style="margin-top:14px"><strong>Changer de client</strong></div>
+    <select id="rm-change-client">
+      <option value="">Reservation telephonique (nom/telephone, pas de compte)</option>
+      ${(clients ?? []).map((c) => `<option value="${c.id}" ${ride.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.email)}</option>`).join('')}
+    </select>
+    <button class="secondary" id="rm-save-client">Assigner</button>
+  `;
+  const contactBtn = document.getElementById('rm-save-client-contact');
+  if (contactBtn) {
+    contactBtn.addEventListener('click', async () => {
+      const client_name = document.getElementById('rm-client-name').value.trim() || null;
+      const client_phone = document.getElementById('rm-client-phone').value.trim() || null;
+      await supabase.from('rides').update({ client_name, client_phone }).eq('id', ride.id);
+      await refreshRideModal();
+      refresh();
+    });
+  }
+  document.getElementById('rm-save-client').addEventListener('click', async () => {
+    const client_id = document.getElementById('rm-change-client').value || null;
+    await supabase.from('rides').update({ client_id }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+}
+
+async function renderRidePaiementTab() {
+  const ride = currentRide;
+  const el = document.getElementById('ride-tab-paiement');
+  el.innerHTML = `
+    <div><strong>Moyen de paiement</strong></div>
+    <select id="rm-payment">
+      <option value="carte_a_bord" ${ride.payment_method === 'carte_a_bord' ? 'selected' : ''}>CB a bord</option>
+      <option value="especes" ${ride.payment_method === 'especes' ? 'selected' : ''}>Especes</option>
+      <option value="compte" ${ride.payment_method === 'compte' ? 'selected' : ''}>En compte</option>
+    </select>
+    <div style="margin-top:10px"><strong>Tarif</strong></div>
+    <input type="number" step="0.01" id="rm-price" value="${ride.price ?? ''}" placeholder="Prix a fixer" style="width:120px" />
+    <button class="secondary" id="rm-save-payment">Enregistrer</button>
+    ${ride.surcharge_amount ? `<p style="color:var(--text-muted)">Majorations deja appliquees : +${ride.surcharge_amount} € (${escapeHtml(ride.surcharge_reason ?? '')})</p>` : ''}
+    <div style="margin-top:14px"><strong>Ajouter une majoration</strong></div>
+    <div class="price-row">
+      <input type="number" step="0.01" id="rm-surcharge-amount" placeholder="Montant €" style="width:100px" />
+      <input id="rm-surcharge-reason" placeholder="Raison" style="width:200px" />
+      <button class="secondary" id="rm-apply-surcharge">Appliquer la majoration</button>
+    </div>
+  `;
+  document.getElementById('rm-save-payment').addEventListener('click', async () => {
+    const payment_method = document.getElementById('rm-payment').value;
+    const priceVal = document.getElementById('rm-price').value;
+    const price = priceVal === '' ? null : parseFloat(priceVal);
+    await supabase.from('rides').update({ payment_method, price }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-apply-surcharge').addEventListener('click', async () => {
+    const amount = parseFloat(document.getElementById('rm-surcharge-amount').value);
+    if (!amount) { alert('Indiquez un montant.'); return; }
+    const reason = document.getElementById('rm-surcharge-reason').value.trim();
+    const { error } = await supabase
+      .from('rides')
+      .update({ price: (ride.price ?? 0) + amount, surcharge_amount: (ride.surcharge_amount ?? 0) + amount, surcharge_reason: reason })
+      .eq('id', ride.id);
+    if (error) { alert(error.message); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    fetch('/notify/surcharge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ rideId: ride.id, amount, reason }),
+    }).catch(() => {});
+    await refreshRideModal();
+    refresh();
+  });
+}
 
 function escapeHtml(text) {
   const div = document.createElement('div');
