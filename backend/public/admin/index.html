@@ -1143,9 +1143,9 @@ function initZoneUI() {
     document.getElementById('zone-editor').innerHTML = '';
     loadZonesForCategory();
   });
-  document.getElementById('zone-add-mode').addEventListener('click', () => {
+  document.getElementById('zone-add-mode').addEventListener('click', (e) => {
     zoneAddArmed = true;
-    alert('Cliquez sur la carte pour placer la nouvelle zone.');
+    e.target.textContent = 'Cliquez sur la carte...';
   });
 
   // renderPricing() peut reconstruire #zone-map (innerHTML) a chaque appel :
@@ -1158,6 +1158,7 @@ function initZoneUI() {
   zoneMap.on('click', (e) => {
     if (!zoneAddArmed) return;
     zoneAddArmed = false;
+    document.getElementById('zone-add-mode').textContent = '+ Ajouter une zone';
     const id = 'new';
     const zone = { id, vehicle_category: zoneCategory, lat: e.latlng.lat, lng: e.latlng.lng, radius_km: 2, ...ZONE_DEFAULTS };
     zonesById[id] = zone;
