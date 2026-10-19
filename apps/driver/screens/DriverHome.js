@@ -173,6 +173,11 @@ export default function DriverHome({ session }) {
     Linking.openURL(url);
   }
 
+  function handleDownloadBonCommande() {
+    const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${activeRide.id}?token=${session.access_token}`;
+    Linking.openURL(url);
+  }
+
   if (vehicleCategory === undefined) {
     return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
   }
@@ -226,6 +231,9 @@ export default function DriverHome({ session }) {
         </View>
         <TouchableOpacity style={styles.button} onPress={handleNavigate}>
           <Text style={styles.buttonText}>Naviguer vers le depart</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.buttonSecondary} onPress={handleDownloadBonCommande}>
+          <Text style={styles.buttonSecondaryText}>Telecharger le bon de commande</Text>
         </TouchableOpacity>
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && (
           <TouchableOpacity style={styles.buttonSecondary} onPress={() => handleAdvanceStep('en_route')}>

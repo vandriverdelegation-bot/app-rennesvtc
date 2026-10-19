@@ -6,6 +6,7 @@ const { supabaseAdmin } = require('./supabaseAdmin');
 const { sendEmail, sendAdminEmail } = require('./email');
 const { sendPush } = require('./push');
 const { computeTrajetSimplePrice } = require('../../packages/shared/pricingEngine');
+const { buildBonCommandePdf } = require('./bonCommande');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -35,7 +36,7 @@ app.get('/', (req, res) => {
 });
 
 async function requireSupabaseUser(req, res, next) {
-  const token = req.get('authorization')?.replace('Bearer ', '');
+  const token = req.get('authorization')?.replace('Bearer ', '') || req.query.token;
   if (!token) return res.status(401).json({ error: 'Non authentifie' });
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return res.status(401).json({ error: 'Non authentifie' });
@@ -77,17 +78,50 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
   res.status(201).json({ id: data.user.id, email: data.user.email });
 });
 
-// Modifie la gamme/role/permissions d'un chauffeur existant.
+// Modifie la gamme/role/permissions/infos legales d'un chauffeur existant.
 app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
-  const { vehicle_category, driver_role, can_create_rides, can_edit_price } = req.body;
+  const { vehicle_category, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret } = req.body;
   const { error } = await supabaseAdmin
     .from('profiles')
-    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price })
+    .update({
+      vehicle_category, driver_role,
+      can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price,
+      full_name: full_name || null, vtc_card_number: vtc_card_number || null, siret: siret || null,
+    })
     .eq('id', req.params.id)
     .eq('role', 'chauffeur');
   if (error) return res.status(400).json({ error: error.message });
   res.json({ ok: true });
 });
+
+// Rassemble toutes les donnees necessaires au bon de commande (billet collectif)
+// d'une course : identite de l'entreprise, du chauffeur et du vehicule assigne.
+async function fetchBonCommandeData(rideId) {
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('client_id, client_name, client_phone, driver_id, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at')
+    .eq('id', rideId)
+    .single();
+  if (!ride) return null;
+
+  if (!ride.client_name && ride.client_id) {
+    const { data: client } = await supabaseAdmin.from('profiles').select('email, phone').eq('id', ride.client_id).single();
+    ride.client_name = client?.email ?? null;
+    ride.client_phone = client?.phone ?? null;
+  }
+
+  const [{ data: company }, { data: driver }, { data: vehicle }] = await Promise.all([
+    supabaseAdmin.from('app_settings').select('company_legal_name, company_siret, company_address').eq('id', true).single(),
+    ride.driver_id
+      ? supabaseAdmin.from('profiles').select('email, full_name, vtc_card_number, siret').eq('id', ride.driver_id).single()
+      : Promise.resolve({ data: null }),
+    ride.driver_id
+      ? supabaseAdmin.from('vehicles').select('display_name, plate').eq('driver_id', ride.driver_id).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  return { ride, company, driver, vehicle };
+}
 
 // Previent l'admin par email qu'une nouvelle demande de course attend un dispatch,
 // et confirme au client que sa demande a bien ete recue.
@@ -174,7 +208,31 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
       `Bonjour,\n\nUn chauffeur a accepte votre course.\n\n${driverInfo}\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
     );
   }
+
+  // Envoie le bon de commande (billet collectif) au chauffeur qui vient d'accepter.
+  const bonData = await fetchBonCommandeData(rideId);
+  if (bonData?.driver?.email) {
+    const pdf = await buildBonCommandePdf(bonData);
+    await sendEmail(
+      bonData.driver.email,
+      'Bon de commande - course acceptee',
+      'Bonjour,\n\nVeuillez trouver ci-joint le bon de commande de la course que vous venez d\'accepter.\n\nRennes VTC',
+      [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }]
+    );
+  }
   res.json({ ok: true });
+});
+
+// Telecharge le bon de commande d'une course (espace chauffeur).
+app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) => {
+  const bonData = await fetchBonCommandeData(req.params.rideId);
+  if (!bonData || bonData.ride.driver_id !== req.user.id) {
+    return res.status(404).json({ error: 'Course introuvable' });
+  }
+  const pdf = await buildBonCommandePdf(bonData);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="bon-commande.pdf"');
+  res.send(pdf);
 });
 
 // Previent le client d'une majoration de prix ajoutee par l'admin.

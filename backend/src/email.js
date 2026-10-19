@@ -3,7 +3,7 @@
 // echoueront silencieusement (log seulement) jusqu'a verification du domaine.
 const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
 
-async function sendEmail(to, subject, text) {
+async function sendEmail(to, subject, text, attachments) {
   if (!process.env.RESEND_API_KEY) {
     console.log('RESEND_API_KEY non configure, email non envoye:', subject);
     return;
@@ -20,6 +20,7 @@ async function sendEmail(to, subject, text) {
         to,
         subject,
         text,
+        ...(attachments ? { attachments } : {}),
       }),
     });
     if (!res.ok) {

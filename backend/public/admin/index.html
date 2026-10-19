@@ -172,6 +172,16 @@
           <textarea id="app-cgu" style="min-height:140px"></textarea>
         </div>
 
+        <div class="card">
+          <h3>Informations legales (bon de commande)</h3>
+          <p style="color:var(--text-muted);font-size:13px">Utilisees sur le billet collectif envoye au chauffeur a chaque course acceptee.</p>
+          <div class="price-row">
+            <input id="app-company-name" placeholder="Nom legal de la societe" style="flex:1" />
+            <input id="app-company-siret" placeholder="SIRET/SIREN" style="width:160px" />
+          </div>
+          <input id="app-company-address" placeholder="Adresse (ex: LA SAUVAGEAIS, GOVEN 35580 FRANCE)" />
+        </div>
+
         <button id="app-settings-save">Enregistrer</button>
         <p id="app-settings-status" style="color:var(--text-muted)"></p>
       </div>
@@ -837,7 +847,7 @@ async function renderStats() {
 async function renderChauffeurs() {
   const { data: chauffeurs } = await supabase
     .from('profiles')
-    .select('id, email, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price')
+    .select('id, email, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
@@ -849,7 +859,7 @@ async function renderChauffeurs() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Gamme</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th></th></tr></thead>
+      <thead><tr><th>Email</th><th>Gamme</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
       <tbody>
         ${chauffeurs.map((c) => `
           <tr data-chauffeur-id="${c.id}">
@@ -867,6 +877,11 @@ async function renderChauffeurs() {
             </td>
             <td>${c.push_token ? 'Activees' : 'Non activees'}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+            <td>
+              <input class="edit-full-name" placeholder="Nom complet" value="${escapeHtml(c.full_name ?? '')}" style="width:140px" />
+              <input class="edit-vtc-card" placeholder="N. carte VTC" value="${escapeHtml(c.vtc_card_number ?? '')}" style="width:120px" />
+              <input class="edit-siret" placeholder="SIRET/SIREN" value="${escapeHtml(c.siret ?? '')}" style="width:110px" />
+            </td>
             <td><button class="secondary save-chauffeur">Enregistrer</button></td>
           </tr>
         `).join('')}
@@ -881,11 +896,14 @@ async function renderChauffeurs() {
       const driver_role = row.querySelector('.edit-role').value;
       const can_create_rides = row.querySelector('.edit-can-create').checked;
       const can_edit_price = row.querySelector('.edit-can-price').checked;
+      const full_name = row.querySelector('.edit-full-name').value.trim();
+      const vtc_card_number = row.querySelector('.edit-vtc-card').value.trim();
+      const siret = row.querySelector('.edit-siret').value.trim();
       const { data: { session } } = await supabase.auth.getSession();
       await fetch(`/admin/chauffeurs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price }),
+        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret }),
       });
       btn.textContent = 'Enregistre !';
       setTimeout(() => { btn.textContent = 'Enregistrer'; }, 1500);
@@ -1002,6 +1020,9 @@ async function renderAppSettings() {
   document.getElementById('app-support-phone').value = data.support_phone ?? '';
   document.getElementById('app-support-visible').checked = !!data.support_phone_visible;
   document.getElementById('app-cgu').value = data.cgu_text ?? '';
+  document.getElementById('app-company-name').value = data.company_legal_name ?? '';
+  document.getElementById('app-company-siret').value = data.company_siret ?? '';
+  document.getElementById('app-company-address').value = data.company_address ?? '';
 }
 
 document.getElementById('app-settings-save').addEventListener('click', async () => {
@@ -1034,6 +1055,9 @@ document.getElementById('app-settings-save').addEventListener('click', async () 
     support_phone: document.getElementById('app-support-phone').value.trim() || null,
     support_phone_visible: document.getElementById('app-support-visible').checked,
     cgu_text: document.getElementById('app-cgu').value.trim() || null,
+    company_legal_name: document.getElementById('app-company-name').value.trim() || null,
+    company_siret: document.getElementById('app-company-siret').value.trim() || null,
+    company_address: document.getElementById('app-company-address').value.trim() || null,
     updated_at: new Date().toISOString(),
   };
   if (logo_url) payload.logo_url = logo_url;
