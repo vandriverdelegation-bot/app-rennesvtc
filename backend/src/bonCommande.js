@@ -52,7 +52,7 @@ function buildBonCommandePdf({ company, driver, vehicle, ride }) {
     line('Lieu prise en charge', ride.pickup_address);
     line('Destination', ride.dropoff_address);
     line('Type de prestation', SERVICE_LABELS[ride.service_type] ?? ride.service_type);
-    line('Tarif', ride.price != null ? `${ride.price} EUR` : 'A confirmer');
+    line('Tarif', ride.price != null ? `${Number(ride.price).toFixed(2)} EUR` : 'A confirmer');
     doc.moveDown(0.5);
 
     line('Nom du vehicule', vehicle?.display_name);
