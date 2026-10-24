@@ -223,6 +223,15 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Coordonnees du client d'une course acceptee, visibles uniquement par son chauffeur.
+app.get('/driver/ride-client/:rideId', requireSupabaseUser, async (req, res) => {
+  const bonData = await fetchBonCommandeData(req.params.rideId);
+  if (!bonData || bonData.ride.driver_id !== req.user.id) {
+    return res.status(404).json({ error: 'Course introuvable' });
+  }
+  res.json({ name: bonData.ride.client_name, phone: bonData.ride.client_phone });
+});
+
 // Telecharge le bon de commande d'une course (espace chauffeur).
 app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) => {
   const bonData = await fetchBonCommandeData(req.params.rideId);

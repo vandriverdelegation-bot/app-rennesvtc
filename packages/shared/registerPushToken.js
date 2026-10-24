@@ -1,12 +1,18 @@
-const Notifications = require('expo-notifications');
-const Device = require('expo-device');
-const Constants = require('expo-constants');
-
 // Enregistre le jeton de notification push de cet appareil pour cet utilisateur.
-// N'echoue jamais bruyamment : sans permission ou sans projet EAS configure,
-// l'app continue de fonctionner normalement, simplement sans notifications push.
+// N'echoue jamais bruyamment : sans permission, sans projet EAS configure ou dans
+// Expo Go (qui n'embarque pas les modules de notifications), l'app continue de
+// fonctionner normalement, simplement sans notifications push.
 async function registerPushToken(supabase, userId) {
   try {
+    const constantsModule = require('expo-constants');
+    const Constants = constantsModule.default ?? constantsModule;
+    // Expo Go n'embarque pas expo-notifications : meme dans un try/catch, Metro
+    // afficherait l'ecran d'erreur rouge au simple chargement du module.
+    if (Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo') return;
+
+    const Notifications = require('expo-notifications');
+    const Device = require('expo-device');
+
     if (!Device.isDevice) return;
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;

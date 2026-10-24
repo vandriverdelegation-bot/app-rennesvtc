@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -34,6 +34,7 @@ export default function DriverHome({ session }) {
   const [activeRide, setActiveRide] = useState(undefined);
   const [pendingRides, setPendingRides] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [clientInfo, setClientInfo] = useState(null);
   const locationSubscription = useRef(null);
 
   async function refresh() {
@@ -123,6 +124,18 @@ export default function DriverHome({ session }) {
       locationSubscription.current?.remove();
       locationSubscription.current = null;
     };
+  }, [activeRide?.id]);
+
+  // Coordonnees du client, recuperees via le backend une fois la course acceptee.
+  useEffect(() => {
+    setClientInfo(null);
+    if (!activeRide?.id) return;
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/ride-client/${activeRide.id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setClientInfo)
+      .catch(() => {});
   }, [activeRide?.id]);
 
   async function handleAccept(rideId) {
@@ -217,8 +230,21 @@ export default function DriverHome({ session }) {
 
   if (activeRide) {
     return (
-      <View style={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.container, { flex: undefined, flexGrow: 1 }]}>
         <Text style={styles.title}>Course en cours</Text>
+        {clientInfo ? (
+          <View style={styles.card}>
+            <Text style={styles.label}>Client</Text>
+            <Text style={styles.value}>{clientInfo.name ?? 'Non renseigne'}</Text>
+            <Text style={styles.label}>Telephone</Text>
+            <Text style={styles.value}>{clientInfo.phone ?? 'Non renseigne'}</Text>
+            {clientInfo.phone ? (
+              <TouchableOpacity style={styles.button} onPress={() => Linking.openURL(`tel:${clientInfo.phone}`)}>
+                <Text style={styles.buttonText}>Appeler le client</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.card}>
           <Text style={styles.label}>Depart</Text>
           <Text style={styles.value}>{activeRide.pickup_address}</Text>
@@ -250,7 +276,7 @@ export default function DriverHome({ session }) {
             <Text style={styles.buttonSecondaryText}>Terminer la course</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </ScrollView>
     );
   }
 
@@ -303,6 +329,7 @@ export default function DriverHome({ session }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
   title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, alignSelf: 'flex-start' },
   label: { fontWeight: '700', marginTop: 8, color: theme.colors.textMuted, fontSize: 12 },
