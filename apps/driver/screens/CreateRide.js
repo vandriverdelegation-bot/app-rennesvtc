@@ -5,6 +5,13 @@ import { supabase } from '../lib/supabase';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
 
+function assignLabel(assignTo, colleagues) {
+  if (assignTo === 'self') return 'Moi-meme (course acceptee)';
+  if (assignTo === 'all') return 'Tous les chauffeurs de ma gamme (dispatch)';
+  const c = colleagues.find((x) => x.id === assignTo);
+  return c ? `${c.name} - ${c.vehicle_category}` : 'Choisir un chauffeur';
+}
+
 function parseDateTime(dateStr, timeStr) {
   if (!dateStr && !timeStr) return null;
   const [day, month, year] = dateStr.split('/').map((n) => parseInt(n, 10));
@@ -38,6 +45,22 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [priceError, setPriceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [luggageCount, setLuggageCount] = useState('0');
+  const [assignTo, setAssignTo] = useState('self'); // 'self' | 'all' | id d'un collegue
+  const [colleagues, setColleagues] = useState([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Le tarif depend de la gamme du chauffeur qui prendra la course.
+  const rideCategory = colleagues.find((c) => c.id === assignTo)?.vehicle_category ?? vehicleCategory;
+
+  useEffect(() => {
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/colleagues`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setColleagues)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPrice(null);
@@ -46,8 +69,8 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
     if (!pickup || !dropoff) return;
     const when = parseDateTime(laterDate, laterTime) || new Date();
     Promise.all([
-      supabase.from('pricing_simple').select('*').eq('vehicle_category', vehicleCategory).single(),
-      supabase.from('pricing_zones').select('*').eq('vehicle_category', vehicleCategory).eq('active', true),
+      supabase.from('pricing_simple').select('*').eq('vehicle_category', rideCategory).single(),
+      supabase.from('pricing_zones').select('*').eq('vehicle_category', rideCategory).eq('active', true),
     ]).then(async ([{ data: pricing }, { data: zones }]) => {
       if (!pricing) return;
       try {
@@ -70,7 +93,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         setPriceError("Impossible de calculer le prix pour cet itineraire.");
       }
     });
-  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops]);
+  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops, rideCategory]);
 
   function parseScheduledAt() {
     if (!laterDate && !laterTime) return null;
@@ -119,34 +142,37 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
     }
 
     setSubmitting(true);
-    const { error } = await supabase.from('rides').insert({
-      driver_id: session.user.id,
-      client_id: null,
-      client_name: clientName,
-      client_phone: clientPhone,
-      pickup_address: pickup.address,
-      pickup_lat: pickup.lat,
-      pickup_lng: pickup.lng,
-      dropoff_address: dropoff.address,
-      dropoff_lat: dropoff.lat,
-      dropoff_lng: dropoff.lng,
-      vehicle_category: vehicleCategory,
-      payment_method: paymentMethod,
-      service_type: 'trajet_simple',
-      price,
-      created_by: 'chauffeur',
-      passenger_count: parseInt(passengerCount, 10) || 1,
-      child_seats: childSeats,
-      booster_seats: boosterSeats,
-      stop_addresses: stops.filter(Boolean).map((s) => s.address),
-      round_trip: roundTrip,
-      return_scheduled_at,
-      scheduled_at,
-      status: 'accepted',
-    });
+    let result;
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/rides`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          clientName,
+          clientPhone,
+          pickup,
+          dropoff,
+          stopAddresses: stops.filter(Boolean).map((s) => s.address),
+          roundTrip,
+          returnAt: return_scheduled_at,
+          scheduledAt: scheduled_at,
+          paymentMethod,
+          price,
+          passengerCount: parseInt(passengerCount, 10) || 1,
+          luggageCount: parseInt(luggageCount, 10) || 0,
+          childSeats,
+          boosterSeats,
+          assignTo,
+        }),
+      });
+      result = await res.json();
+      if (!res.ok) result = { error: result.error ?? 'Erreur du serveur' };
+    } catch (e) {
+      result = { error: 'Connexion au serveur impossible.' };
+    }
     setSubmitting(false);
-    if (error) {
-      setErrorMsg(error.message);
+    if (result.error) {
+      setErrorMsg(result.error);
       return;
     }
     onDone();
@@ -210,13 +236,21 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         <TextInput style={[styles.input, styles.rowInput]} value={laterTime} onChangeText={setLaterTime} placeholder="HH:MM" placeholderTextColor={theme.colors.textMuted} />
       </View>
 
-      <Text style={styles.label}>Passagers / sieges</Text>
+      <Text style={styles.label}>Passagers / bagages / sieges</Text>
       <View style={styles.row}>
         <TextInput
           style={[styles.input, styles.rowInput]}
           value={passengerCount}
           onChangeText={setPassengerCount}
           placeholder="Passagers"
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="numeric"
+        />
+        <TextInput
+          style={[styles.input, styles.rowInput]}
+          value={luggageCount}
+          onChangeText={setLuggageCount}
+          placeholder="Bagages"
           placeholderTextColor={theme.colors.textMuted}
           keyboardType="numeric"
         />
@@ -251,6 +285,28 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
         ))}
       </View>
 
+      <Text style={styles.label}>Attribuer a</Text>
+      <TouchableOpacity style={styles.dropdown} onPress={() => setPickerOpen((v) => !v)}>
+        <Text style={styles.dropdownText}>{assignLabel(assignTo, colleagues)}</Text>
+        <Text style={styles.dropdownArrow}>{pickerOpen ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {pickerOpen ? (
+        <View style={styles.dropdownList}>
+          {[{ id: 'self', label: 'Moi-meme (course acceptee)' }, { id: 'all', label: 'Tous les chauffeurs de ma gamme (dispatch)' }, ...colleagues.filter((c) => !c.isMe).map((c) => ({ id: c.id, label: `${c.name} - ${c.vehicle_category}${c.online ? ' (en ligne)' : ''}` }))].map((opt) => (
+            <TouchableOpacity
+              key={opt.id}
+              style={[styles.dropdownItem, assignTo === opt.id && styles.dropdownItemSelected]}
+              onPress={() => {
+                setAssignTo(opt.id);
+                setPickerOpen(false);
+              }}
+            >
+              <Text style={assignTo === opt.id ? styles.choiceTextSelected : styles.choiceText}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+
       <Text style={styles.label}>Prix</Text>
       {priceManual ? <Text style={styles.hint}>Tarification en mode Manuel pour cette gamme : saisissez le prix.</Text> : null}
       {priceError ? <Text style={styles.error}>{priceError}</Text> : null}
@@ -269,7 +325,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       )}
 
       <TouchableOpacity style={styles.button} onPress={handleCreate} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? 'Creation...' : 'Creer la reservation'}</Text>
+        <Text style={styles.buttonText}>{submitting ? 'Creation...' : assignTo === 'self' ? 'Creer la reservation' : 'Creer et dispatcher'}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onCancel}>
         <Text style={styles.link}>Annuler</Text>
@@ -304,6 +360,27 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: theme.radius,
+    padding: 12,
+  },
+  dropdownText: { color: theme.colors.text, flexShrink: 1 },
+  dropdownArrow: { color: theme.colors.textMuted, marginLeft: 8 },
+  dropdownList: {
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius,
+    overflow: 'hidden',
+  },
+  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.cardBorder },
+  dropdownItemSelected: { backgroundColor: theme.colors.accent },
   choiceSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   choiceText: { color: theme.colors.text },
   choiceTextSelected: { color: theme.colors.accentText, fontWeight: '700' },

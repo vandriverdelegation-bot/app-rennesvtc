@@ -102,7 +102,7 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.sessionContainer}>
         <View style={styles.header}>
-          <Text style={styles.headerLogo}>{renderAppName(appName)}</Text>
+          <Text style={styles.headerLogo}>{appName} Driver</Text>
           <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)}>
             <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Reglages'}</Text>
           </TouchableOpacity>

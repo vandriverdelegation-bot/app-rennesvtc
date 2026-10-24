@@ -993,9 +993,11 @@ document.getElementById('clients-export').addEventListener('click', () => {
 
 // ---- Apparence ----
 
+let appSettingsLoaded = false;
 async function renderAppSettings() {
   const { data } = await supabase.from('app_settings').select('*').eq('id', true).single();
   if (!data) return;
+  appSettingsLoaded = true;
   if (data.accent_color) {
     document.documentElement.style.setProperty('--accent', data.accent_color);
     document.documentElement.style.setProperty('--accent-text', data.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
@@ -1027,6 +1029,10 @@ async function renderAppSettings() {
 
 document.getElementById('app-settings-save').addEventListener('click', async () => {
   const statusEl = document.getElementById('app-settings-status');
+  if (!appSettingsLoaded) {
+    statusEl.textContent = 'Reglages pas encore charges : patientez une seconde et reessayez.';
+    return;
+  }
   statusEl.textContent = 'Enregistrement...';
 
   let logo_url;

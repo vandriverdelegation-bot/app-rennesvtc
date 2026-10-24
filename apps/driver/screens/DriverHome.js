@@ -306,6 +306,11 @@ export default function DriverHome({ session }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Courses disponibles</Text>
+      {permissions.can_create_rides ? (
+        <TouchableOpacity style={styles.button} onPress={() => setShowCreateRide(true)}>
+          <Text style={styles.buttonText}>+ Saisir une reservation</Text>
+        </TouchableOpacity>
+      ) : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       {pendingRides.length === 0 ? (
         <Text style={styles.mutedText}>Aucune course disponible pour votre gamme.</Text>
@@ -346,11 +351,6 @@ export default function DriverHome({ session }) {
           )}
         />
       )}
-      {permissions.can_create_rides ? (
-        <TouchableOpacity style={styles.buttonSecondary} onPress={() => setShowCreateRide(true)}>
-          <Text style={styles.buttonSecondaryText}>Creer une reservation</Text>
-        </TouchableOpacity>
-      ) : null}
       <TouchableOpacity onPress={() => setShowSettings(true)}>
         <Text style={styles.link}>Changer ma gamme de vehicule</Text>
       </TouchableOpacity>

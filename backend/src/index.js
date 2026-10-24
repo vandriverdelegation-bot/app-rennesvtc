@@ -223,6 +223,105 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Profil du chauffeur connecte, uniquement s'il a le droit de creer des reservations.
+async function requireRideCreator(req, res, next) {
+  await requireSupabaseUser(req, res, async () => {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('role, can_create_rides, vehicle_category')
+      .eq('id', req.user.id)
+      .single();
+    if (profile?.role !== 'chauffeur' || !profile.can_create_rides) {
+      return res.status(403).json({ error: "Vous n'avez pas l'autorisation de creer des reservations." });
+    }
+    req.driverProfile = profile;
+    next();
+  });
+}
+
+// Chauffeurs auxquels une reservation peut etre attribuee (liste deroulante de l'app).
+app.get('/driver/colleagues', requireRideCreator, async (req, res) => {
+  const { data } = await supabaseAdmin
+    .from('profiles')
+    .select('id, full_name, email, vehicle_category, online_status')
+    .eq('role', 'chauffeur')
+    .not('vehicle_category', 'is', null)
+    .order('full_name', { ascending: true });
+  res.json(
+    (data ?? []).map((d) => ({
+      id: d.id,
+      name: d.full_name || d.email,
+      vehicle_category: d.vehicle_category,
+      online: !!d.online_status,
+      isMe: d.id === req.user.id,
+    }))
+  );
+});
+
+// Cree une reservation saisie par un chauffeur : pour lui-meme, pour un collegue
+// precis, ou dispatchee a tous les chauffeurs de sa gamme.
+app.post('/driver/rides', requireRideCreator, async (req, res) => {
+  const b = req.body;
+  if (!b.clientName || !b.clientPhone || !b.pickup?.address || !b.dropoff?.address || b.price == null) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  if (!['carte_a_bord', 'especes'].includes(b.paymentMethod)) {
+    return res.status(400).json({ error: 'Mode de reglement invalide' });
+  }
+
+  let category = req.driverProfile.vehicle_category;
+  let assignment = { status: 'accepted', driver_id: req.user.id, dispatched_to: null };
+  if (b.assignTo && b.assignTo !== 'self') {
+    assignment = { status: 'dispatched', driver_id: null, dispatched_to: null };
+    if (b.assignTo !== 'all') {
+      const { data: target } = await supabaseAdmin
+        .from('profiles')
+        .select('id, vehicle_category')
+        .eq('id', b.assignTo)
+        .eq('role', 'chauffeur')
+        .single();
+      if (!target?.vehicle_category) return res.status(400).json({ error: 'Chauffeur introuvable' });
+      category = target.vehicle_category;
+      assignment.dispatched_to = target.id;
+    }
+  }
+
+  const { data: ride, error } = await supabaseAdmin
+    .from('rides')
+    .insert({
+      client_id: null,
+      client_name: b.clientName,
+      client_phone: b.clientPhone,
+      pickup_address: b.pickup.address, pickup_lat: b.pickup.lat, pickup_lng: b.pickup.lng,
+      dropoff_address: b.dropoff.address, dropoff_lat: b.dropoff.lat, dropoff_lng: b.dropoff.lng,
+      stop_addresses: b.stopAddresses ?? [],
+      round_trip: !!b.roundTrip,
+      return_scheduled_at: b.roundTrip ? b.returnAt || null : null,
+      scheduled_at: b.scheduledAt || null,
+      vehicle_category: category,
+      payment_method: b.paymentMethod,
+      service_type: 'trajet_simple',
+      price: b.price,
+      passenger_count: Math.max(1, parseInt(b.passengerCount, 10) || 1),
+      luggage_count: Math.max(0, parseInt(b.luggageCount, 10) || 0),
+      child_seats: Math.max(0, parseInt(b.childSeats, 10) || 0),
+      booster_seats: Math.max(0, parseInt(b.boosterSeats, 10) || 0),
+      created_by: 'chauffeur',
+      ...assignment,
+    })
+    .select()
+    .single();
+  if (error) return res.status(400).json({ error: error.message });
+
+  if (assignment.status === 'dispatched') {
+    let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
+    query = assignment.dispatched_to ? query.eq('id', assignment.dispatched_to) : query.eq('vehicle_category', category);
+    const { data: targets } = await query;
+    await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`);
+  }
+  res.status(201).json({ ok: true, id: ride.id, status: ride.status });
+});
+
 // Coordonnees du client d'une course acceptee, visibles uniquement par son chauffeur.
 app.get('/driver/ride-client/:rideId', requireSupabaseUser, async (req, res) => {
   const bonData = await fetchBonCommandeData(req.params.rideId);
