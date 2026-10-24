@@ -1,6 +1,6 @@
-// Tant qu'aucun domaine n'est verifie sur Resend, le sandbox ne peut envoyer
-// qu'a l'adresse du compte Resend (ADMIN_EMAIL) - les emails aux clients
-// echoueront silencieusement (log seulement) jusqu'a verification du domaine.
+// Domaine mail.rennesvtc.com verifie sur Resend (sous-domaine dedie, pour ne pas
+// toucher a la redirection de boite mail du domaine principal).
+const FROM = 'Rennes VTC <noreply@mail.rennesvtc.com>';
 const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
 
 async function sendEmail(to, subject, text, attachments) {
@@ -16,7 +16,7 @@ async function sendEmail(to, subject, text, attachments) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Rennes VTC <onboarding@resend.dev>',
+        from: FROM,
         to,
         subject,
         text,
