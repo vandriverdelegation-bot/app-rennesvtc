@@ -4,12 +4,15 @@
 // fonctionner normalement, simplement sans notifications push.
 async function registerPushToken(supabase, userId) {
   try {
+    // Expo Go n'embarque pas les modules natifs de notifications : on verifie leur
+    // presence avant de charger expo-notifications, dont le simple chargement
+    // declenche sinon une erreur (meme dans un try/catch).
+    const { requireOptionalNativeModule } = require('expo-modules-core');
+    const { Platform } = require('react-native');
+    if (Platform.OS === 'android' && !requireOptionalNativeModule('ExpoTopicSubscriptionModule')) return;
+
     const constantsModule = require('expo-constants');
     const Constants = constantsModule.default ?? constantsModule;
-    // Expo Go n'embarque pas expo-notifications : meme dans un try/catch, Metro
-    // afficherait l'ecran d'erreur rouge au simple chargement du module.
-    if (Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo') return;
-
     const Notifications = require('expo-notifications');
     const Device = require('expo-device');
 

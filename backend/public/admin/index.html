@@ -1950,6 +1950,11 @@ async function renderRidePaiementTab() {
     <div style="margin-top:10px"><strong>Tarif</strong></div>
     <input type="number" step="0.01" id="rm-price" value="${ride.price ?? ''}" placeholder="Prix a fixer" style="width:120px" />
     <button class="secondary" id="rm-save-payment">Enregistrer</button>
+    ${ride.payment_method === 'compte' ? `
+      <div style="margin-top:14px"><strong>Reglement du compte</strong></div>
+      <p style="color:var(--text-muted)">${ride.paid_at ? 'Payee le ' + new Date(ride.paid_at).toLocaleDateString('fr-FR') : 'En attente de paiement'}</p>
+      <button class="secondary" id="rm-toggle-paid">${ride.paid_at ? 'Annuler le paiement' : 'Marquer comme payee'}</button>
+    ` : ''}
     ${ride.surcharge_amount ? `<p style="color:var(--text-muted)">Majorations deja appliquees : +${ride.surcharge_amount} € (${escapeHtml(ride.surcharge_reason ?? '')})</p>` : ''}
     <div style="margin-top:14px"><strong>Ajouter une majoration</strong></div>
     <div class="price-row">
@@ -1958,6 +1963,10 @@ async function renderRidePaiementTab() {
       <button class="secondary" id="rm-apply-surcharge">Appliquer la majoration</button>
     </div>
   `;
+  document.getElementById('rm-toggle-paid')?.addEventListener('click', async () => {
+    await supabase.from('rides').update({ paid_at: ride.paid_at ? null : new Date().toISOString() }).eq('id', ride.id);
+    await refreshRideModal();
+  });
   document.getElementById('rm-save-payment').addEventListener('click', async () => {
     const payment_method = document.getElementById('rm-payment').value;
     const priceVal = document.getElementById('rm-price').value;

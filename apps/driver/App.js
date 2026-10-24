@@ -7,10 +7,17 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Platform,
+  StatusBar as RNStatusBar,
+  View,
 } from 'react-native';
 import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
+import DriverMenu from './screens/DriverMenu';
+
+// Sous Android la barre d'etat est translucide et SafeAreaView n'ajoute aucune marge.
+const STATUS_BAR_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) : 0;
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
 function renderAppName(appName) {
@@ -32,6 +39,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     fetchAppSettings(supabase).then((settings) => {
@@ -90,10 +98,13 @@ export default function App() {
   if (session) {
     return (
       <SafeAreaView style={styles.sessionContainer}>
-        <DriverHome session={session} />
-        <TouchableOpacity onPress={() => supabase.auth.signOut()}>
-          <Text style={styles.hint}>Se deconnecter</Text>
-        </TouchableOpacity>
+        <View style={styles.header}>
+          <Text style={styles.headerLogo}>{renderAppName(appName)}</Text>
+          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)}>
+            <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Reglages'}</Text>
+          </TouchableOpacity>
+        </View>
+        {showMenu ? <DriverMenu session={session} /> : <DriverHome session={session} />}
         <StatusBar style="light" />
       </SafeAreaView>
     );
@@ -139,13 +150,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+    paddingTop: 24 + STATUS_BAR_PADDING,
     gap: 12,
   },
   sessionContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
     alignItems: 'center',
+    paddingTop: STATUS_BAR_PADDING,
   },
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.cardBorder,
+  },
+  headerLogo: { fontSize: 18, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
+  menuButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    borderRadius: theme.radius,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  menuButtonText: { color: theme.colors.text, fontWeight: '700' },
   logo: { fontSize: 24, fontWeight: '800', color: theme.colors.text, letterSpacing: 1, marginBottom: 24 },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 4, color: theme.colors.text },
   input: {
