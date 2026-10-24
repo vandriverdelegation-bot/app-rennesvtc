@@ -19,6 +19,8 @@ const SERVICE_LABELS = {
   forfait: 'Forfait',
 };
 
+const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+
 function formatRideDateTime(scheduledAt) {
   if (!scheduledAt) return 'Des que possible';
   const d = new Date(scheduledAt);
@@ -40,7 +42,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: active } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price, ride_step')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, vehicle_category')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .maybeSingle();
@@ -246,6 +248,22 @@ export default function DriverHome({ session }) {
           </View>
         ) : null}
         <View style={styles.card}>
+          <Text style={styles.label}>Prestation demandee</Text>
+          <View style={styles.badgeRow}>
+            <View style={styles.badge}><Text style={styles.badgeText}>{activeRide.passenger_count ?? 1} passager(s)</Text></View>
+            <View style={styles.badge}><Text style={styles.badgeText}>{activeRide.luggage_count ?? 0} bagage(s)</Text></View>
+            {activeRide.vehicle_category ? (
+              <View style={styles.badge}><Text style={styles.badgeText}>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Text></View>
+            ) : null}
+            {activeRide.child_seats > 0 ? (
+              <View style={styles.badgeAlert}><Text style={styles.badgeAlertText}>👶 Siege auto x{activeRide.child_seats}</Text></View>
+            ) : null}
+            {activeRide.booster_seats > 0 ? (
+              <View style={styles.badgeAlert}><Text style={styles.badgeAlertText}>🧒 Rehausseur x{activeRide.booster_seats}</Text></View>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.card}>
           <Text style={styles.label}>Depart</Text>
           <Text style={styles.value}>{activeRide.pickup_address}</Text>
           <Text style={styles.label}>Destination</Text>
@@ -330,6 +348,11 @@ export default function DriverHome({ session }) {
 
 const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  badge: { borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  badgeText: { color: theme.colors.text, fontSize: 13 },
+  badgeAlert: { backgroundColor: theme.colors.accent, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  badgeAlertText: { color: theme.colors.accentText, fontSize: 13, fontWeight: '700' },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
   title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, alignSelf: 'flex-start' },
   label: { fontWeight: '700', marginTop: 8, color: theme.colors.textMuted, fontSize: 12 },

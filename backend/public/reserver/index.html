@@ -93,6 +93,15 @@
       </div>
     </div>
 
+    <div class="row">
+      <div><label>Passagers</label><input id="passengers" type="number" min="1" value="1" /></div>
+      <div><label>Bagages</label><input id="luggage" type="number" min="0" value="0" /></div>
+    </div>
+    <div class="row">
+      <div><label>Sieges auto</label><input id="child-seats" type="number" min="0" value="0" /></div>
+      <div><label>Rehausseurs</label><input id="booster-seats" type="number" min="0" value="0" /></div>
+    </div>
+
     <label>Mode de reglement</label>
     <select id="payment-method">
       <option value="carte_a_bord">CB a bord</option>
@@ -209,6 +218,16 @@ document.getElementById('round-trip').addEventListener('change', (e) => {
   document.getElementById('return-datetime-row').style.display = e.target.checked ? 'flex' : 'none';
 });
 
+function seatsPayload() {
+  return {
+    passengerCount: parseInt(document.getElementById('passengers').value, 10) || 1,
+    luggageCount: parseInt(document.getElementById('luggage').value, 10) || 0,
+    childSeats: parseInt(document.getElementById('child-seats').value, 10) || 0,
+    boosterSeats: parseInt(document.getElementById('booster-seats').value, 10) || 0,
+  };
+}
+['passengers', 'luggage', 'child-seats', 'booster-seats'].forEach((id) => document.getElementById(id).addEventListener('change', updatePrice));
+
 async function updatePrice() {
   const priceEl = document.getElementById('price-display');
   if (!vehicleCategory || !pickup || !dropoff) { priceEl.innerHTML = ''; price = null; return; }
@@ -218,7 +237,7 @@ async function updatePrice() {
   const when = date && time ? new Date(`${date}T${time}`).toISOString() : null;
   const res = await fetch('/public/estimate-price', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vehicle_category: vehicleCategory, pickup, dropoff, when }),
+    body: JSON.stringify({ vehicle_category: vehicleCategory, pickup, dropoff, when, ...seatsPayload() }),
   });
   const result = await res.json();
   if (result.error) { priceEl.innerHTML = `<p class="error">${result.error}</p>`; price = null; return; }
@@ -256,7 +275,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       clientName, clientPhone, clientEmail: clientEmail || null,
-      vehicleCategory, pickup, dropoff, roundTrip, paymentMethod, price,
+      vehicleCategory, pickup, dropoff, roundTrip, paymentMethod, price, ...seatsPayload(),
       scheduledAt: date && time ? new Date(`${date}T${time}`).toISOString() : null,
       returnAt: roundTrip && returnDate && returnTime ? new Date(`${returnDate}T${returnTime}`).toISOString() : null,
     }),

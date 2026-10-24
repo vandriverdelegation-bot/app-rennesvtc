@@ -183,15 +183,15 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
     .select('client_id, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
     .eq('id', rideId)
     .single();
-  if (!ride?.client_id) return res.json({ ok: true });
+  if (!ride) return res.json({ ok: true });
 
-  const { data: client } = await supabaseAdmin
-    .from('profiles')
-    .select('push_token, email')
-    .eq('id', ride.client_id)
-    .single();
+  // Les courses sans compte client (web, admin, telephone) n'ont personne a prevenir
+  // mais le chauffeur doit quand meme recevoir son bon de commande plus bas.
+  const { data: client } = ride.client_id
+    ? await supabaseAdmin.from('profiles').select('push_token, email').eq('id', ride.client_id).single()
+    : { data: null };
 
-  await sendPush([client?.push_token], 'Chauffeur trouve', 'Un chauffeur a accepte votre course.');
+  if (client) await sendPush([client.push_token], 'Chauffeur trouve', 'Un chauffeur a accepte votre course.');
 
   if (client?.email) {
     const { data: driver } = await supabaseAdmin
@@ -230,6 +230,24 @@ app.get('/driver/ride-client/:rideId', requireSupabaseUser, async (req, res) => 
     return res.status(404).json({ error: 'Course introuvable' });
   }
   res.json({ name: bonData.ride.client_name, phone: bonData.ride.client_phone });
+});
+
+// Coordonnees du chauffeur d'une course acceptee, visibles uniquement par son client.
+app.get('/client/ride-driver/:rideId', requireSupabaseUser, async (req, res) => {
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('client_id, driver_id')
+    .eq('id', req.params.rideId)
+    .single();
+  if (!ride?.driver_id || ride.client_id !== req.user.id) {
+    return res.status(404).json({ error: 'Course introuvable' });
+  }
+  const { data: driver } = await supabaseAdmin
+    .from('profiles')
+    .select('full_name, email, phone')
+    .eq('id', ride.driver_id)
+    .single();
+  res.json({ name: driver?.full_name || driver?.email || null, phone: driver?.phone ?? null });
 });
 
 // Telecharge le bon de commande d'une course (espace chauffeur).
@@ -330,7 +348,7 @@ app.post('/public/estimate-price', async (req, res) => {
 
 // Cree une reservation depuis le module web public (pas de compte requis).
 app.post('/public/book', async (req, res) => {
-  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price } = req.body;
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats } = req.body;
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
@@ -352,6 +370,10 @@ app.post('/public/book', async (req, res) => {
       dropoff_lng: dropoff.lng,
       round_trip: !!roundTrip,
       return_scheduled_at: roundTrip ? returnAt || null : null,
+      passenger_count: Math.max(1, parseInt(passengerCount, 10) || 1),
+      luggage_count: Math.max(0, parseInt(luggageCount, 10) || 0),
+      child_seats: Math.max(0, parseInt(childSeats, 10) || 0),
+      booster_seats: Math.max(0, parseInt(boosterSeats, 10) || 0),
       payment_method: paymentMethod,
       service_type: 'trajet_simple',
       price,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
@@ -30,6 +30,14 @@ const SERVICE_TYPES = [
   { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
   { value: 'forfait', label: 'Forfait', icon: '🎁' },
 ];
+
+// WhatsApp attend un numero international sans "+" ni espaces : 06... -> 336...
+function whatsappUrl(phone) {
+  let digits = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = `33${digits.slice(1)}`;
+  return `https://wa.me/${digits}`;
+}
 
 function SegmentedChoice({ options, value, onChange }) {
   return (
@@ -94,6 +102,8 @@ export default function ClientHome({ session }) {
   const [passengerCount, setPassengerCount] = useState('1');
   const [childSeats, setChildSeats] = useState(0);
   const [boosterSeats, setBoosterSeats] = useState(0);
+  const [luggageCount, setLuggageCount] = useState(0);
+  const [driverInfo, setDriverInfo] = useState(null);
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
@@ -136,6 +146,19 @@ export default function ClientHome({ session }) {
         setVehiclePhotos(photos);
       });
   }, []);
+
+  // Coordonnees du chauffeur, recuperees via le backend des que la course est acceptee.
+  const acceptedRideId = activeRide?.status === 'accepted' ? activeRide.id : null;
+  useEffect(() => {
+    setDriverInfo(null);
+    if (!acceptedRideId) return;
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/client/ride-driver/${acceptedRideId}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setDriverInfo)
+      .catch(() => {});
+  }, [acceptedRideId]);
 
   useEffect(() => {
     if (!vehicleCategory) return;
@@ -262,6 +285,7 @@ export default function ClientHome({ session }) {
         passenger_count: parseInt(passengerCount, 10) || 1,
         child_seats: childSeats,
         booster_seats: boosterSeats,
+        luggage_count: luggageCount,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
         return_scheduled_at: returnScheduledAt,
@@ -293,6 +317,7 @@ export default function ClientHome({ session }) {
     setPassengerCount('1');
     setChildSeats(0);
     setBoosterSeats(0);
+    setLuggageCount(0);
     fetchActiveRide();
   }
 
@@ -339,6 +364,27 @@ export default function ClientHome({ session }) {
             {' · '}
             {activeRide.price != null ? `${activeRide.price} €` : 'Prix fixe par le chauffeur'}
           </Text>
+          {driverInfo ? (
+            <View style={styles.driverBlock}>
+              <Text style={styles.sectionLabel}>Votre chauffeur</Text>
+              <Text style={styles.status}>{driverInfo.name ?? 'Chauffeur'}</Text>
+              {driverInfo.phone ? (
+                <>
+                  <Text style={styles.paymentLabel}>{driverInfo.phone}</Text>
+                  <View style={styles.contactRow}>
+                    <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL(`tel:${driverInfo.phone}`)}>
+                      <Text style={styles.contactBtnText}>Appeler</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL(whatsappUrl(driverInfo.phone))}>
+                      <Text style={styles.contactBtnText}>WhatsApp</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.paymentLabel}>Telephone non renseigne</Text>
+              )}
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -415,6 +461,18 @@ export default function ClientHome({ session }) {
                 value={passengerCount}
                 onChangeText={setPassengerCount}
               />
+            </View>
+            <View style={styles.inlineField}>
+              <Text style={styles.inlineLabel}>Bagages</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setLuggageCount(Math.max(0, luggageCount - 1))}>
+                  <Text style={styles.stepperText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{luggageCount}</Text>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setLuggageCount(luggageCount + 1)}>
+                  <Text style={styles.stepperText}>+</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.inlineField}>
               <Text style={styles.inlineLabel}>Sieges auto</Text>
@@ -505,6 +563,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '700', marginBottom: 4, color: theme.colors.text, alignSelf: 'flex-start' },
   status: { fontSize: 16, textAlign: 'center', color: theme.colors.text, fontWeight: '600' },
   paymentLabel: { fontSize: 13, color: theme.colors.textMuted, textAlign: 'center', marginTop: 4 },
+  driverBlock: { marginTop: 14, alignItems: 'center', gap: 4 },
+  sectionLabel: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' },
+  contactRow: { flexDirection: 'row', gap: 10, marginTop: 8, width: '100%' },
+  contactBtn: {
+    flex: 1,
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.radius,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  contactBtnText: { color: theme.colors.accentText, fontWeight: '700' },
   card: {
     width: '100%',
     backgroundColor: theme.colors.card,
