@@ -40,6 +40,10 @@ export default function DriverHome({ session }) {
   const [pendingRides, setPendingRides] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [clientInfo, setClientInfo] = useState(null);
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [colleagues, setColleagues] = useState([]);
+  const [releaseTarget, setReleaseTarget] = useState('all'); // 'all' ou id d'un collegue
+  const [releasing, setReleasing] = useState(false);
   const locationSubscription = useRef(null);
 
   async function refresh() {
@@ -152,6 +156,35 @@ export default function DriverHome({ session }) {
     });
     return () => sub.remove();
   }, [showCreateRide, showSettings]);
+
+  async function openRelease() {
+    setReleaseOpen(true);
+    setReleaseTarget('all');
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/colleagues`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) setColleagues((await res.json()).filter((c) => !c.isMe));
+    } catch (e) {}
+  }
+
+  async function handleRelease() {
+    setReleasing(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/rides/${activeRide.id}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ assignTo: releaseTarget }),
+      });
+      if (!res.ok) setErrorMsg((await res.json()).error ?? 'Erreur du serveur');
+    } catch (e) {
+      setErrorMsg('Connexion au serveur impossible.');
+    }
+    setReleasing(false);
+    setReleaseOpen(false);
+    refresh();
+  }
 
   async function handleAccept(rideId) {
     setErrorMsg('');
@@ -298,6 +331,21 @@ export default function DriverHome({ session }) {
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
         {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
         <Btn title="Telecharger le bon de commande" variant="secondary" onPress={handleDownloadBonCommande} />
+        {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+        {!releaseOpen ? (
+          <Btn title="Me desister / dispatcher la course" variant="secondary" onPress={openRelease} />
+        ) : (
+          <Card>
+            <SectionLabel>Remettre la course en dispatch</SectionLabel>
+            {[{ id: 'all', label: 'Tous les chauffeurs de ma gamme' }, ...colleagues.map((c) => ({ id: c.id, label: `${c.name} - ${VEHICLE_LABELS[c.vehicle_category] ?? c.vehicle_category}${c.online ? ' (en ligne)' : ''}` }))].map((opt) => (
+              <TouchableOpacity key={opt.id} style={[styles.releaseOption, releaseTarget === opt.id && styles.releaseOptionSelected]} onPress={() => setReleaseTarget(opt.id)}>
+                <Text style={releaseTarget === opt.id ? styles.releaseTextSelected : styles.releaseText}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <Btn title={releasing ? 'Envoi...' : 'Confirmer le dispatch'} onPress={handleRelease} disabled={releasing} />
+            <Btn title="Annuler" variant="secondary" onPress={() => setReleaseOpen(false)} />
+          </Card>
+        )}
       </ScrollView>
     );
   }
@@ -371,5 +419,9 @@ const styles = StyleSheet.create({
   mutedSmall: { color: theme.colors.textMuted, fontSize: 13 },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   error: { color: theme.colors.error },
+  releaseOption: { borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: 12, padding: 12 },
+  releaseOptionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  releaseText: { color: theme.colors.text },
+  releaseTextSelected: { color: theme.colors.accentText, fontWeight: '800' },
   link: { color: theme.colors.accent, textAlign: 'center', marginTop: 4, marginBottom: 12 },
 });

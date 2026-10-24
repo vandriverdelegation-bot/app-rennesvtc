@@ -239,8 +239,21 @@ async function requireRideCreator(req, res, next) {
   });
 }
 
-// Chauffeurs auxquels une reservation peut etre attribuee (liste deroulante de l'app).
-app.get('/driver/colleagues', requireRideCreator, async (req, res) => {
+async function requireDriver(req, res, next) {
+  await requireSupabaseUser(req, res, async () => {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('role, vehicle_category')
+      .eq('id', req.user.id)
+      .single();
+    if (profile?.role !== 'chauffeur') return res.status(403).json({ error: 'Reserve aux chauffeurs' });
+    req.driverProfile = profile;
+    next();
+  });
+}
+
+// Chauffeurs auxquels une course peut etre attribuee (liste deroulante de l'app).
+app.get('/driver/colleagues', requireDriver, async (req, res) => {
   const { data } = await supabaseAdmin
     .from('profiles')
     .select('id, full_name, email, vehicle_category, online_status')
@@ -320,6 +333,52 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
     await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`);
   }
   res.status(201).json({ ok: true, id: ride.id, status: ride.status });
+});
+
+// Un chauffeur se desiste d'une course acceptee : elle repart en dispatch, soit
+// vers tous les chauffeurs de sa gamme, soit vers un collegue precis.
+app.post('/driver/rides/:rideId/release', requireDriver, async (req, res) => {
+  const { assignTo } = req.body;
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('id, driver_id, status, pickup_address, dropoff_address, vehicle_category')
+    .eq('id', req.params.rideId)
+    .single();
+  if (!ride || ride.driver_id !== req.user.id || ride.status !== 'accepted') {
+    return res.status(404).json({ error: 'Course introuvable ou deja terminee' });
+  }
+
+  let category = ride.vehicle_category;
+  let dispatchedTo = null;
+  if (assignTo && assignTo !== 'all') {
+    const { data: target } = await supabaseAdmin
+      .from('profiles')
+      .select('id, vehicle_category')
+      .eq('id', assignTo)
+      .eq('role', 'chauffeur')
+      .single();
+    if (!target?.vehicle_category || target.id === req.user.id) {
+      return res.status(400).json({ error: 'Chauffeur invalide' });
+    }
+    category = target.vehicle_category;
+    dispatchedTo = target.id;
+  }
+
+  const { error } = await supabaseAdmin
+    .from('rides')
+    .update({
+      status: 'dispatched', driver_id: null, dispatched_to: dispatchedTo,
+      vehicle_category: category, ride_step: 'not_started', driver_lat: null, driver_lng: null,
+    })
+    .eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+
+  let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
+  query = dispatchedTo ? query.eq('id', dispatchedTo) : query.eq('vehicle_category', category);
+  const { data: targets } = await query;
+  await sendPush((targets ?? []).map((t) => t.push_token), 'Course remise en dispatch', `${ride.pickup_address} -> ${ride.dropoff_address}`);
+  await sendAdminEmail('Course remise en dispatch par un chauffeur', `${ride.pickup_address} -> ${ride.dropoff_address}\nLe chauffeur s'est desiste${dispatchedTo ? ' en faveur d\'un collegue' : ' : course dispatchee a tous les chauffeurs de la gamme'}.`);
+  res.json({ ok: true });
 });
 
 // Coordonnees du client d'une course acceptee, visibles uniquement par son chauffeur.
