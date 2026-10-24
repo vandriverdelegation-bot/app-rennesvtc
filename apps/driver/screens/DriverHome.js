@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler } from 'react-native';
 import * as Location from 'expo-location';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
+import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
+
+const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', completed: 'Terminee' };
 
 const PAYMENT_LABELS = {
   carte_a_bord: 'CB a bord',
@@ -120,234 +123,107 @@ export default function DriverHome({ session }) {
     }
 
     if (activeRide) {
-      startTracking();
-    }
-    return () => {
-      locationSubscription.current?.remove();
-      locationSubscription.current = null;
-    };
-  }, [activeRide?.id]);
-
-  // Coordonnees du client, recuperees via le backend une fois la course acceptee.
-  useEffect(() => {
-    setClientInfo(null);
-    if (!activeRide?.id) return;
-    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/ride-client/${activeRide.id}`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setClientInfo)
-      .catch(() => {});
-  }, [activeRide?.id]);
-
-  async function handleAccept(rideId) {
-    setErrorMsg('');
-    const { data, error } = await supabase
-      .from('rides')
-      .update({ driver_id: session.user.id, status: 'accepted' })
-      .eq('id', rideId)
-      .eq('status', 'dispatched')
-      .select();
-
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
-    if (!data || data.length === 0) {
-      setErrorMsg('Cette course vient d’etre acceptee par un autre chauffeur.');
-    } else {
-      fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/accepted`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ rideId }),
-      }).catch(() => {});
-    }
-    refresh();
-  }
-
-  async function handleComplete() {
-    await supabase
-      .from('rides')
-      .update({ status: 'completed', ride_step: 'completed' })
-      .eq('id', activeRide.id)
-      .eq('driver_id', session.user.id);
-    refresh();
-  }
-
-  async function handleAdvanceStep(nextStep) {
-    await supabase
-      .from('rides')
-      .update({ ride_step: nextStep })
-      .eq('id', activeRide.id)
-      .eq('driver_id', session.user.id);
-    refresh();
-  }
-
-  function handleNavigate() {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup_lat},${activeRide.pickup_lng}`;
-    Linking.openURL(url);
-  }
-
-  function handleDownloadBonCommande() {
-    const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${activeRide.id}?token=${session.access_token}`;
-    Linking.openURL(url);
-  }
-
-  if (vehicleCategory === undefined) {
-    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
-  }
-
-  if (!vehicleCategory || showSettings) {
+    const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
     return (
-      <DriverSettings
-        session={session}
-        currentCategory={vehicleCategory}
-        onSaved={(category) => {
-          setVehicleCategory(category);
-          fetchProfile();
-          setShowSettings(false);
-        }}
-      />
-    );
-  }
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Course en cours</Text>
+          <Pill highlight>{STEP_LABELS[activeRide.ride_step ?? 'not_started']}</Pill>
+        </View>
 
-  if (showCreateRide) {
-    return (
-      <CreateRide
-        session={session}
-        vehicleCategory={vehicleCategory}
-        canEditPrice={permissions.can_edit_price}
-        onCancel={() => setShowCreateRide(false)}
-        onDone={() => {
-          setShowCreateRide(false);
-          refresh();
-        }}
-      />
-    );
-  }
+        <Card>
+          <View style={styles.rowBetween}>
+            <SectionLabel>Prix</SectionLabel>
+            <Text style={styles.bigPrice}>{activeRide.price != null ? `${Number(activeRide.price).toFixed(2)} €` : '-'}</Text>
+          </View>
+          <View style={styles.pillRow}>
+            <Pill>{SERVICE_LABELS[activeRide.service_type]}</Pill>
+            <Pill>{PAYMENT_LABELS[activeRide.payment_method]}</Pill>
+            {activeRide.vehicle_category ? <Pill>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Pill> : null}
+          </View>
+          <View style={styles.pillRow}>
+            <Pill>👥 {activeRide.passenger_count ?? 1} passager(s)</Pill>
+            <Pill>🧳 {activeRide.luggage_count ?? 0} bagage(s)</Pill>
+            {activeRide.child_seats > 0 ? <Pill highlight>👶 Siege auto x{activeRide.child_seats}</Pill> : null}
+            {activeRide.booster_seats > 0 ? <Pill highlight>🧒 Rehausseur x{activeRide.booster_seats}</Pill> : null}
+          </View>
+          {!seats ? <Text style={styles.mutedSmall}>Aucun siege enfant demande.</Text> : null}
+        </Card>
 
-  if (activeRide === undefined) {
-    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
-  }
+        <Card>
+          <RouteBlock pickup={activeRide.pickup_address} dropoff={activeRide.dropoff_address} />
+          <Btn title="Naviguer vers le depart" onPress={handleNavigate} />
+        </Card>
 
-  if (activeRide) {
-    return (
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.container, { flex: undefined, flexGrow: 1, paddingBottom: 32 }]}>
-        <Text style={styles.title}>Course en cours</Text>
         {clientInfo ? (
-          <View style={styles.card}>
-            <Text style={styles.label}>Client</Text>
-            <Text style={styles.value}>{clientInfo.name ?? 'Non renseigne'}</Text>
-            <Text style={styles.label}>Telephone</Text>
-            <Text style={styles.value}>{clientInfo.phone ?? 'Non renseigne'}</Text>
+          <Card>
+            <SectionLabel>Client</SectionLabel>
+            <Text style={styles.clientName}>{clientInfo.name ?? 'Non renseigne'}</Text>
+            <Text style={styles.mutedSmall}>{clientInfo.phone ?? 'Telephone non renseigne'}</Text>
             {clientInfo.phone ? (
-              <TouchableOpacity style={styles.button} onPress={() => Linking.openURL(`tel:${clientInfo.phone}`)}>
-                <Text style={styles.buttonText}>Appeler le client</Text>
-              </TouchableOpacity>
+              <View style={styles.contactRow}>
+                <View style={{ flex: 1 }}>
+                  <Btn title="Appeler" onPress={() => Linking.openURL(`tel:${clientInfo.phone}`)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Btn title="WhatsApp" variant="whatsapp" onPress={() => Linking.openURL(whatsappUrl(clientInfo.phone))} />
+                </View>
+              </View>
             ) : null}
-            {clientInfo.phone ? (
-              <TouchableOpacity style={styles.buttonSecondary} onPress={() => Linking.openURL(whatsappUrl(clientInfo.phone))}>
-                <Text style={styles.buttonSecondaryText}>WhatsApp</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          </Card>
         ) : null}
-        <View style={styles.card}>
-          <Text style={styles.label}>Prestation demandee</Text>
-          <View style={styles.badgeRow}>
-            <View style={styles.badge}><Text style={styles.badgeText}>{activeRide.passenger_count ?? 1} passager(s)</Text></View>
-            <View style={styles.badge}><Text style={styles.badgeText}>{activeRide.luggage_count ?? 0} bagage(s)</Text></View>
-            {activeRide.vehicle_category ? (
-              <View style={styles.badge}><Text style={styles.badgeText}>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Text></View>
-            ) : null}
-            {activeRide.child_seats > 0 ? (
-              <View style={styles.badgeAlert}><Text style={styles.badgeAlertText}>👶 Siege auto x{activeRide.child_seats}</Text></View>
-            ) : null}
-            {activeRide.booster_seats > 0 ? (
-              <View style={styles.badgeAlert}><Text style={styles.badgeAlertText}>🧒 Rehausseur x{activeRide.booster_seats}</Text></View>
-            ) : null}
-          </View>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.label}>Depart</Text>
-          <Text style={styles.value}>{activeRide.pickup_address}</Text>
-          <Text style={styles.label}>Destination</Text>
-          <Text style={styles.value}>{activeRide.dropoff_address}</Text>
-          <Text style={styles.label}>Service</Text>
-          <Text style={styles.priceValue}>{SERVICE_LABELS[activeRide.service_type]} · {activeRide.price} €</Text>
-          <Text style={styles.label}>Reglement</Text>
-          <Text style={styles.value}>{PAYMENT_LABELS[activeRide.payment_method]}</Text>
-        </View>
-        <TouchableOpacity style={styles.button} onPress={handleNavigate}>
-          <Text style={styles.buttonText}>Naviguer vers le depart</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.buttonSecondary} onPress={handleDownloadBonCommande}>
-          <Text style={styles.buttonSecondaryText}>Telecharger le bon de commande</Text>
-        </TouchableOpacity>
-        {(activeRide.ride_step ?? 'not_started') === 'not_started' && (
-          <TouchableOpacity style={styles.buttonSecondary} onPress={() => handleAdvanceStep('en_route')}>
-            <Text style={styles.buttonSecondaryText}>Je suis en route</Text>
-          </TouchableOpacity>
-        )}
-        {activeRide.ride_step === 'en_route' && (
-          <TouchableOpacity style={styles.buttonSecondary} onPress={() => handleAdvanceStep('on_site')}>
-            <Text style={styles.buttonSecondaryText}>Je suis arrive</Text>
-          </TouchableOpacity>
-        )}
-        {activeRide.ride_step === 'on_site' && (
-          <TouchableOpacity style={styles.buttonSecondary} onPress={handleComplete}>
-            <Text style={styles.buttonSecondaryText}>Terminer la course</Text>
-          </TouchableOpacity>
-        )}
+
+        {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
+        {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
+        {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
+        <Btn title="Telecharger le bon de commande" variant="secondary" onPress={handleDownloadBonCommande} />
       </ScrollView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Courses disponibles</Text>
-      {permissions.can_create_rides ? (
-        <TouchableOpacity style={styles.button} onPress={() => setShowCreateRide(true)}>
-          <Text style={styles.buttonText}>+ Saisir une reservation</Text>
-        </TouchableOpacity>
-      ) : null}
+    <View style={styles.listScreen}>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Courses disponibles</Text>
+        <Pill>{pendingRides.length}</Pill>
+      </View>
+      {permissions.can_create_rides ? <Btn title="+ Saisir une reservation" onPress={() => setShowCreateRide(true)} /> : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       {pendingRides.length === 0 ? (
-        <Text style={styles.mutedText}>Aucune course disponible pour votre gamme.</Text>
+        <Card>
+          <Text style={styles.clientName}>Aucune course pour le moment</Text>
+          <Text style={styles.mutedSmall}>Les nouvelles courses de votre gamme apparaissent ici automatiquement.</Text>
+        </Card>
       ) : (
         <FlatList
           style={styles.list}
+          contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
           data={pendingRides}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.label}>Date et heure</Text>
-              <View style={styles.dateRow}>
-                <Text style={[styles.value, styles.dateText]}>{formatRideDateTime(item.scheduled_at)}</Text>
-                <View style={styles.iconsRow}>
-                  <Text style={styles.iconStat}>👥 {item.passenger_count ?? 1}</Text>
-                  <Text style={styles.iconStat}>🧳 {item.luggage_count ?? 0}</Text>
-                  {item.child_seats > 0 || item.booster_seats > 0 ? <Text style={styles.iconSeat}>👶 Siege</Text> : null}
+            <Card>
+              <View style={styles.rowBetween}>
+                <View style={{ flex: 1 }}>
+                  <SectionLabel>Date et heure</SectionLabel>
+                  <Text style={styles.dateValue}>{formatRideDateTime(item.scheduled_at)}</Text>
                 </View>
+                <Text style={styles.bigPrice}>{item.price != null ? `${Number(item.price).toFixed(2)} €` : '-'}</Text>
               </View>
-              <Text style={styles.label}>Depart</Text>
-              <Text style={styles.value}>{item.pickup_address}</Text>
-              <Text style={styles.label}>Destination</Text>
-              <Text style={styles.value}>{item.dropoff_address}</Text>
+              <View style={styles.pillRow}>
+                <Pill>👥 {item.passenger_count ?? 1}</Pill>
+                <Pill>🧳 {item.luggage_count ?? 0}</Pill>
+                {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege</Pill> : null}
+                <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
+              </View>
+              <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
               <RideMiniMap
                 pickupLat={item.pickup_lat}
                 pickupLng={item.pickup_lng}
                 dropoffLat={item.dropoff_lat}
                 dropoffLng={item.dropoff_lng}
               />
-              <Text style={styles.label}>Service</Text>
-              <Text style={styles.priceValue}>{SERVICE_LABELS[item.service_type]} · {item.price} €</Text>
-              <Text style={styles.label}>Reglement</Text>
-              <Text style={styles.value}>{PAYMENT_LABELS[item.payment_method]}</Text>
-              <TouchableOpacity style={styles.button} onPress={() => handleAccept(item.id)}>
-                <Text style={styles.buttonText}>Accepter</Text>
-              </TouchableOpacity>
-            </View>
+              <Btn title="Accepter la course" onPress={() => handleAccept(item.id)} />
+            </Card>
           )}
         />
       )}
@@ -360,53 +236,19 @@ export default function DriverHome({ session }) {
 
 const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
-  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  dateText: { flexShrink: 1 },
-  iconsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconStat: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
-  iconSeat: { color: theme.colors.accentText, backgroundColor: theme.colors.accent, fontSize: 12, fontWeight: '700', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8, overflow: 'hidden' },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  badge: { borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
-  badgeText: { color: theme.colors.text, fontSize: 13 },
-  badgeAlert: { backgroundColor: theme.colors.accent, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
-  badgeAlertText: { color: theme.colors.accentText, fontSize: 13, fontWeight: '700' },
+  activeContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
-  title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, alignSelf: 'flex-start' },
-  label: { fontWeight: '700', marginTop: 8, color: theme.colors.textMuted, fontSize: 12 },
-  value: { color: theme.colors.text, fontSize: 15 },
-  priceValue: { color: theme.colors.accent, fontWeight: '700', fontSize: 15 },
-  mutedText: { color: theme.colors.textMuted },
   list: { width: '100%' },
-  card: {
-    width: '100%',
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius,
-    padding: 14,
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 8,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  buttonText: { color: theme.colors.accentText, fontWeight: '700' },
-  buttonSecondary: {
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.radius,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 8,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  buttonSecondaryText: { color: theme.colors.text, fontWeight: '700' },
-  link: { color: theme.colors.accent, marginTop: 12, marginBottom: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bigPrice: { color: theme.colors.accent, fontSize: 26, fontWeight: '800' },
+  dateValue: { color: theme.colors.text, fontSize: 17, fontWeight: '700', marginTop: 2 },
+  clientName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
+  mutedSmall: { color: theme.colors.textMuted, fontSize: 13 },
+  contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   error: { color: theme.colors.error },
+  link: { color: theme.colors.accent, textAlign: 'center', marginTop: 4, marginBottom: 12 },
 });
