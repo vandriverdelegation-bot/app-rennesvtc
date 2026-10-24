@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
@@ -51,7 +51,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       setPendingRides(pending ?? []);
@@ -232,7 +232,7 @@ export default function DriverHome({ session }) {
 
   if (activeRide) {
     return (
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.container, { flex: undefined, flexGrow: 1 }]}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.container, { flex: undefined, flexGrow: 1, paddingBottom: 32 }]}>
         <Text style={styles.title}>Course en cours</Text>
         {clientInfo ? (
           <View style={styles.card}>
@@ -243,6 +243,11 @@ export default function DriverHome({ session }) {
             {clientInfo.phone ? (
               <TouchableOpacity style={styles.button} onPress={() => Linking.openURL(`tel:${clientInfo.phone}`)}>
                 <Text style={styles.buttonText}>Appeler le client</Text>
+              </TouchableOpacity>
+            ) : null}
+            {clientInfo.phone ? (
+              <TouchableOpacity style={styles.buttonSecondary} onPress={() => Linking.openURL(whatsappUrl(clientInfo.phone))}>
+                <Text style={styles.buttonSecondaryText}>WhatsApp</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -312,7 +317,14 @@ export default function DriverHome({ session }) {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.label}>Date et heure</Text>
-              <Text style={styles.value}>{formatRideDateTime(item.scheduled_at)}</Text>
+              <View style={styles.dateRow}>
+                <Text style={[styles.value, styles.dateText]}>{formatRideDateTime(item.scheduled_at)}</Text>
+                <View style={styles.iconsRow}>
+                  <Text style={styles.iconStat}>👥 {item.passenger_count ?? 1}</Text>
+                  <Text style={styles.iconStat}>🧳 {item.luggage_count ?? 0}</Text>
+                  {item.child_seats > 0 || item.booster_seats > 0 ? <Text style={styles.iconSeat}>👶 Siege</Text> : null}
+                </View>
+              </View>
               <Text style={styles.label}>Depart</Text>
               <Text style={styles.value}>{item.pickup_address}</Text>
               <Text style={styles.label}>Destination</Text>
@@ -348,6 +360,11 @@ export default function DriverHome({ session }) {
 
 const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
+  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  dateText: { flexShrink: 1 },
+  iconsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconStat: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
+  iconSeat: { color: theme.colors.accentText, backgroundColor: theme.colors.accent, fontSize: 12, fontWeight: '700', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8, overflow: 'hidden' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   badge: { borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
   badgeText: { color: theme.colors.text, fontSize: 13 },

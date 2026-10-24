@@ -4,5 +4,6 @@ module.exports = {
   ...require('./registerPushToken'),
   ...require('./pricingEngine'),
   ...require('./appSettings'),
+  ...require('./phone'),
   ...require('./theme'),
 };

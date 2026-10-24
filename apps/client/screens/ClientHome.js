@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
-import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
 
@@ -30,14 +30,6 @@ const SERVICE_TYPES = [
   { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
   { value: 'forfait', label: 'Forfait', icon: '🎁' },
 ];
-
-// WhatsApp attend un numero international sans "+" ni espaces : 06... -> 336...
-function whatsappUrl(phone) {
-  let digits = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
-  if (digits.startsWith('00')) digits = digits.slice(2);
-  else if (digits.startsWith('0')) digits = `33${digits.slice(1)}`;
-  return `https://wa.me/${digits}`;
-}
 
 function SegmentedChoice({ options, value, onChange }) {
   return (

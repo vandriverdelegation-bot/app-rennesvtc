@@ -5,19 +5,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
-  Platform,
-  StatusBar as RNStatusBar,
   View,
 } from 'react-native';
 import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
-
-// Sous Android la barre d'etat est translucide et SafeAreaView n'ajoute aucune marge.
-const STATUS_BAR_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) : 0;
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
 function renderAppName(appName) {
@@ -32,6 +27,14 @@ function renderAppName(appName) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [appName, setAppName] = useState('RENNES VTC');
@@ -150,14 +153,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    paddingTop: 24 + STATUS_BAR_PADDING,
     gap: 12,
   },
   sessionContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
     alignItems: 'center',
-    paddingTop: STATUS_BAR_PADDING,
   },
   header: {
     width: '100%',
