@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { registerPushToken, theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
@@ -280,6 +280,16 @@ export default function DriverMenu({ session, onClose }) {
     loadProfile();
   }, []);
 
+  // Bouton Retour d'Android : sous-ecran -> menu, puis menu -> accueil.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (view !== 'menu') setView('menu');
+      else onClose?.();
+      return true;
+    });
+    return () => sub.remove();
+  }, [view]);
+
   async function handleLogout() {
     setLoggingOut(true);
     // Un chauffeur deconnecte ne doit plus apparaitre "en ligne" pour l'admin.
@@ -331,7 +341,7 @@ const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   content: { padding: 16, gap: 12 },
   settingsBack: { paddingHorizontal: 16, paddingTop: 8 },
-  title: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
+  title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
   muted: { color: theme.colors.textMuted },
   error: { color: theme.colors.error },
   back: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
@@ -341,18 +351,18 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius,
+    borderRadius: 18,
     padding: 16,
   },
   itemLabel: { color: theme.colors.text, fontSize: 15, fontWeight: '600' },
   itemHint: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
-  chevron: { color: theme.colors.textMuted, fontSize: 24, marginLeft: 8 },
+  chevron: { color: theme.colors.accent, fontSize: 26, marginLeft: 8 },
   card: {
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     gap: 2,
   },
   gap: { marginTop: 10 },

@@ -123,6 +123,127 @@ export default function DriverHome({ session }) {
     }
 
     if (activeRide) {
+      startTracking();
+    }
+    return () => {
+      locationSubscription.current?.remove();
+      locationSubscription.current = null;
+    };
+  }, [activeRide?.id]);
+
+  // Coordonnees du client, recuperees via le backend une fois la course acceptee.
+  useEffect(() => {
+    setClientInfo(null);
+    if (!activeRide?.id) return;
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/ride-client/${activeRide.id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setClientInfo)
+      .catch(() => {});
+  }, [activeRide?.id]);
+
+  // Bouton Retour d'Android : ferme l'ecran ouvert (saisie, reglages) au lieu de quitter l'app.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showCreateRide) { setShowCreateRide(false); return true; }
+      if (showSettings) { setShowSettings(false); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [showCreateRide, showSettings]);
+
+  async function handleAccept(rideId) {
+    setErrorMsg('');
+    const { data, error } = await supabase
+      .from('rides')
+      .update({ driver_id: session.user.id, status: 'accepted' })
+      .eq('id', rideId)
+      .eq('status', 'dispatched')
+      .select();
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setErrorMsg('Cette course vient d’etre acceptee par un autre chauffeur.');
+    } else {
+      fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/accepted`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ rideId }),
+      }).catch(() => {});
+    }
+    refresh();
+  }
+
+  async function handleComplete() {
+    await supabase
+      .from('rides')
+      .update({ status: 'completed', ride_step: 'completed' })
+      .eq('id', activeRide.id)
+      .eq('driver_id', session.user.id);
+    refresh();
+  }
+
+  async function handleAdvanceStep(nextStep) {
+    await supabase
+      .from('rides')
+      .update({ ride_step: nextStep })
+      .eq('id', activeRide.id)
+      .eq('driver_id', session.user.id);
+    refresh();
+  }
+
+  function handleNavigate() {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup_lat},${activeRide.pickup_lng}`;
+    Linking.openURL(url);
+  }
+
+  function handleDownloadBonCommande() {
+    const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${activeRide.id}?token=${session.access_token}`;
+    Linking.openURL(url);
+  }
+
+  if (vehicleCategory === undefined) {
+    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
+  }
+
+  if (!vehicleCategory || showSettings) {
+    return (
+      <DriverSettings
+        session={session}
+        currentCategory={vehicleCategory}
+        onSaved={(category) => {
+          setVehicleCategory(category);
+          fetchProfile();
+          setShowSettings(false);
+        }}
+      />
+    );
+  }
+
+  if (showCreateRide) {
+    return (
+      <CreateRide
+        session={session}
+        vehicleCategory={vehicleCategory}
+        canEditPrice={permissions.can_edit_price}
+        onCancel={() => setShowCreateRide(false)}
+        onDone={() => {
+          setShowCreateRide(false);
+          refresh();
+        }}
+      />
+    );
+  }
+
+  if (activeRide === undefined) {
+    return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
+  }
+
+  if (activeRide) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>

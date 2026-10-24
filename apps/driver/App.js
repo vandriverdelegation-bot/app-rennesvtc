@@ -107,7 +107,7 @@ function AppContent() {
             <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Reglages'}</Text>
           </TouchableOpacity>
         </View>
-        {showMenu ? <DriverMenu session={session} /> : <DriverHome session={session} />}
+        {showMenu ? <DriverMenu session={session} onClose={() => setShowMenu(false)} /> : <DriverHome session={session} />}
         <StatusBar style="light" />
       </SafeAreaView>
     );
