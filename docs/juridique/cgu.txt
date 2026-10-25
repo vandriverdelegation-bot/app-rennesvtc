@@ -1,0 +1,58 @@
+CONDITIONS GÉNÉRALES D'UTILISATION
+
+Dernière mise à jour : 25 octobre 2026
+
+Éditeur : RENNES VTC – Jimmy GARNIER LE BRETON, entrepreneur individuel, 21 La Sauvageais, 35580 Goven, France. SIREN 521 225 144 – SIRET 521 225 144 00042. Contact : rennesvtc@gmail.com – 07 68 42 52 62.
+
+1. OBJET
+
+Les présentes conditions générales d'utilisation (CGU) définissent les règles d'usage de l'application mobile RENNES VTC, du module de réservation en ligne et de la page de suivi de mission (ensemble, « le Service »), édités par RENNES VTC. Elles complètent les conditions générales de vente (CGV), qui régissent la prestation de transport elle-même. L'utilisation du Service implique l'acceptation des CGU et des CGV.
+
+2. ACCÈS AU SERVICE
+
+Le Service permet de demander une course, une mise à disposition ou un devis, de suivre l'avancement d'une réservation et de consulter son historique. Il est accessible gratuitement ; seule la prestation de transport est facturée selon les CGV. L'utilisateur est responsable de sa connexion internet et de son équipement. L'accès peut être interrompu pour maintenance ou en cas d'incident technique indépendant de la volonté de RENNES VTC.
+
+3. COMPTE CLIENT
+
+La création d'un compte dans l'application nécessite une adresse e-mail, un mot de passe, un nom et un numéro de téléphone. L'utilisateur garantit l'exactitude de ces informations et s'engage à les mettre à jour. Il est responsable de la confidentialité de ses identifiants et de toute utilisation de son compte. Son nom et son numéro de téléphone sont transmis au chauffeur une fois la course acceptée, afin de lui permettre de le joindre. La réservation en ligne depuis le site ne nécessite pas de compte.
+
+4. RÉSERVER VIA LE SERVICE
+
+L'utilisateur renseigne les informations nécessaires à sa demande (adresses, date et heure, nombre de passagers, bagages, sièges enfant, mode de règlement). Pour une réservation en ligne, le prix est affiché avant validation, et l'utilisateur doit cocher la case d'acceptation des CGV et CGU ; la date et l'heure de cette acceptation sont conservées. La demande est confirmée par un premier e-mail, puis par un second e-mail lorsqu'un chauffeur accepte la course. Une demande de devis n'engage ni le client ni RENNES VTC tant que le devis n'a pas été accepté.
+
+5. ANNULATION DEPUIS L'APPLICATION
+
+Un client titulaire d'un compte peut annuler une réservation depuis l'application. Lorsqu'un chauffeur est déjà attribué, l'annulation depuis l'application n'est possible que jusqu'à 24 heures avant l'heure de prise en charge ; au-delà, le client doit contacter le chauffeur ou RENNES VTC. Les indemnités d'annulation prévues par les CGV demeurent applicables.
+
+6. SUIVI DE MISSION ET GÉOLOCALISATION
+
+Une fois la course attribuée, l'utilisateur peut suivre son avancement (chauffeur attribué, en route, sur place, course terminée) et recevoir des notifications dans l'application ou par e-mail. La position du chauffeur n'est visible qu'à partir du moment où celui-ci se met en route, et uniquement pour la course concernée. Pour les clients professionnels (hôtels, entreprises), RENNES VTC peut adresser à la personne qui a passé la commande un lien de suivi personnel : ce lien est confidentiel et ne doit pas être diffusé en dehors des personnes concernées par la mission.
+
+7. OBLIGATIONS DE L'UTILISATEUR
+
+L'utilisateur s'engage à fournir des informations exactes, à ne pas utiliser le Service de manière frauduleuse ou abusive (fausses réservations, usurpation d'identité, tentatives d'accès non autorisé), et à respecter les chauffeurs. RENNES VTC peut suspendre ou supprimer un compte en cas de manquement.
+
+8. DONNÉES PERSONNELLES
+
+Responsable du traitement : RENNES VTC – M. GARNIER LE BRETON Jimmy, rennesvtc@gmail.com.
+Données traitées : identité, coordonnées (e-mail, téléphone), adresses et horaires des trajets, informations de réservation (passagers, bagages, sièges enfant, prix, mode de règlement), historique des courses, identifiant de notification de l'appareil, et, pendant une course, la position du chauffeur.
+Finalités : traitement des demandes, exécution et suivi des réservations, établissement des devis et de la facturation, relation client, envoi des confirmations et notifications liées à la course, sécurité du Service.
+Destinataires : RENNES VTC, le chauffeur qui effectue la course (nom, téléphone, trajet) et les prestataires techniques strictement nécessaires au fonctionnement du Service (hébergement, envoi d'e-mails, cartographie, notifications).
+Conservation : les données sont conservées pour la durée nécessaire à la gestion de la relation commerciale, puis pendant les durées légales applicables, notamment comptables.
+Droits : conformément au RGPD, l'utilisateur dispose d'un droit d'accès, de rectification, d'effacement, d'opposition et de limitation, exercé en écrivant à rennesvtc@gmail.com. Il peut introduire une réclamation auprès de la CNIL (www.cnil.fr).
+
+9. PROPRIÉTÉ INTELLECTUELLE
+
+Les textes, images, logos, graphismes et éléments du Service sont protégés. Toute reproduction ou utilisation sans autorisation préalable de RENNES VTC est interdite.
+
+10. RESPONSABILITÉ
+
+Les informations affichées dans le Service (prix, délais, position du chauffeur) sont fournies à titre indicatif et peuvent varier selon la circulation et les conditions d'exécution. RENNES VTC s'efforce d'assurer la disponibilité du Service mais ne peut garantir un fonctionnement sans interruption. Pour confirmer un point important lié à une réservation, l'utilisateur peut contacter RENNES VTC au 07 68 42 52 62.
+
+11. MODIFICATION DES CGU
+
+RENNES VTC peut modifier les présentes CGU à tout moment ; la version applicable est celle publiée sur cette page à la date de la demande de réservation.
+
+12. DROIT APPLICABLE ET MÉDIATION
+
+Les présentes CGU sont soumises au droit français. En cas de litige, l'utilisateur est invité à contacter RENNES VTC afin de rechercher une solution amiable. À défaut, le client consommateur peut recourir gratuitement à la médiation de la consommation : MCP Médiation – Médiation de la Consommation & Patrimoine, 12 square Desnouettes, 75015 Paris.
