@@ -607,7 +607,7 @@ async function getDistanceKmServer(origin, destination) {
   const res = await fetch(url);
   const data = await res.json();
   const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
-  if (!meters) throw new Error("Impossible de calculer l'itineraire");
+  if (!meters) throw new Error("Impossible de calculer l'itinéraire");
   return meters / 1000;
 }
 
@@ -642,16 +642,16 @@ app.post('/public/estimate-price', async (req, res) => {
   if (service_type === 'mise_a_disposition' && vehicle_category) {
     const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', vehicle_category).single();
     const hours = parseFloat(duration_hours);
-    if (!hourly || !hours) return res.status(400).json({ error: 'Indiquez la duree de la mise a disposition.' });
-    if (hours < hourly.min_hours) return res.status(400).json({ error: `Duree minimum : ${hourly.min_hours} h` });
+    if (!hourly || !hours) return res.status(400).json({ error: 'Indiquez la durée de la mise à disposition.' });
+    if (hours < hourly.min_hours) return res.status(400).json({ error: `Durée minimum : ${hourly.min_hours} h` });
     return res.json({ price: Math.round(hours * hourly.price_per_hour * 100) / 100 });
   }
-  if (!vehicle_category || !pickup || !dropoff) return res.status(400).json({ error: 'Parametres manquants' });
+  if (!vehicle_category || !pickup || !dropoff) return res.status(400).json({ error: 'Paramètres manquants' });
   const [{ data: pricing }, { data: zones }] = await Promise.all([
     supabaseAdmin.from('pricing_simple').select('*').eq('vehicle_category', vehicle_category).single(),
     supabaseAdmin.from('pricing_zones').select('*').eq('vehicle_category', vehicle_category).eq('active', true),
   ]);
-  if (!pricing) return res.status(400).json({ error: 'Tarification non configuree pour cette gamme.' });
+  if (!pricing) return res.status(400).json({ error: 'Tarification non configurée pour cette gamme.' });
   try {
     const km = await getDistanceKmServer(pickup, dropoff);
     const result = computeTrajetSimplePrice({
@@ -669,12 +669,12 @@ app.post('/public/estimate-price', async (req, res) => {
 app.post('/public/book', async (req, res) => {
   const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours } = req.body;
   const isMad = serviceType === 'mise_a_disposition';
-  if (isMad && !(parseFloat(durationHours) > 0)) return res.status(400).json({ error: 'Indiquez la duree de la mise a disposition.' });
+  if (isMad && !(parseFloat(durationHours) > 0)) return res.status(400).json({ error: 'Indiquez la durée de la mise à disposition.' });
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
   if (paymentMethod === 'compte') {
-    return res.status(400).json({ error: 'Ce mode de reglement est reserve au back-office.' });
+    return res.status(400).json({ error: 'Ce mode de règlement est réservé au back-office.' });
   }
   const { data: ride, error } = await supabaseAdmin
     .from('rides')

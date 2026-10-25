@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Reserver votre chauffeur prive</title>
+<title>Réserver votre chauffeur privé</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -145,8 +145,8 @@
     </header>
 
     <div class="intro">
-      <h1>Reservez votre<br /><em>chauffeur prive.</em></h1>
-      <p>Reservez en quelques minutes, sans compte ni application. Le prix est affiche avant de valider et vous recevez une confirmation par email.</p>
+      <h1>Réservez votre<br /><em>chauffeur privé.</em></h1>
+      <p>Réservez en quelques minutes, sans compte ni application. Le prix est affiché avant de valider et vous recevez une confirmation par email.</p>
     </div>
 
     <div class="layout">
@@ -156,10 +156,10 @@
           <div class="panel-head"><span class="num">1</span><h2>Votre service</h2></div>
           <div class="segmented" id="services">
             <button type="button" class="seg selected" data-service="trajet_simple">Trajet simple</button>
-            <button type="button" class="seg" data-service="mise_a_disposition">Mise a disposition</button>
+            <button type="button" class="seg" data-service="mise_a_disposition">Mise à disposition</button>
           </div>
           <div class="field">
-            <span class="lbl">Gamme de vehicule</span>
+            <span class="lbl">Gamme de véhicule</span>
             <div class="vehicles" id="gammes"></div>
           </div>
         </section>
@@ -167,7 +167,7 @@
         <section class="panel">
           <div class="panel-head"><span class="num">2</span><h2>Trajet et horaires</h2></div>
           <div class="field">
-            <label for="pickup-input">Depart</label>
+            <label for="pickup-input">Départ</label>
             <input id="pickup-input" placeholder="Adresse de prise en charge" autocomplete="off" />
             <div class="suggestions" id="pickup-suggestions" style="display:none"></div>
           </div>
@@ -178,7 +178,7 @@
           </div>
           <div class="field row">
             <div>
-              <label for="date">Date <span class="opt">(vide = des que possible)</span></label>
+              <label for="date">Date <span class="opt">(vide = dès que possible)</span></label>
               <input id="date" type="date" />
             </div>
             <div>
@@ -187,7 +187,7 @@
             </div>
           </div>
           <div class="field" id="duration-row" style="display:none">
-            <label for="duration">Duree de la mise a disposition (heures)</label>
+            <label for="duration">Durée de la mise à disposition (heures)</label>
             <input id="duration" type="number" min="1" step="0.5" value="3" />
           </div>
           <label class="check" id="round-trip-row">
@@ -213,24 +213,24 @@
             <div><label for="luggage">Bagages</label><input id="luggage" type="number" min="0" value="0" /></div>
           </div>
           <div class="field row">
-            <div><label for="child-seats">Sieges auto</label><input id="child-seats" type="number" min="0" value="0" /></div>
+            <div><label for="child-seats">Sièges auto</label><input id="child-seats" type="number" min="0" value="0" /></div>
             <div><label for="booster-seats">Rehausseurs</label><input id="booster-seats" type="number" min="0" value="0" /></div>
           </div>
           <div class="field" id="child-ages-row" style="display:none">
-            <label for="child-ages">Age de l'enfant <span class="opt">(ex : 3 ans, ou 3 et 7 ans)</span></label>
-            <input id="child-ages" placeholder="Age(s) des enfants" />
+            <label for="child-ages">Âge de l'enfant <span class="opt">(ex : 3 ans, ou 3 et 7 ans)</span></label>
+            <input id="child-ages" placeholder="Âge(s) des enfants" />
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><span class="num">4</span><h2>Vos coordonnees</h2></div>
+          <div class="panel-head"><span class="num">4</span><h2>Vos coordonnées</h2></div>
           <div class="field">
             <label for="client-name">Nom et prenom</label>
             <input id="client-name" placeholder="Votre nom" autocomplete="name" />
           </div>
           <div class="field row">
             <div>
-              <label for="client-phone">Telephone</label>
+              <label for="client-phone">Téléphone</label>
               <input id="client-phone" placeholder="06 00 00 00 00" autocomplete="tel" inputmode="tel" />
             </div>
             <div>
@@ -239,10 +239,10 @@
             </div>
           </div>
           <div class="field">
-            <label for="payment-method">Mode de reglement</label>
+            <label for="payment-method">Mode de règlement</label>
             <select id="payment-method">
-              <option value="carte_a_bord">Carte bancaire a bord</option>
-              <option value="especes">Especes</option>
+              <option value="carte_a_bord">Carte bancaire à bord</option>
+              <option value="especes">Espèces</option>
             </select>
           </div>
         </section>
@@ -252,15 +252,15 @@
         <h2>Votre course</h2>
         <ul class="sum-list">
           <li><span>Service</span><span id="sum-service">Trajet simple</span></li>
-          <li><span>Vehicule</span><span id="sum-gamme">A choisir</span></li>
-          <li><span>Trajet</span><span id="sum-route">A renseigner</span></li>
-          <li><span>Quand</span><span id="sum-when">Des que possible</span></li>
+          <li><span>Véhicule</span><span id="sum-gamme">À choisir</span></li>
+          <li><span>Trajet</span><span id="sum-route">À renseigner</span></li>
+          <li><span>Quand</span><span id="sum-when">Dès que possible</span></li>
           <li><span>Passagers</span><span id="sum-pax">1</span></li>
         </ul>
         <div class="sum-price" id="price-display"></div>
         <p id="error" class="error"></p>
         <button class="cta" id="submit-btn">Demander la course</button>
-        <p class="reassure">Sans engagement. Un chauffeur vous est attribue rapidement et vous etes prevenu par email.</p>
+        <p class="reassure">Sans engagement. Un chauffeur vous est attribué rapidement et vous êtes prévenu par email.</p>
         <p class="cgu-note" id="cgu-note" style="display:none"></p>
       </aside>
     </div>
@@ -268,9 +268,9 @@
 
   <div id="confirmation-view" style="display:none" class="confirmation">
     <div class="big-tick">&#10003;</div>
-    <h2>Demande envoyee</h2>
-    <p>Merci, votre demande a bien ete recue. Un chauffeur va vous etre attribue prochainement.</p>
-    <p id="confirmation-email" style="display:none">Une confirmation vous est envoyee par email, puis une seconde des qu'un chauffeur accepte votre course.</p>
+    <h2>Demande envoyée</h2>
+    <p>Merci, votre demande a bien été reçue. Un chauffeur va vous être attribué prochainement.</p>
+    <p id="confirmation-email" style="display:none">Une confirmation vous est envoyée par email, puis une seconde dès qu'un chauffeur accepte votre course.</p>
   </div>
 </div>
 
@@ -322,7 +322,7 @@ function renderGammes(photos) {
   });
 }
 renderGammes({});
-document.getElementById('price-display').innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici des que votre trajet et votre vehicule sont choisis.</p>';
+document.getElementById('price-display').innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici dès que votre trajet et votre véhicule sont choisis.</p>';
 supabase.from('vehicles').select('vehicle_category, photo_url').eq('active', true).not('photo_url', 'is', null).order('created_at', { ascending: true }).then(({ data }) => {
   const photos = {};
   (data ?? []).forEach((v) => { if (!photos[v.vehicle_category]) photos[v.vehicle_category] = v.photo_url; });
@@ -348,7 +348,7 @@ supabase.from('app_settings').select('*').eq('id', true).single().then(({ data }
   }
   if (data.cgu_text) {
     document.getElementById('cgu-note').style.display = 'block';
-    document.getElementById('cgu-note').textContent = 'En reservant, vous acceptez nos conditions generales d’utilisation.';
+    document.getElementById('cgu-note').textContent = 'En réservant, vous acceptez nos conditions générales d’utilisation.';
   }
 });
 
@@ -413,14 +413,14 @@ function renderSummary() {
   const time = document.getElementById('time').value;
   const pax = parseInt(document.getElementById('passengers').value, 10) || 1;
   const bags = parseInt(document.getElementById('luggage').value, 10) || 0;
-  set('sum-service', isMad() ? 'Mise a disposition' : 'Trajet simple');
-  set('sum-gamme', vehicleCategory ? VEHICLE_LABELS[vehicleCategory] : 'A choisir');
+  set('sum-service', isMad() ? 'Mise à disposition' : 'Trajet simple');
+  set('sum-gamme', vehicleCategory ? VEHICLE_LABELS[vehicleCategory] : 'À choisir');
   set('sum-route', isMad()
-    ? (pickup ? short(pickup) + ' (' + (document.getElementById('duration').value || '?') + ' h)' : 'A renseigner')
-    : (pickup && dropoff ? short(pickup) + ' \u2192 ' + short(dropoff) : 'A renseigner'));
+    ? (pickup ? short(pickup) + ' (' + (document.getElementById('duration').value || '?') + ' h)' : 'À renseigner')
+    : (pickup && dropoff ? short(pickup) + ' \u2192 ' + short(dropoff) : 'À renseigner'));
   set('sum-when', date
-    ? new Date(date + 'T' + (time || '00:00')).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + (time ? ' a ' + time : '')
-    : 'Des que possible');
+    ? new Date(date + 'T' + (time || '00:00')).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + (time ? ' à ' + time : '')
+    : 'Dès que possible');
   set('sum-pax', pax + (pax > 1 ? ' passagers' : ' passager') + (bags ? ', ' + bags + (bags > 1 ? ' bagages' : ' bagage') : ''));
 }
 renderSummary();
@@ -429,7 +429,7 @@ async function updatePrice() {
   renderSummary();
   const priceEl = document.getElementById('price-display');
   const duration = parseFloat(document.getElementById('duration').value);
-  if (!vehicleCategory || (isMad() ? !duration : !pickup || !dropoff)) { priceEl.innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici des que votre trajet et votre vehicule sont choisis.</p>'; price = null; return; }
+  if (!vehicleCategory || (isMad() ? !duration : !pickup || !dropoff)) { priceEl.innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici dès que votre trajet et votre véhicule sont choisis.</p>'; price = null; return; }
   priceEl.innerHTML = '<p class="price-sub">Calcul du prix...</p>';
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
@@ -461,14 +461,14 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
 
-  if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de vehicule.'; return; }
-  if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de depart et de destination dans la liste.'; return; }
-  if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et telephone sont requis.'; return; }
+  if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de véhicule.'; return; }
+  if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de départ et de destination dans la liste.'; return; }
+  if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et téléphone sont requis.'; return; }
   const durationHours = parseFloat(document.getElementById('duration').value);
-  if (isMad() && !durationHours) { errorEl.textContent = 'Indiquez la duree de la mise a disposition.'; return; }
+  if (isMad() && !durationHours) { errorEl.textContent = 'Indiquez la durée de la mise à disposition.'; return; }
   if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
   const seats = seatsPayload();
-  if ((seats.childSeats > 0 || seats.boosterSeats > 0) && !seats.childAges) { errorEl.textContent = 'Indiquez l\u2019age de l\u2019enfant.'; return; }
+  if ((seats.childSeats > 0 || seats.boosterSeats > 0) && !seats.childAges) { errorEl.textContent = 'Indiquez l\u2019âge de l\u2019enfant.'; return; }
   const returnDate = document.getElementById('return-date').value;
   const returnTime = document.getElementById('return-time').value;
   if (roundTrip && (!returnDate || !returnTime)) { errorEl.textContent = 'Indiquez la date et l’heure du retour.'; return; }
