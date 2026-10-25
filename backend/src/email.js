@@ -3,9 +3,20 @@
 const FROM = 'Rennes VTC <noreply@mail.rennesvtc.com>';
 const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
 
+// Trace chaque envoi (reussi ou non) dans email_log ; ne doit jamais faire echouer l'envoi lui-meme.
+async function logEmail(to, subject, status, detail) {
+  try {
+    const { supabaseAdmin } = require('./supabaseAdmin');
+    await supabaseAdmin.from('email_log').insert({ to_email: String(to), subject, status, detail: detail ? String(detail).slice(0, 500) : null });
+  } catch (e) {
+    console.log('Journal email indisponible:', e.message);
+  }
+}
+
 async function sendEmail(to, subject, text, attachments) {
   if (!process.env.RESEND_API_KEY) {
     console.log('RESEND_API_KEY non configure, email non envoye:', subject);
+    await logEmail(to, subject, 'no_key', 'RESEND_API_KEY non configure');
     return;
   }
   try {
@@ -23,12 +34,13 @@ async function sendEmail(to, subject, text, attachments) {
         ...(attachments ? { attachments } : {}),
       }),
     });
-    if (!res.ok) {
-      console.log('Echec envoi email:', res.status, await res.text());
-    }
+    const body = await res.text();
+    if (!res.ok) console.log('Echec envoi email:', res.status, body);
+    await logEmail(to, subject, res.ok ? 'sent' : 'error', res.ok ? body : res.status + ' ' + body);
   } catch (e) {
     // Un echec d'envoi d'email ne doit jamais faire planter le serveur.
     console.log('Echec envoi email:', e.message);
+    await logEmail(to, subject, 'error', e.message);
   }
 }
 
