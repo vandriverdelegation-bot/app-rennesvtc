@@ -105,8 +105,8 @@ async function fetchBonCommandeData(rideId) {
   if (!ride) return null;
 
   if (!ride.client_name && ride.client_id) {
-    const { data: client } = await supabaseAdmin.from('profiles').select('email, phone').eq('id', ride.client_id).single();
-    ride.client_name = client?.email ?? null;
+    const { data: client } = await supabaseAdmin.from('profiles').select('email, phone, full_name').eq('id', ride.client_id).single();
+    ride.client_name = client?.full_name || client?.email || null;
     ride.client_phone = client?.phone ?? null;
   }
 
@@ -196,11 +196,11 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   if (client?.email) {
     const { data: driver } = await supabaseAdmin
       .from('profiles')
-      .select('email, phone')
+      .select('email, phone, full_name')
       .eq('id', ride.driver_id)
       .single();
     const driverInfo = driver
-      ? `Chauffeur : ${driver.email}${driver.phone ? `\nTelephone du chauffeur : ${driver.phone}` : ''}`
+      ? `Chauffeur : ${driver.full_name || driver.email}${driver.phone ? `\nTelephone du chauffeur : ${driver.phone}` : ''}`
       : '';
     await sendEmail(
       client.email,

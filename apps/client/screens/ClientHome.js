@@ -374,8 +374,8 @@ export default function ClientHome({ session }) {
                     <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL(`tel:${driverInfo.phone}`)}>
                       <Text style={styles.contactBtnText}>Appeler</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL(whatsappUrl(driverInfo.phone))}>
-                      <Text style={styles.contactBtnText}>WhatsApp</Text>
+                    <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#25D366' }]} onPress={() => Linking.openURL(whatsappUrl(driverInfo.phone))}>
+                      <Text style={[styles.contactBtnText, { color: '#FFFFFF' }]}>WhatsApp</Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   scrollContainer: { width: '100%', alignItems: 'center', gap: 14, padding: 20, backgroundColor: theme.colors.background },
   map: { width: '100%', flex: 1 },
   statusBar: { width: '100%', padding: 18, backgroundColor: theme.colors.card },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 4, color: theme.colors.text, alignSelf: 'flex-start' },
+  title: { fontSize: 24, fontWeight: '800', marginBottom: 4, color: theme.colors.text, alignSelf: 'flex-start' },
   status: { fontSize: 16, textAlign: 'center', color: theme.colors.text, fontWeight: '600' },
   paymentLabel: { fontSize: 13, color: theme.colors.textMuted, textAlign: 'center', marginTop: 4 },
   driverBlock: { marginTop: 14, alignItems: 'center', gap: 4 },
@@ -591,11 +591,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius,
-    padding: 14,
-    gap: 10,
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
   },
-  sectionLabel: { fontWeight: '700', color: theme.colors.text, fontSize: 14 },
+  sectionLabel: { fontWeight: '800', color: theme.colors.textMuted, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
   mutedText: { color: theme.colors.textMuted },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
   choiceOption: {
@@ -681,11 +681,11 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     marginTop: 4,
   },
-  buttonText: { color: theme.colors.accentText, fontWeight: '700', fontSize: 16 },
+  buttonText: { color: theme.colors.accentText, fontWeight: '800', fontSize: 16 },
   error: { color: theme.colors.error },
 });
