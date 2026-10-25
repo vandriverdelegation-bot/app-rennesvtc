@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Rejoindre l'équipe des chauffeurs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { color-scheme: dark; --bg: #070908; --panel: #0F1311; --panel-2: #151A17; --line: #1F2723; --line-2: #2B352F; --accent: #47C415; --accent-text: #0E0F10; --text: #F3F6F4; --muted: #94A09A; --error: #FF6B6B; --display: 'Bricolage Grotesque', system-ui, sans-serif; --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--body); font-size: 16px; line-height: 1.5; color: var(--text); background: radial-gradient(900px 420px at 85% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%), var(--bg); background-attachment: fixed; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 22px 16px 70px; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; font-family: var(--display); font-weight: 800; font-size: 20px; }
+  .brand img { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; display: none; }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 6vw, 44px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lead { color: var(--muted); margin: 0 0 26px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 22px; margin-bottom: 16px; }
+  .panel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .num { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 14px; color: var(--accent); border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); flex-shrink: 0; }
+  h2 { font-family: var(--display); font-size: 20px; margin: 0; }
+  .field { margin-top: 14px; }
+  label { display: block; font-size: 14px; font-weight: 600; color: #C7D0CB; margin: 0 0 6px; }
+  .opt { color: var(--muted); font-weight: 500; }
+  input[type=text], input[type=email], input[type=tel], input[type=number], input[type=password] { display: block; width: 100%; height: 50px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--text); background: #0A0D0C; border: 1px solid var(--line-2); border-radius: 13px; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
+  input[readonly] { color: var(--muted); }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; min-width: 0; }
+  .doc { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .doc:first-of-type { border-top: 0; }
+  .doc-name { font-weight: 600; }
+  .doc-file { color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+  .doc-file.ok { color: var(--accent); }
+  .pick { flex-shrink: 0; padding: 10px 16px; border: 1px solid var(--line-2); border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; background: var(--panel-2); }
+  .pick:hover { border-color: var(--accent); color: var(--accent); }
+  .pick input { display: none; }
+  .check { display: flex; align-items: flex-start; gap: 12px; margin-top: 8px; cursor: pointer; font-weight: 500; color: var(--text); }
+  .check input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: var(--accent); }
+  .check a { color: var(--accent); font-weight: 700; }
+  .cta { width: 100%; height: 56px; margin-top: 18px; font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--accent-text); background: var(--accent); border: 0; border-radius: 16px; cursor: pointer; }
+  .cta:disabled { opacity: .55; cursor: default; }
+  .error { color: var(--error); font-weight: 600; margin: 12px 0 0; }
+  .hint { color: var(--muted); font-size: 14px; }
+  .done { text-align: center; padding: 60px 24px; }
+  .done .tick { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 34px; font-weight: 800; }
+  .center { text-align: center; padding: 80px 16px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"><div class="center">Chargement...</div></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const supabase = createClient('https://igrhehamvaaturnyttgb.supabase.co', 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK');
+
+const token = location.pathname.split('/').filter(Boolean).pop();
+const root = document.getElementById('root');
+const esc = (t) => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
+const files = {}; // type -> File
+
+const res = await fetch('/public/driver-invite/' + encodeURIComponent(token));
+const invite = await res.json();
+if (!res.ok) {
+  root.innerHTML = `<div class="center"><h2 style="color:var(--text)">Lien indisponible</h2><p>${esc(invite.error)}</p></div>`;
+} else {
+  start(invite);
+}
+
+function start(inv) {
+  const b = inv.branding || {};
+  if (b.accent_color) document.documentElement.style.setProperty('--accent', b.accent_color);
+  if (b.accent_contrast) document.documentElement.style.setProperty('--accent-text', b.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
+
+  root.innerHTML = `
+    <div class="brand">${b.logo_url ? `<img id="logo" src="${esc(b.logo_url)}" alt="" style="display:block" />` : ''}<span>${esc(b.app_name || 'Rennes VTC')}</span></div>
+    <h1>Bienvenue ${esc(inv.first_name)},<br /><em>rejoignez l'équipe.</em></h1>
+    <p class="lead">Complétez votre profil chauffeur et déposez vos documents. Votre dossier sera étudié par Rennes VTC, et vous serez prévenu par email dès l'activation de votre profil.</p>
+
+    <section class="panel">
+      <div class="panel-head"><span class="num">1</span><h2>Vos informations</h2></div>
+      <div class="row">
+        <div class="field"><label>Prénom</label><input type="text" value="${esc(inv.first_name)}" readonly /></div>
+        <div class="field"><label>Nom</label><input type="text" value="${esc(inv.last_name)}" readonly /></div>
+      </div>
+      <div class="field"><label>Email <span class="opt">(votre identifiant de connexion)</span></label><input type="email" value="${esc(inv.email)}" readonly /></div>
+      <div class="field"><label for="phone">Téléphone</label><input id="phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(inv.phone || '')}" /></div>
+      <div class="field"><label for="address">Adresse postale</label><input id="address" type="text" autocomplete="street-address" placeholder="Numéro, rue, code postal, ville" /></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="num">2</span><h2>Votre activité</h2></div>
+      <div class="field"><label for="vtc">Numéro de carte professionnelle VTC</label><input id="vtc" type="text" /></div>
+      <div class="field"><label for="siret">Numéro SIRET</label><input id="siret" type="text" inputmode="numeric" /></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="num">3</span><h2>Votre véhicule</h2></div>
+      <div class="field"><label for="vname">Marque et modèle</label><input id="vname" type="text" placeholder="Ex : Mercedes Classe E" /></div>
+      <div class="row">
+        <div class="field"><label for="vplate">Plaque</label><input id="vplate" type="text" placeholder="AB-123-CD" /></div>
+        <div class="field"><label for="vcolor">Couleur</label><input id="vcolor" type="text" /></div>
+        <div class="field"><label for="vseats">Places</label><input id="vseats" type="number" min="1" max="9" value="4" /></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="num">4</span><h2>Vos documents</h2></div>
+      <p class="hint" style="margin-top:0">Photo ou PDF, 10 Mo maximum par fichier. Vos documents sont stockés de façon sécurisée et visibles uniquement par Rennes VTC.</p>
+      ${inv.docTypes.map((d) => `
+        <div class="doc">
+          <div><div class="doc-name">${esc(d.label)} ${d.required ? '' : '<span class="opt">(facultatif)</span>'}</div><div class="doc-file" id="file-${d.type}">Aucun fichier</div></div>
+          <label class="pick">Choisir<input type="file" data-doc="${d.type}" accept="image/*,application/pdf" /></label>
+        </div>`).join('')}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="num">5</span><h2>Votre mot de passe</h2></div>
+      <p class="hint" style="margin-top:0">Il vous servira à vous connecter à l'application Rennes VTC Driver.</p>
+      <div class="field"><label for="pwd">Mot de passe <span class="opt">(8 caractères minimum)</span></label><input id="pwd" type="password" autocomplete="new-password" /></div>
+      <div class="field"><label for="pwd2">Confirmer le mot de passe</label><input id="pwd2" type="password" autocomplete="new-password" /></div>
+      <label class="check" style="margin-top:18px"><input type="checkbox" id="accepted" /><span>Je certifie l'exactitude de ces informations et documents, et j'accepte les <a href="/conditions/#cgu" target="_blank" rel="noopener">CGU</a>.</span></label>
+      <p class="error" id="error"></p>
+      <button class="cta" id="submit">Envoyer mon dossier</button>
+    </section>`;
+
+  root.querySelectorAll('[data-doc]').forEach((input) => input.addEventListener('change', () => {
+    const f = input.files[0];
+    const label = document.getElementById('file-' + input.dataset.doc);
+    if (!f) { delete files[input.dataset.doc]; label.textContent = 'Aucun fichier'; label.classList.remove('ok'); return; }
+    if (f.size > 10 * 1024 * 1024) { input.value = ''; label.textContent = 'Fichier trop lourd (10 Mo maximum)'; label.classList.remove('ok'); delete files[input.dataset.doc]; return; }
+    files[input.dataset.doc] = f;
+    label.textContent = '✓ ' + f.name;
+    label.classList.add('ok');
+  }));
+
+  document.getElementById('submit').addEventListener('click', () => submit(inv));
+}
+
+async function submit(inv) {
+  const errorEl = document.getElementById('error');
+  const btn = document.getElementById('submit');
+  errorEl.textContent = '';
+  const val = (id) => document.getElementById(id).value.trim();
+  const fail = (m) => { errorEl.textContent = m; };
+
+  if (!val('phone') || !val('address') || !val('vtc') || !val('siret')) return fail('Renseignez votre téléphone, votre adresse, votre numéro de carte VTC et votre SIRET.');
+  if (!val('vname') || !val('vplate')) return fail('Renseignez le modèle et la plaque de votre véhicule.');
+  const missing = inv.docTypes.find((d) => d.required && !files[d.type]);
+  if (missing) return fail('Document manquant : ' + missing.label + '.');
+  const pwd = document.getElementById('pwd').value;
+  if (pwd.length < 8) return fail('Le mot de passe doit contenir au moins 8 caractères.');
+  if (pwd !== document.getElementById('pwd2').value) return fail('Les deux mots de passe ne sont pas identiques.');
+  if (!document.getElementById('accepted').checked) return fail('Cochez la case de certification pour envoyer votre dossier.');
+
+  btn.disabled = true;
+  try {
+    const documents = [];
+    const entries = Object.entries(files);
+    for (let i = 0; i < entries.length; i++) {
+      const [type, file] = entries[i];
+      btn.textContent = `Envoi des documents (${i + 1}/${entries.length})...`;
+      const up = await fetch(`/public/driver-invite/${encodeURIComponent(token)}/upload-url`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, filename: file.name }),
+      });
+      const upJson = await up.json();
+      if (!up.ok) throw new Error(upJson.error);
+      const { error } = await supabase.storage.from('driver-documents').uploadToSignedUrl(upJson.path, upJson.token, file);
+      if (error) throw new Error("L'envoi de « " + file.name + ' » a échoué : ' + error.message);
+      documents.push({ type, path: upJson.path, name: file.name });
+    }
+    btn.textContent = 'Création de votre profil...';
+    const r = await fetch(`/public/driver-invite/${encodeURIComponent(token)}/submit`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: val('phone'), address: val('address'), vtc_card_number: val('vtc'), siret: val('siret'),
+        vehicle: { name: val('vname'), plate: val('vplate'), color: val('vcolor'), seats: val('vseats') },
+        password: pwd, accepted: true, documents,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    root.innerHTML = `<div class="done"><div class="tick">&#10003;</div><h1>Dossier envoyé</h1><p class="lead">Merci ${esc(inv.first_name)}. Votre dossier va être étudié par Rennes VTC. Vous recevrez un email dès que votre profil sera activé : vous pourrez alors vous connecter à l'application Rennes VTC Driver avec votre email et votre mot de passe.</p></div>`;
+    window.scrollTo({ top: 0 });
+  } catch (e) {
+    fail(e.message);
+    btn.disabled = false;
+    btn.textContent = 'Envoyer mon dossier';
+  }
+}
+</script>
+</body>
+</html>

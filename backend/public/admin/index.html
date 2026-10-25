@@ -273,7 +273,7 @@
         <a class="nav-link" data-page="carte"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span>Carte interactive</span></a>
 
         <div class="nav-group">Equipe</div>
-        <a class="nav-link" data-page="chauffeurs"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Chauffeurs</span></a>
+        <a class="nav-link" data-page="chauffeurs"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Chauffeurs</span><em class="nav-badge" id="nav-badge-drivers" hidden>0</em></a>
         <a class="nav-link" data-page="vehicules"><svg viewBox="0 0 24 24"><path d="M4 15l1.5-5A2 2 0 0 1 7.4 8.5h9.2a2 2 0 0 1 1.9 1.5L20 15"/><rect x="3" y="15" width="18" height="4" rx="1.5"/><path d="M7 19v2M17 19v2"/></svg><span>Vehicules</span></a>
         <a class="nav-link" data-page="disponibilites"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Disponibilites</span></a>
 
@@ -585,22 +585,38 @@
       </div>
 
       <div class="page" id="page-chauffeurs">
-        <h2>Chauffeurs</h2>
-        <div id="chauffeurs-list"></div>
-        <h3 style="margin-top:24px">Ajouter un chauffeur</h3>
-        <div class="price-row">
-          <input id="new-chauffeur-email" placeholder="Email" style="width:220px" />
-          <input id="new-chauffeur-password" placeholder="Mot de passe" style="width:160px" />
-          <select id="new-chauffeur-category"></select>
-          <select id="new-chauffeur-role">
-            <option value="secondaire">Secondaire</option>
-            <option value="principal">Principal</option>
-          </select>
-          <label><input type="checkbox" id="new-chauffeur-can-create" /> Peut creer une reservation</label>
-          <label><input type="checkbox" id="new-chauffeur-can-price" /> Peut modifier le prix</label>
-          <button id="add-chauffeur">Ajouter</button>
+        <div class="page-head">
+          <h2>Chauffeurs</h2>
+          <p>Invitez un chauffeur par lien : il remplit son profil et depose ses documents, puis vous validez son dossier.</p>
         </div>
-        <p id="chauffeur-error" class="error"></p>
+
+        <div class="toolbar"><button id="invite-open">+ Inviter un chauffeur</button></div>
+
+        <h3>Invitations et dossiers</h3>
+        <div id="invitations-list" style="margin-bottom:28px"></div>
+
+        <h3>Chauffeurs actifs</h3>
+        <div id="chauffeurs-list"></div>
+
+        <h3 style="margin-top:28px">Ajouter un chauffeur manuellement</h3>
+        <div class="card">
+          <p class="hint" style="margin-top:0">Pour un chauffeur que vous equipez vous-meme : vous choisissez son mot de passe. Pour qu'il remplisse lui-meme son profil et ses documents, utilisez plutot l'invitation par lien.</p>
+          <div class="form-grid">
+            <div class="field"><label for="new-chauffeur-firstname">Prenom</label><input id="new-chauffeur-firstname" /></div>
+            <div class="field"><label for="new-chauffeur-lastname">Nom</label><input id="new-chauffeur-lastname" /></div>
+            <div class="field"><label for="new-chauffeur-email">Email</label><input id="new-chauffeur-email" type="email" /></div>
+            <div class="field"><label for="new-chauffeur-phone">Telephone</label><input id="new-chauffeur-phone" /></div>
+            <div class="field"><label for="new-chauffeur-password">Mot de passe</label><input id="new-chauffeur-password" type="password" autocomplete="new-password" /></div>
+            <div class="field"><label for="new-chauffeur-category">Gamme</label><select id="new-chauffeur-category" style="width:100%"></select></div>
+            <div class="field"><label for="new-chauffeur-role">Role</label>
+              <select id="new-chauffeur-role" style="width:100%"><option value="secondaire">Secondaire</option><option value="principal">Principal</option></select>
+            </div>
+            <div class="field inline"><label><input type="checkbox" id="new-chauffeur-can-create" /> Peut creer une reservation</label></div>
+            <div class="field inline"><label><input type="checkbox" id="new-chauffeur-can-price" /> Peut modifier le prix</label></div>
+          </div>
+          <button id="add-chauffeur">Ajouter</button>
+          <p id="chauffeur-error" class="error"></p>
+        </div>
       </div>
 
       <div class="page" id="page-vehicules">
@@ -643,6 +659,48 @@
         <p style="color:var(--text-muted)">Point bleu : chauffeur en course. Point vert : chauffeur en ligne et disponible (position mise a jour toutes les minutes tant qu'il est en ligne).</p>
         <div id="map"></div>
       </div>
+    </div>
+  </div>
+
+  <div id="invite-modal-backdrop" class="modal-backdrop">
+    <div class="modal" style="width:560px" role="dialog" aria-modal="true">
+      <div class="modal-head"><h3>Inviter un chauffeur</h3></div>
+      <div class="modal-body">
+        <div id="invite-form">
+          <div class="rm-grid">
+            <div><label for="invite-firstname">Prenom</label><input id="invite-firstname" /></div>
+            <div><label for="invite-lastname">Nom</label><input id="invite-lastname" /></div>
+            <div><label for="invite-email">Email</label><input id="invite-email" type="email" /></div>
+            <div><label for="invite-phone">Telephone</label><input id="invite-phone" /></div>
+            <div><label for="invite-category">Gamme</label><select id="invite-category" style="width:100%"></select></div>
+            <div><label for="invite-role">Role</label>
+              <select id="invite-role" style="width:100%"><option value="secondaire">Secondaire</option><option value="principal">Principal</option></select>
+            </div>
+          </div>
+          <p id="invite-error" class="error"></p>
+          <div class="rm-row" style="margin-top:8px">
+            <button id="invite-create">Creer le lien</button>
+            <button class="secondary" id="invite-create-email">Creer et envoyer par email</button>
+          </div>
+        </div>
+        <div id="invite-result" style="display:none">
+          <p>Invitation creee. Envoyez ce lien au chauffeur : il est personnel et valable 14 jours.</p>
+          <div class="rm-row">
+            <input id="invite-link" readonly style="flex:1;min-width:220px" onclick="this.select()" />
+            <button class="secondary" id="invite-copy">Copier</button>
+          </div>
+          <p id="invite-emailed" class="hint"></p>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="secondary" id="invite-close">Fermer</button></div>
+    </div>
+  </div>
+
+  <div id="dossier-modal-backdrop" class="modal-backdrop">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head" id="dossier-head"><h3>Dossier chauffeur</h3></div>
+      <div class="modal-body" id="dossier-body"></div>
+      <div class="modal-foot"><button class="secondary" id="dossier-close">Fermer</button></div>
     </div>
   </div>
 
@@ -735,6 +793,7 @@ function showPage(name) {
   if (name === 'disponibilites') renderAvailability();
   if (name === 'calendrier') renderCalendar();
   if (name === 'vehicules') renderVehicles();
+  if (name === 'chauffeurs') renderInvitations();
   if (name === 'tarifs' && zoneMap) setTimeout(() => zoneMap.invalidateSize(), 50);
 }
 
@@ -782,6 +841,7 @@ async function refresh() {
     renderStats(),
     renderChauffeurs(),
     renderClients(),
+    renderInvitations(),
     updateMapMarkers(),
   ]);
   refreshing = false;
@@ -790,6 +850,7 @@ setInterval(refresh, 5000);
 
 function populateCategorySelect() {
   document.getElementById('new-chauffeur-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+  document.getElementById('invite-category').innerHTML = document.getElementById('new-chauffeur-category').innerHTML;
   document.getElementById('new-ride-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
   populateNewRideDrivers();
 }
@@ -1284,7 +1345,7 @@ async function renderStats() {
 async function renderChauffeurs() {
   const { data: chauffeurs } = await supabase
     .from('profiles')
-    .select('id, email, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
+    .select('id, email, phone, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
@@ -1299,11 +1360,11 @@ async function renderChauffeurs() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Gamme</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
+      <thead><tr><th>Chauffeur</th><th>Gamme</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
       <tbody>
         ${chauffeurs.map((c) => `
           <tr data-chauffeur-id="${c.id}">
-            <td>${escapeHtml(c.email ?? '')}</td>
+            <td>${escapeHtml(c.full_name ?? '')}<br/><span class="hint">${escapeHtml(c.email ?? '')}${c.phone ? '<br/>' + escapeHtml(c.phone) : ''}</span></td>
             <td>${c.vehicle_category ? VEHICLE_LABELS[c.vehicle_category] : '-'}</td>
             <td>${vehicleByDriver[c.id] ? escapeHtml(vehicleByDriver[c.id].display_name) + (vehicleByDriver[c.id].plate ? '<br/><span class="hint">' + escapeHtml(vehicleByDriver[c.id].plate) + '</span>' : '') : '<span class="hint">Aucun (a assigner dans Vehicules)</span>'}</td>
             <td>
@@ -1356,6 +1417,8 @@ document.getElementById('add-chauffeur').addEventListener('click', async () => {
   const errorEl = document.getElementById('chauffeur-error');
   errorEl.textContent = '';
   const email = document.getElementById('new-chauffeur-email').value.trim();
+  const full_name = [document.getElementById('new-chauffeur-firstname').value.trim(), document.getElementById('new-chauffeur-lastname').value.trim()].filter(Boolean).join(' ');
+  const phone = document.getElementById('new-chauffeur-phone').value.trim();
   const password = document.getElementById('new-chauffeur-password').value;
   const vehicle_category = document.getElementById('new-chauffeur-category').value;
   const driver_role = document.getElementById('new-chauffeur-role').value;
@@ -1367,15 +1430,199 @@ document.getElementById('add-chauffeur').addEventListener('click', async () => {
   const res = await fetch('/admin/chauffeurs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-    body: JSON.stringify({ email, password, vehicle_category, driver_role, can_create_rides, can_edit_price }),
+    body: JSON.stringify({ email, password, vehicle_category, driver_role, can_create_rides, can_edit_price, full_name, phone }),
   });
   const result = await res.json();
   if (!res.ok) { errorEl.textContent = result.error; return; }
 
-  document.getElementById('new-chauffeur-email').value = '';
-  document.getElementById('new-chauffeur-password').value = '';
+  ['firstname', 'lastname', 'email', 'phone', 'password'].forEach((f) => { document.getElementById('new-chauffeur-' + f).value = ''; });
   renderChauffeurs();
 });
+
+// ---- Invitations et dossiers des chauffeurs ----
+
+async function adminApi(path, method = 'GET', body) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || 'Erreur');
+  return json;
+}
+
+const INVITE_STATUS = {
+  sent: ['Invitation envoyee', 'blue'],
+  submitted: ['Dossier recu - a valider', 'amber'],
+  validated: ['Valide', 'green'],
+  refused: ['Refuse', 'red'],
+  cancelled: ['Annulee', 'muted'],
+};
+let lastInvitationsJson = '';
+
+async function renderInvitations() {
+  let invitations;
+  try { invitations = await adminApi('/admin/driver-invitations'); } catch { return; }
+  const pending = invitations.filter((i) => i.status === 'submitted').length;
+  const badge = document.getElementById('nav-badge-drivers');
+  badge.textContent = pending;
+  badge.hidden = pending === 0;
+
+  const json = JSON.stringify(invitations);
+  if (json === lastInvitationsJson) return;
+  lastInvitationsJson = json;
+  const container = document.getElementById('invitations-list');
+  const visible = invitations.filter((i) => i.status !== 'cancelled' && !(i.status === 'validated'));
+  if (visible.length === 0) {
+    container.innerHTML = '<div class="empty">Aucune invitation en cours. Cliquez sur « Inviter un chauffeur ».</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);overflow-x:auto">
+    <table>
+      <thead><tr><th>Chauffeur</th><th>Gamme</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        ${visible.map((i) => `
+          <tr>
+            <td>${escapeHtml(i.first_name + ' ' + i.last_name)}<br/><span class="hint">${escapeHtml(i.email)}${i.phone ? ' - ' + escapeHtml(i.phone) : ''}</span></td>
+            <td>${VEHICLE_LABELS[i.vehicle_category]}<br/><span class="hint">${i.driver_role === 'principal' ? 'Principal' : 'Secondaire'}</span></td>
+            <td><span class="badge badge-${INVITE_STATUS[i.status][1]}">${INVITE_STATUS[i.status][0]}</span>${i.status === 'refused' && i.refusal_reason ? '<br/><span class="hint">' + escapeHtml(i.refusal_reason) + '</span>' : ''}</td>
+            <td>${new Date(i.submitted_at ?? i.created_at).toLocaleDateString('fr-FR')}</td>
+            <td>
+              ${i.status === 'sent' ? `
+                <button class="secondary" data-invite-copy="${escapeHtml(i.link)}">Copier le lien</button>
+                <button class="secondary" data-invite-email="${i.id}">Envoyer par email</button>
+                <button class="secondary" data-invite-cancel="${i.id}">Annuler</button>` : ''}
+              ${i.status === 'submitted' || i.status === 'refused' ? `<button data-dossier="${i.id}">Voir le dossier</button>` : ''}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+
+  container.querySelectorAll('[data-invite-copy]').forEach((b) => b.addEventListener('click', () => {
+    navigator.clipboard.writeText(b.dataset.inviteCopy);
+    b.textContent = 'Lien copie !';
+    setTimeout(() => { b.textContent = 'Copier le lien'; }, 1500);
+  }));
+  container.querySelectorAll('[data-invite-email]').forEach((b) => b.addEventListener('click', async () => {
+    try { await adminApi(`/admin/driver-invitations/${b.dataset.inviteEmail}/email`, 'POST'); b.textContent = 'Envoye !'; }
+    catch (e) { alert(e.message); }
+  }));
+  container.querySelectorAll('[data-invite-cancel]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Annuler cette invitation ? Le lien ne fonctionnera plus.')) return;
+    await adminApi(`/admin/driver-invitations/${b.dataset.inviteCancel}`, 'DELETE');
+    lastInvitationsJson = '';
+    renderInvitations();
+  }));
+  container.querySelectorAll('[data-dossier]').forEach((b) => b.addEventListener('click', () => openDossier(b.dataset.dossier)));
+}
+
+// Fenetre d'invitation
+const inviteModal = document.getElementById('invite-modal-backdrop');
+document.getElementById('invite-open').addEventListener('click', () => {
+  ['firstname', 'lastname', 'email', 'phone'].forEach((f) => { document.getElementById('invite-' + f).value = ''; });
+  document.getElementById('invite-error').textContent = '';
+  document.getElementById('invite-form').style.display = 'block';
+  document.getElementById('invite-result').style.display = 'none';
+  inviteModal.style.display = 'flex';
+});
+document.getElementById('invite-close').addEventListener('click', () => { inviteModal.style.display = 'none'; });
+inviteModal.addEventListener('click', (e) => { if (e.target === inviteModal) inviteModal.style.display = 'none'; });
+async function createInvitation(sendEmail) {
+  const errorEl = document.getElementById('invite-error');
+  errorEl.textContent = '';
+  try {
+    const result = await adminApi('/admin/driver-invitations', 'POST', {
+      first_name: document.getElementById('invite-firstname').value,
+      last_name: document.getElementById('invite-lastname').value,
+      email: document.getElementById('invite-email').value,
+      phone: document.getElementById('invite-phone').value,
+      vehicle_category: document.getElementById('invite-category').value,
+      driver_role: document.getElementById('invite-role').value,
+      send_email: sendEmail,
+    });
+    document.getElementById('invite-link').value = result.link;
+    document.getElementById('invite-emailed').textContent = result.emailed ? "Un email avec ce lien vient d'etre envoye au chauffeur." : '';
+    document.getElementById('invite-form').style.display = 'none';
+    document.getElementById('invite-result').style.display = 'block';
+    lastInvitationsJson = '';
+    renderInvitations();
+  } catch (e) { errorEl.textContent = e.message; }
+}
+document.getElementById('invite-create').addEventListener('click', () => createInvitation(false));
+document.getElementById('invite-create-email').addEventListener('click', () => createInvitation(true));
+document.getElementById('invite-copy').addEventListener('click', () => navigator.clipboard.writeText(document.getElementById('invite-link').value));
+
+// Fenetre du dossier : infos, vehicule, documents, validation
+const dossierModal = document.getElementById('dossier-modal-backdrop');
+document.getElementById('dossier-close').addEventListener('click', () => { dossierModal.style.display = 'none'; });
+dossierModal.addEventListener('click', (e) => { if (e.target === dossierModal) dossierModal.style.display = 'none'; });
+async function openDossier(id) {
+  dossierModal.style.display = 'flex';
+  const body = document.getElementById('dossier-body');
+  body.innerHTML = '<p class="hint">Chargement...</p>';
+  let d;
+  try { d = await adminApi(`/admin/driver-invitations/${id}/dossier`); } catch (e) { body.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`; return; }
+  const inv = d.invitation, p = d.profile ?? {}, v = d.vehicle;
+  const line = (label, val) => `<div class="chip" style="margin:0 6px 6px 0">${label} : ${escapeHtml(val || '-')}</div>`;
+  document.getElementById('dossier-head').innerHTML = `<span class="badge badge-${INVITE_STATUS[inv.status][1]}">${INVITE_STATUS[inv.status][0]}</span><h3>${escapeHtml(inv.first_name + ' ' + inv.last_name)}</h3>`;
+  body.innerHTML = `
+    <div class="rm-section">
+      <div class="rm-title">Informations</div>
+      ${line('Email', inv.email)}${line('Telephone', p.phone)}${line('Adresse', p.address)}
+      ${line('Carte VTC', p.vtc_card_number)}${line('SIRET', p.siret)}
+    </div>
+    <div class="rm-section">
+      <div class="rm-title">Vehicule propose</div>
+      ${v ? line('Modele', v.display_name) + line('Plaque', v.plate) + line('Couleur', v.color) + line('Places', v.seats) : '<p class="hint">Aucun</p>'}
+    </div>
+    <div class="rm-section">
+      <div class="rm-title">Documents</div>
+      ${d.documents.length ? d.documents.map((doc) => `<div class="rm-row" style="margin-bottom:6px"><span class="chip">${escapeHtml(doc.label)}</span><a href="${escapeHtml(doc.url ?? '#')}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Ouvrir${doc.name ? ' (' + escapeHtml(doc.name) + ')' : ''}</a></div>`).join('') : '<p class="hint">Aucun document.</p>'}
+      <p class="hint">Les liens sont temporaires (1 heure) et reserves a l'administrateur.</p>
+    </div>
+    ${inv.status === 'submitted' ? `
+    <div class="rm-section">
+      <div class="rm-title">Decision</div>
+      <div class="rm-grid">
+        <div><label for="dossier-category">Gamme</label><select id="dossier-category" style="width:100%">${CATEGORIES.map((c) => `<option value="${c}" ${c === inv.vehicle_category ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}</select></div>
+        <div><label for="dossier-role">Role</label><select id="dossier-role" style="width:100%"><option value="secondaire" ${inv.driver_role !== 'principal' ? 'selected' : ''}>Secondaire</option><option value="principal" ${inv.driver_role === 'principal' ? 'selected' : ''}>Principal</option></select></div>
+      </div>
+      <label style="display:flex;align-items:center;margin-top:10px"><input type="checkbox" id="dossier-can-create" /> Peut creer une reservation</label>
+      <label style="display:flex;align-items:center"><input type="checkbox" id="dossier-can-price" /> Peut modifier le prix</label>
+      <label for="dossier-reason" style="margin-top:10px;display:block">Motif (en cas de refus)</label>
+      <input id="dossier-reason" placeholder="Ex : document illisible, carte VTC expiree..." />
+      <p id="dossier-error" class="error"></p>
+      <div class="rm-row">
+        <button id="dossier-validate">Valider et activer le profil</button>
+        <button class="secondary" id="dossier-refuse">Refuser</button>
+      </div>
+    </div>` : ''}`;
+  const decide = async (action, payload) => {
+    try {
+      await adminApi(`/admin/driver-invitations/${id}/${action}`, 'POST', payload);
+      dossierModal.style.display = 'none';
+      lastInvitationsJson = '';
+      renderInvitations();
+      renderChauffeurs();
+    } catch (e) { document.getElementById('dossier-error').textContent = e.message; }
+  };
+  document.getElementById('dossier-validate')?.addEventListener('click', () => {
+    if (!confirm("Valider ce dossier ? Le chauffeur pourra se connecter a l'app et recevoir des courses.")) return;
+    decide('validate', {
+      vehicle_category: document.getElementById('dossier-category').value,
+      driver_role: document.getElementById('dossier-role').value,
+      can_create_rides: document.getElementById('dossier-can-create').checked,
+      can_edit_price: document.getElementById('dossier-can-price').checked,
+    });
+  });
+  document.getElementById('dossier-refuse')?.addEventListener('click', () => {
+    if (!confirm('Refuser ce dossier ? Le chauffeur est prevenu par email.')) return;
+    decide('refuse', { reason: document.getElementById('dossier-reason').value });
+  });
+}
 
 let clientsCache = [];
 

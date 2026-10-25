@@ -86,7 +86,7 @@ function AppContent() {
 
     if (profileError || profile?.role !== 'chauffeur') {
       await supabase.auth.signOut();
-      setErrorMsg("Ce compte n'est pas un compte chauffeur.");
+      setErrorMsg(profile?.role === 'candidat' ? "Votre dossier est en cours de validation. Vous recevrez un email dès l'activation de votre profil." : "Ce compte n'est pas un compte chauffeur.");
     }
   }
 

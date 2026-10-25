@@ -7,6 +7,7 @@ const { sendEmail, sendAdminEmail } = require('./email');
 const { sendPush } = require('./push');
 const { computeTrajetSimplePrice } = require('../../packages/shared/pricingEngine');
 const { buildBonCommandePdf } = require('./bonCommande');
+const { registerDriverOnboarding } = require('./driverOnboarding');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -102,7 +103,7 @@ async function requireAdmin(req, res, next) {
 
 // Cree un compte chauffeur (reserve a l'admin, en attendant le vrai back-office de gestion de flotte).
 app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
-  const { email, password, vehicle_category, driver_role, can_create_rides, can_edit_price } = req.body;
+  const { email, password, vehicle_category, driver_role, can_create_rides, can_edit_price, full_name, phone } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'email et password sont requis' });
   }
@@ -120,7 +121,7 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
 
   await supabaseAdmin
     .from('profiles')
-    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price })
+    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price, full_name: full_name?.trim() || null, phone: phone?.trim() || null })
     .eq('id', data.user.id);
 
   res.status(201).json({ id: data.user.id, email: data.user.email });
@@ -770,6 +771,8 @@ app.post('/public/book', async (req, res) => {
   }
   res.json({ ok: true, id: ride.id });
 });
+
+registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail, sendAdminEmail, baseUrl: BASE_URL });
 
 // Dispatch automatique : si l'admin l'a active, les courses restees en attente au-dela du delai choisi
 // partent chez tous les chauffeurs de leur gamme. La verification est aussi relancee toutes les 30 s.
