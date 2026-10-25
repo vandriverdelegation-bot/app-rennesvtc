@@ -676,6 +676,7 @@ app.post('/public/book', async (req, res) => {
       client_id: null,
       client_name: clientName,
       client_phone: clientPhone,
+      client_email: clientEmail?.trim() || null,
       vehicle_category: vehicleCategory,
       pickup_address: pickup.address,
       pickup_lat: pickup.lat,

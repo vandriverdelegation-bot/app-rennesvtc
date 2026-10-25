@@ -466,6 +466,7 @@
               <div class="form-grid">
                 <div class="field"><label for="new-ride-client-name">Nom du client</label><input id="new-ride-client-name" placeholder="Nom et prenom" /></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
+                <div class="field"><label for="new-ride-client-email">Email</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
               <button type="button" class="secondary" id="new-ride-orderer-toggle" style="margin-top:14px">+ Suivi au donneur d'ordre</button>
@@ -855,6 +856,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   errorEl.textContent = '';
   const client_name = document.getElementById('new-ride-client-name').value.trim();
   const client_phone = document.getElementById('new-ride-client-phone').value.trim();
+  const client_email = document.getElementById('new-ride-client-email').value.trim() || null;
   const vehicle_category = document.getElementById('new-ride-category').value;
   const date = document.getElementById('new-ride-date').value;
   const time = document.getElementById('new-ride-time').value;
@@ -893,6 +895,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     client_id: null,
     client_name,
     client_phone,
+    client_email,
     vehicle_category,
     pickup_address: newRidePickup.address,
     pickup_lat: newRidePickup.lat,
@@ -921,6 +924,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
 
   document.getElementById('new-ride-client-name').value = '';
   document.getElementById('new-ride-client-phone').value = '';
+  document.getElementById('new-ride-client-email').value = '';
   document.getElementById('new-ride-pickup').value = '';
   document.getElementById('new-ride-pickup-suggestions').style.display = 'none';
   document.getElementById('new-ride-dropoff-suggestions').style.display = 'none';
@@ -2336,6 +2340,7 @@ async function renderRideClientTab() {
       <div class="rm-grid">
         <div><label for="rm-client-name">Nom</label><input id="rm-client-name" value="${escapeHtml(ride.client_name ?? '')}" /></div>
         <div><label for="rm-client-phone">Telephone</label><input id="rm-client-phone" value="${escapeHtml(ride.client_phone ?? '')}" /></div>
+        <div><label for="rm-client-email">Email</label><input id="rm-client-email" type="email" value="${escapeHtml(ride.client_email ?? '')}" /></div>
       </div>
       <button class="secondary" id="rm-save-client-contact">Enregistrer</button>
     `;
@@ -2390,7 +2395,8 @@ async function renderRideClientTab() {
     contactBtn.addEventListener('click', async () => {
       const client_name = document.getElementById('rm-client-name').value.trim() || null;
       const client_phone = document.getElementById('rm-client-phone').value.trim() || null;
-      await supabase.from('rides').update({ client_name, client_phone }).eq('id', ride.id);
+      const client_email = document.getElementById('rm-client-email').value.trim() || null;
+      await supabase.from('rides').update({ client_name, client_phone, client_email }).eq('id', ride.id);
       await refreshRideModal();
       refresh();
     });
