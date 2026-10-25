@@ -101,6 +101,24 @@
       <div class="page active" id="page-dashboard">
         <h2>Tableau de bord</h2>
         <div class="stat-grid" id="stats-grid"></div>
+        <div class="card" style="margin-top:20px;max-width:560px">
+          <h3>Dispatch automatique</h3>
+          <p style="color:var(--text-muted);font-size:13px">Quand vous n'etes pas disponible : les nouvelles courses sont envoyees automatiquement a tous les chauffeurs de la gamme demandee, sans attendre votre dispatch manuel.</p>
+          <label class="row" style="display:flex;gap:8px;align-items:center;margin:10px 0">
+            <input type="checkbox" id="auto-dispatch-enabled" /> Activer le dispatch automatique
+          </label>
+          <label style="display:flex;gap:8px;align-items:center">
+            Delai avant envoi
+            <select id="auto-dispatch-delay" style="width:auto">
+              <option value="0">Immediat</option>
+              <option value="2">2 minutes</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+            </select>
+          </label>
+          <p style="color:var(--text-muted);font-size:13px">Le delai vous laisse la main : si vous dispatchez la course vous-meme avant la fin, rien n'est envoye en double.</p>
+          <p id="auto-dispatch-status" style="color:var(--text-muted)"></p>
+        </div>
       </div>
 
       <div class="page" id="page-apparence">
@@ -1005,6 +1023,8 @@ async function renderAppSettings() {
   if (data.app_name) {
     document.querySelectorAll('.sidebar h1').forEach((h1) => { h1.textContent = data.app_name; });
   }
+  document.getElementById('auto-dispatch-enabled').checked = !!data.auto_dispatch_enabled;
+  document.getElementById('auto-dispatch-delay').value = String(data.auto_dispatch_delay_minutes ?? 0);
   document.getElementById('app-name').value = data.app_name ?? '';
   document.getElementById('app-accent-color').value = data.accent_color ?? '#47C415';
   document.getElementById('app-accent-contrast').value = data.accent_contrast ?? 'black';
@@ -1026,6 +1046,18 @@ async function renderAppSettings() {
   document.getElementById('app-company-siret').value = data.company_siret ?? '';
   document.getElementById('app-company-address').value = data.company_address ?? '';
 }
+
+// Dispatch automatique : enregistre des qu'on change le reglage.
+async function saveAutoDispatch() {
+  const statusEl = document.getElementById('auto-dispatch-status');
+  const { error } = await supabase.from('app_settings').update({
+    auto_dispatch_enabled: document.getElementById('auto-dispatch-enabled').checked,
+    auto_dispatch_delay_minutes: parseInt(document.getElementById('auto-dispatch-delay').value, 10),
+  }).eq('id', true);
+  statusEl.textContent = error ? error.message : 'Enregistre.';
+}
+document.getElementById('auto-dispatch-enabled').addEventListener('change', saveAutoDispatch);
+document.getElementById('auto-dispatch-delay').addEventListener('change', saveAutoDispatch);
 
 document.getElementById('app-settings-save').addEventListener('click', async () => {
   const statusEl = document.getElementById('app-settings-status');

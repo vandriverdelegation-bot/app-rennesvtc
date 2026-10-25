@@ -29,16 +29,17 @@ function parseDateTime(dateStr, timeStr) {
 const SERVICE_TYPES = [
   { value: 'trajet_simple', label: 'Trajet simple', icon: '📍' },
   { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
+  { value: 'forfait', label: 'Forfait', icon: '🏷️' },
   { value: 'devis', label: 'Demander un devis', icon: '✉️' },
 ];
 
-function SegmentedChoice({ options, value, onChange, oneLine }) {
+function SegmentedChoice({ options, value, onChange }) {
   return (
-    <View style={[styles.choiceRow, oneLine && styles.choiceRowOneLine]}>
+    <View style={styles.choiceRow}>
       {options.map((o) => (
         <TouchableOpacity
           key={o.value}
-          style={[styles.choiceOption, oneLine && styles.choiceOptionOneLine, value === o.value && styles.choiceOptionSelected]}
+          style={[styles.choiceOption, value === o.value && styles.choiceOptionSelected]}
           onPress={() => onChange(o.value)}
         >
           {o.icon ? <Text style={styles.choiceIcon}>{o.icon}</Text> : null}
@@ -99,6 +100,9 @@ export default function ClientHome({ session, logoUrl, appName }) {
   const [luggageCount, setLuggageCount] = useState(0);
   const [childAges, setChildAges] = useState('');
   const [clientNote, setClientNote] = useState('');
+  const [asap, setAsap] = useState(false); // course immediate, sans date
+  const [rideDate, setRideDate] = useState('');
+  const [rideTime, setRideTime] = useState('');
   const [history, setHistory] = useState([]); // courses terminees ou annulees
   const [showHistory, setShowHistory] = useState(false);
   const [price, setPrice] = useState(null);
@@ -301,6 +305,19 @@ export default function ClientHome({ session, logoUrl, appName }) {
       setErrorMsg("Indiquez l'age de l'enfant (siege auto ou rehausseur).");
       return;
     }
+    let scheduledAt = null;
+    if (!asap) {
+      const when = parseDateTime(rideDate, rideTime);
+      if (!when) {
+        setErrorMsg("Indiquez la date et l'heure de la course (JJ/MM/AAAA et HH:MM), ou cochez « Des que possible ».");
+        return;
+      }
+      if (when < new Date()) {
+        setErrorMsg('La date de la course est deja passee.');
+        return;
+      }
+      scheduledAt = when.toISOString();
+    }
     let returnScheduledAt = null;
     if (roundTrip) {
       const parsed = parseDateTime(returnDate, returnTime);
@@ -332,6 +349,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
         luggage_count: luggageCount,
         child_ages: childSeats > 0 || boosterSeats > 0 ? childAges.trim() : null,
         client_note: clientNote.trim() || null,
+        scheduled_at: scheduledAt,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
         return_scheduled_at: returnScheduledAt,
@@ -366,6 +384,9 @@ export default function ClientHome({ session, logoUrl, appName }) {
     setLuggageCount(0);
     setChildAges('');
     setClientNote('');
+    setAsap(false);
+    setRideDate('');
+    setRideTime('');
     fetchRides();
     setView('home');
   }
@@ -476,13 +497,53 @@ export default function ClientHome({ session, logoUrl, appName }) {
       </SectionCard>
 
       {serviceType !== 'devis' && (
+        <SectionCard title="Date et heure">
+          <TouchableOpacity style={styles.row} onPress={() => setAsap((v) => !v)}>
+            <View style={[styles.checkbox, asap && styles.checkboxChecked]}>{asap ? <Text style={styles.checkboxMark}>✓</Text> : null}</View>
+            <Text style={styles.inlineLabel}>Des que possible</Text>
+          </TouchableOpacity>
+          {!asap && (
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.durationInput, { flex: 1 }]}
+                value={rideDate}
+                onChangeText={setRideDate}
+                placeholder="JJ/MM/AAAA"
+                placeholderTextColor={theme.colors.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+              <TextInput
+                style={[styles.durationInput, { flex: 1 }]}
+                value={rideTime}
+                onChangeText={setRideTime}
+                placeholder="HH:MM"
+                placeholderTextColor={theme.colors.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+          )}
+        </SectionCard>
+      )}
+
+      {serviceType !== 'devis' && (
         <SectionCard title="Gamme de vehicule">
           <VehicleChoice value={vehicleCategory} onChange={setVehicleCategory} photos={vehiclePhotos} />
         </SectionCard>
       )}
 
       <SectionCard title="Service">
-        <SegmentedChoice options={SERVICE_TYPES} value={serviceType} onChange={setServiceType} oneLine />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
+          {SERVICE_TYPES.map((o) => (
+            <TouchableOpacity
+              key={o.value}
+              style={[styles.tile, serviceType === o.value && styles.choiceOptionSelected]}
+              onPress={() => setServiceType(o.value)}
+            >
+              <Text style={styles.choiceIcon}>{o.icon}</Text>
+              <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {serviceType === 'trajet_simple' && (
           <View style={styles.choiceRow}>
@@ -565,19 +626,18 @@ export default function ClientHome({ session, logoUrl, appName }) {
             {forfaits.length === 0 ? (
               <Text style={styles.mutedText}>Aucun forfait disponible pour cette gamme.</Text>
             ) : (
-              <View style={styles.choiceRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
                 {forfaits.map((f) => (
                   <TouchableOpacity
                     key={f.id}
-                    style={[styles.choiceOption, selectedForfaitId === f.id && styles.choiceOptionSelected]}
+                    style={[styles.forfaitTile, selectedForfaitId === f.id && styles.choiceOptionSelected]}
                     onPress={() => setSelectedForfaitId(f.id)}
                   >
-                    <Text style={selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText}>
-                      {f.name} ({f.price}€)
-                    </Text>
+                    <Text style={[selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{f.name}</Text>
+                    <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accentText }]}>{f.price} €</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             )}
           </View>
         )}
@@ -682,8 +742,30 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius - 4,
     marginBottom: 4,
   },
-  choiceRowOneLine: { flexWrap: 'nowrap' },
-  choiceOptionOneLine: { minWidth: 0 },
+  tileRow: { gap: 10, paddingRight: 4 },
+  tile: {
+    width: 112,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forfaitTile: {
+    minWidth: 130,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  forfaitPrice: { color: theme.colors.accent, fontSize: 18, fontWeight: '800' },
   noteInput: {
     width: '100%',
     minHeight: 80,

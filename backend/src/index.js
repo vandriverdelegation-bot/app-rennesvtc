@@ -134,6 +134,7 @@ app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
     .single();
   if (!ride) return res.json({ ok: true });
 
+  autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
   await sendAdminEmail(
     'Nouvelle demande de course',
     `${formatRideRecap(ride)}\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
@@ -612,6 +613,7 @@ app.post('/public/book', async (req, res) => {
     .single();
   if (error) return res.status(400).json({ error: error.message });
 
+  autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
   await sendAdminEmail(
     'Nouvelle demande de course (reservation web)',
     `${formatRideRecap(ride)}\nClient : ${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
@@ -625,6 +627,31 @@ app.post('/public/book', async (req, res) => {
   }
   res.json({ ok: true, id: ride.id });
 });
+
+// Dispatch automatique : si l'admin l'a active, les courses restees en attente au-dela du delai choisi
+// partent chez tous les chauffeurs de leur gamme. La verification est aussi relancee toutes les 30 s.
+// shortcut: le delai repose sur ce serveur ; l'hebergement gratuit s'endort apres 15 min, donc delai <= 10 min.
+async function autoDispatchPending() {
+  const { data: settings } = await supabaseAdmin.from('app_settings').select('auto_dispatch_enabled, auto_dispatch_delay_minutes').eq('id', true).single();
+  if (!settings?.auto_dispatch_enabled) return;
+  const cutoff = new Date(Date.now() - (settings.auto_dispatch_delay_minutes ?? 0) * 60000).toISOString();
+  const { data: rides } = await supabaseAdmin
+    .from('rides')
+    .select('id, pickup_address, dropoff_address, vehicle_category')
+    .eq('status', 'pending')
+    .is('driver_id', null)
+    .not('vehicle_category', 'is', null)
+    .lte('created_at', cutoff);
+  for (const ride of rides ?? []) {
+    // La condition sur le statut evite de dispatcher deux fois une course deja traitee par l'admin.
+    const { data: updated } = await supabaseAdmin.from('rides').update({ status: 'dispatched', dispatched_to: null }).eq('id', ride.id).eq('status', 'pending').select('id');
+    if (!updated?.length) continue;
+    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').eq('vehicle_category', ride.vehicle_category);
+    await sendPush((drivers ?? []).map((d) => d.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`);
+    await sendAdminEmail('Course dispatchee automatiquement', `${ride.pickup_address} -> ${ride.dropoff_address}\nDispatch automatique vers tous les chauffeurs de la gamme ${ride.vehicle_category}.`);
+  }
+}
+setInterval(() => autoDispatchPending().catch((e) => console.error('auto-dispatch', e)), 30000);
 
 app.listen(PORT, () => {
   console.log(`Backend demarre sur http://localhost:${PORT}`);
