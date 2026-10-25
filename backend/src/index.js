@@ -391,6 +391,41 @@ app.get('/driver/ride-client/:rideId', requireSupabaseUser, async (req, res) => 
   res.json({ name: bonData.ride.client_name, phone: bonData.ride.client_phone });
 });
 
+// Annulation d'une reservation par son client. Une fois un chauffeur engage, elle n'est
+// possible que jusqu'a 24 h avant la course ; sans chauffeur, personne n'est engage.
+const CANCEL_DELAY_HOURS = 24;
+app.post('/client/rides/:rideId/cancel', requireSupabaseUser, async (req, res) => {
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('id, client_id, driver_id, status, scheduled_at, pickup_address, dropoff_address')
+    .eq('id', req.params.rideId)
+    .single();
+  if (!ride || ride.client_id !== req.user.id) return res.status(404).json({ error: 'Course introuvable' });
+  if (!['pending', 'dispatched', 'accepted'].includes(ride.status)) {
+    return res.status(400).json({ error: 'Cette course ne peut plus etre annulee.' });
+  }
+  if (ride.driver_id) {
+    const hoursLeft = ride.scheduled_at ? (new Date(ride.scheduled_at) - Date.now()) / 3600000 : 0;
+    if (hoursLeft < CANCEL_DELAY_HOURS) {
+      return res.status(400).json({
+        error: `Annulation impossible a moins de ${CANCEL_DELAY_HOURS} h de la course. Contactez le chauffeur.`,
+        tooLate: true,
+      });
+    }
+  }
+
+  const { error } = await supabaseAdmin.from('rides').update({ status: 'cancelled', driver_lat: null, driver_lng: null }).eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+
+  const trajet = `${ride.pickup_address} -> ${ride.dropoff_address}`;
+  if (ride.driver_id) {
+    const { data: driver } = await supabaseAdmin.from('profiles').select('push_token').eq('id', ride.driver_id).single();
+    await sendPush([driver?.push_token], 'Course annulee par le client', trajet);
+  }
+  await sendAdminEmail('Reservation annulee par le client', `${trajet}\n${ride.scheduled_at ? `Prevue le ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : 'Course immediate'}`);
+  res.json({ ok: true });
+});
+
 // Coordonnees du chauffeur d'une course acceptee, visibles uniquement par son client.
 app.get('/client/ride-driver/:rideId', requireSupabaseUser, async (req, res) => {
   const { data: ride } = await supabaseAdmin

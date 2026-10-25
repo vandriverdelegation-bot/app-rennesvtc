@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, Linking } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
+import RideCard from './RideCard';
+import { Btn, Card } from '../ui';
 
 const STATUS_LABELS = {
   pending: "En attente d'un chauffeur...",
@@ -77,7 +78,8 @@ function SectionCard({ title, children }) {
 }
 
 export default function ClientHome({ session }) {
-  const [activeRide, setActiveRide] = useState(undefined); // undefined = chargement initial
+  const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
+  const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [stops, setStops] = useState([]); // points d'arret intermediaires
@@ -96,32 +98,42 @@ export default function ClientHome({ session }) {
   const [boosterSeats, setBoosterSeats] = useState(0);
   const [luggageCount, setLuggageCount] = useState(0);
   const [childAges, setChildAges] = useState('');
-  const [driverInfo, setDriverInfo] = useState(null);
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  async function fetchActiveRide() {
+  async function fetchRides() {
     const { data } = await supabase
       .from('rides')
       .select(
-        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, stop_addresses, round_trip'
+        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats'
       )
       .eq('client_id', session.user.id)
       .in('status', ['pending', 'dispatched', 'accepted'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setActiveRide(data ?? null);
+      .limit(30);
+    const when = (r) => new Date(r.scheduled_at ?? r.created_at).getTime();
+    setRides((data ?? []).sort((a, b) => when(a) - when(b)));
   }
 
   useEffect(() => {
-    fetchActiveRide();
-    const interval = setInterval(fetchActiveRide, 3000);
+    fetchRides();
+    const interval = setInterval(fetchRides, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Bouton Retour d'Android : du formulaire de commande vers mes reservations.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (view === 'book') {
+        setView('home');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [view]);
 
   // Photo d'un vehicule actif par gamme, pour illustrer le choix de gamme.
   useEffect(() => {
@@ -139,19 +151,6 @@ export default function ClientHome({ session }) {
         setVehiclePhotos(photos);
       });
   }, []);
-
-  // Coordonnees du chauffeur, recuperees via le backend des que la course est acceptee.
-  const acceptedRideId = activeRide?.status === 'accepted' ? activeRide.id : null;
-  useEffect(() => {
-    setDriverInfo(null);
-    if (!acceptedRideId) return;
-    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/client/ride-driver/${acceptedRideId}`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setDriverInfo)
-      .catch(() => {});
-  }, [acceptedRideId]);
 
   useEffect(() => {
     if (!vehicleCategory) return;
@@ -317,75 +316,28 @@ export default function ClientHome({ session }) {
     setBoosterSeats(0);
     setLuggageCount(0);
     setChildAges('');
-    fetchActiveRide();
+    fetchRides();
+    setView('home');
   }
 
-  if (activeRide === undefined) {
+  if (rides === undefined) {
     return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
   }
 
-  if (activeRide) {
+  if (view === 'home') {
     return (
-      <View style={styles.container}>
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: activeRide.pickup_lat,
-            longitude: activeRide.pickup_lng,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          }}
-        >
-          <Marker
-            coordinate={{ latitude: activeRide.pickup_lat, longitude: activeRide.pickup_lng }}
-            title="Depart"
-            pinColor={theme.colors.accent}
-          />
-          <Marker
-            coordinate={{ latitude: activeRide.dropoff_lat, longitude: activeRide.dropoff_lng }}
-            title="Destination"
-            pinColor="red"
-          />
-          {activeRide.driver_lat && (
-            <Marker
-              coordinate={{ latitude: activeRide.driver_lat, longitude: activeRide.driver_lng }}
-              title="Chauffeur"
-              pinColor="#3B82F6"
-            />
-          )}
-        </MapView>
-        <View style={styles.statusBar}>
-          <Text style={styles.status}>{STATUS_LABELS[activeRide.status]}</Text>
-          <Text style={styles.paymentLabel}>
-            {VEHICLE_CATEGORIES.find((c) => c.value === activeRide.vehicle_category)?.label}
-            {' · '}
-            {PAYMENT_METHODS.find((m) => m.value === activeRide.payment_method)?.label}
-            {' · '}
-            {activeRide.price != null ? `${activeRide.price} €` : 'Prix fixe par le chauffeur'}
-          </Text>
-          {driverInfo ? (
-            <View style={styles.driverBlock}>
-              <Text style={styles.sectionLabel}>Votre chauffeur</Text>
-              <Text style={styles.status}>{driverInfo.name ?? 'Chauffeur'}</Text>
-              {driverInfo.phone ? (
-                <>
-                  <Text style={styles.paymentLabel}>{driverInfo.phone}</Text>
-                  <View style={styles.contactRow}>
-                    <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL(`tel:${driverInfo.phone}`)}>
-                      <Text style={styles.contactBtnText}>Appeler</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#25D366' }]} onPress={() => Linking.openURL(whatsappUrl(driverInfo.phone))}>
-                      <Text style={[styles.contactBtnText, { color: '#FFFFFF' }]}>WhatsApp</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <Text style={styles.paymentLabel}>Telephone non renseigne</Text>
-              )}
-            </View>
-          ) : null}
-        </View>
-      </View>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.homeContent}>
+        <Text style={styles.title}>Mes reservations</Text>
+        <Btn title="+ Commander une course" onPress={() => setView('book')} />
+        {rides.length === 0 ? (
+          <Card>
+            <Text style={styles.homeEmptyTitle}>Aucune reservation en cours</Text>
+            <Text style={styles.paymentLabel}>Commandez votre prochaine course en quelques secondes.</Text>
+          </Card>
+        ) : (
+          rides.map((r) => <RideCard key={r.id} ride={r} session={session} onChanged={fetchRides} />)
+        )}
+      </ScrollView>
     );
   }
 
@@ -395,7 +347,10 @@ export default function ClientHome({ session }) {
       contentContainerStyle={styles.scrollContainer}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Demander une course</Text>
+      <TouchableOpacity onPress={() => setView('home')} style={{ alignSelf: 'flex-start' }}>
+        <Text style={styles.backLink}>← Mes reservations</Text>
+      </TouchableOpacity>
+      <Text style={styles.title}>Commander une course</Text>
 
       <SectionCard title="Trajet">
         <AddressAutocomplete placeholder="Adresse de depart" onSelect={setPickup} />
@@ -569,6 +524,9 @@ export default function ClientHome({ session }) {
 
 const styles = StyleSheet.create({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
+  homeContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  homeEmptyTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '700' },
+  backLink: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
   scrollView: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { width: '100%', alignItems: 'center', gap: 14, padding: 20, backgroundColor: theme.colors.background },
   map: { width: '100%', flex: 1 },
