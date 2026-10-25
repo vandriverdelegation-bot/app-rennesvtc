@@ -25,7 +25,8 @@ const PAYMENT_METHODS = [
   { value: 'especes', label: 'Especes' },
 ];
 
-export default function CreateRide({ session, vehicleCategory, canEditPrice, onDone, onCancel }) {
+export default function CreateRide({ session, vehicleCategory, categories = [], canEditPrice, onDone, onCancel }) {
+  const [ownCategory, setOwnCategory] = useState(vehicleCategory);
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [pickup, setPickup] = useState(null);
@@ -52,7 +53,8 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // Le tarif depend de la gamme du chauffeur qui prendra la course.
-  const rideCategory = colleagues.find((c) => c.id === assignTo)?.vehicle_category ?? vehicleCategory;
+  const colleague = colleagues.find((c) => c.id === assignTo);
+  const rideCategory = colleague ? (colleague.vehicle_categories ?? []).includes(ownCategory) ? ownCategory : colleague.vehicle_category : ownCategory;
 
   useEffect(() => {
     fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/colleagues`, {
@@ -170,6 +172,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
           boosterSeats,
           childAges,
           assignTo,
+          vehicleCategory: ownCategory,
         }),
       });
       result = await res.json();
@@ -298,6 +301,19 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
           </TouchableOpacity>
         ))}
       </View>
+
+      {categories.length > 1 ? (
+        <>
+          <Text style={styles.label}>Gamme de la course</Text>
+          <View style={styles.row}>
+            {categories.map((c) => (
+              <TouchableOpacity key={c} style={[styles.choice, ownCategory === c && styles.choiceSelected]} onPress={() => setOwnCategory(c)}>
+                <Text style={ownCategory === c ? styles.choiceTextSelected : styles.choiceText}>{c.charAt(0).toUpperCase() + c.slice(1)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      ) : null}
 
       <Text style={styles.label}>Attribuer a</Text>
       <TouchableOpacity style={styles.dropdown} onPress={() => setPickerOpen((v) => !v)}>

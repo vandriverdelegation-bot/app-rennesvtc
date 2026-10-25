@@ -103,7 +103,7 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
     const category = CATEGORIES.includes(req.body.vehicle_category) ? req.body.vehicle_category : inv.vehicle_category;
     const driver_role = req.body.driver_role === 'principal' ? 'principal' : req.body.driver_role === 'secondaire' ? 'secondaire' : inv.driver_role;
     const { error } = await supabaseAdmin.from('profiles').update({
-      role: 'chauffeur', driver_role, vehicle_category: category,
+      role: 'chauffeur', driver_role, vehicle_category: category, vehicle_categories: [category],
       can_create_rides: !!req.body.can_create_rides, can_edit_price: !!req.body.can_edit_price,
     }).eq('id', inv.profile_id);
     if (error) return res.status(400).json({ error: error.message });
@@ -182,7 +182,7 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
     await supabaseAdmin.from('profiles').update({
       full_name: `${inv.first_name} ${inv.last_name}`, phone: b.phone.trim(), address: b.address.trim(),
       vtc_card_number: b.vtc_card_number.trim(), siret: b.siret.trim(),
-      driver_role: inv.driver_role, vehicle_category: inv.vehicle_category,
+      driver_role: inv.driver_role, vehicle_category: inv.vehicle_category, vehicle_categories: [inv.vehicle_category],
     }).eq('id', userId);
     await supabaseAdmin.from('vehicles').insert({
       driver_id: userId, vehicle_category: inv.vehicle_category, display_name: b.vehicle.name.trim(),

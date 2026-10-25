@@ -13,7 +13,8 @@ const DAYS = [
   { value: 0, label: 'Dimanche' },
 ];
 
-export default function DriverSettings({ session, currentCategory, onSaved }) {
+export default function DriverSettings({ session }) {
+  const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [onlineStatus, setOnlineStatus] = useState(false);
@@ -25,12 +26,13 @@ export default function DriverSettings({ session, currentCategory, onSaved }) {
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('online_status, phone')
+      .select('online_status, phone, vehicle_categories, vehicle_category')
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => {
         setOnlineStatus(!!data?.online_status);
         setPhone(data?.phone ?? '');
+        setCategories(data?.vehicle_categories ?? (data?.vehicle_category ? [data.vehicle_category] : []));
       });
     supabase
       .from('driver_availability')
@@ -47,21 +49,6 @@ export default function DriverSettings({ session, currentCategory, onSaved }) {
         });
       });
   }, []);
-
-  async function handleSelect(category) {
-    setSaving(true);
-    setErrorMsg('');
-    const { error } = await supabase
-      .from('profiles')
-      .update({ vehicle_category: category })
-      .eq('id', session.user.id);
-    setSaving(false);
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
-    onSaved(category);
-  }
 
   async function handleToggleOnline(value) {
     setOnlineStatus(value);
@@ -100,23 +87,15 @@ export default function DriverSettings({ session, currentCategory, onSaved }) {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Votre gamme de vehicule</Text>
+      <Text style={styles.title}>Vos gammes</Text>
       <Text style={styles.hint}>
-        Choisissez la gamme de votre vehicule principal. Vous ne recevrez que les courses de cette
-        gamme.
+        Vous recevez les courses de ces gammes. Elles sont attribuees par Rennes VTC.
       </Text>
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
-      {VEHICLE_CATEGORIES.map((c) => (
-        <TouchableOpacity
-          key={c.value}
-          style={[styles.option, currentCategory === c.value && styles.optionSelected]}
-          onPress={() => handleSelect(c.value)}
-          disabled={saving}
-        >
-          <Text style={currentCategory === c.value ? styles.optionTextSelected : styles.optionText}>
-            {c.label}
-          </Text>
-        </TouchableOpacity>
+      {VEHICLE_CATEGORIES.filter((c) => categories.includes(c.value)).map((c) => (
+        <View key={c.value} style={[styles.option, styles.optionSelected]}>
+          <Text style={styles.optionTextSelected}>{c.label}</Text>
+        </View>
       ))}
 
       <View style={styles.row}>

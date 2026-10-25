@@ -47,6 +47,7 @@ export default function DriverHome({ session }) {
   const [pendingRides, setPendingRides] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [clientInfo, setClientInfo] = useState(null);
+  const [categories, setCategories] = useState([]); // toutes les gammes du chauffeur
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [colleagues, setColleagues] = useState([]);
   const [releaseTarget, setReleaseTarget] = useState('all'); // 'all' ou id d'un collegue
@@ -78,10 +79,11 @@ export default function DriverHome({ session }) {
   async function fetchProfile() {
     const { data } = await supabase
       .from('profiles')
-      .select('vehicle_category, can_create_rides, can_edit_price, online_status')
+      .select('vehicle_category, vehicle_categories, can_create_rides, can_edit_price, online_status')
       .eq('id', session.user.id)
       .single();
     setVehicleCategory(data?.vehicle_category ?? null);
+    setCategories(data?.vehicle_categories ?? (data?.vehicle_category ? [data.vehicle_category] : []));
     setPermissions({ can_create_rides: !!data?.can_create_rides, can_edit_price: !!data?.can_edit_price });
     setOnlineStatus(!!data?.online_status);
   }
@@ -318,6 +320,7 @@ export default function DriverHome({ session }) {
       <CreateRide
         session={session}
         vehicleCategory={vehicleCategory}
+        categories={categories}
         canEditPrice={permissions.can_edit_price}
         onCancel={() => setShowCreateRide(false)}
         onDone={() => {

@@ -121,7 +121,7 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
 
   await supabaseAdmin
     .from('profiles')
-    .update({ vehicle_category, driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price, full_name: full_name?.trim() || null, phone: phone?.trim() || null })
+    .update({ vehicle_category, vehicle_categories: [vehicle_category], driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price, full_name: full_name?.trim() || null, phone: phone?.trim() || null })
     .eq('id', data.user.id);
 
   res.status(201).json({ id: data.user.id, email: data.user.email });
@@ -131,18 +131,53 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
 app.patch('/admin/chauffeurs/:id/category', requireAdmin, async (req, res) => {
   const { vehicle_category } = req.body;
   if (!['confort', 'affaires', 'van'].includes(vehicle_category)) return res.status(400).json({ error: 'Gamme inconnue' });
-  const { error } = await supabaseAdmin.from('profiles').update({ vehicle_category }).eq('id', req.params.id).eq('role', 'chauffeur');
+  // Un chauffeur sur une seule gamme change de gamme ; un chauffeur sur plusieurs gammes gagne celle du vehicule.
+  const { data: current } = await supabaseAdmin.from('profiles').select('vehicle_categories').eq('id', req.params.id).eq('role', 'chauffeur').single();
+  const existing = current?.vehicle_categories ?? [];
+  const vehicle_categories = existing.length > 1 ? [...new Set([...existing, vehicle_category])] : [vehicle_category];
+  const { error } = await supabaseAdmin.from('profiles').update({ vehicle_category, vehicle_categories }).eq('id', req.params.id).eq('role', 'chauffeur');
   if (error) return res.status(400).json({ error: error.message });
   res.json({ ok: true });
 });
 
+// Supprime un chauffeur. Sans historique de courses : suppression complete du compte. Avec historique :
+// archivage (plus aucun acces, historique et chiffres conserves).
+app.delete('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', id).single();
+  if (profile?.role !== 'chauffeur') return res.status(404).json({ error: 'Chauffeur introuvable' });
+
+  const { count: active } = await supabaseAdmin.from('rides').select('*', { count: 'exact', head: true })
+    .in('status', ['dispatched', 'accepted']).or(`driver_id.eq.${id},dispatched_to.eq.${id}`);
+  if (active) return res.status(400).json({ error: `Ce chauffeur a ${active} course(s) en cours ou qui lui sont destinees. Redispatchez-les ou terminez-les avant de le supprimer.` });
+
+  const { count: history } = await supabaseAdmin.from('rides').select('*', { count: 'exact', head: true }).eq('driver_id', id);
+  await supabaseAdmin.from('vehicles').update({ driver_id: null }).eq('driver_id', id);
+  if (!history) {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (!error) return res.json({ ok: true, deleted: true });
+  }
+  await supabaseAdmin.from('profiles').update({ role: 'ancien', push_token: null, online_status: false }).eq('id', id);
+  await supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: '876000h' });
+  res.json({ ok: true, archived: true });
+});
+
 // Modifie la gamme/role/permissions/infos legales d'un chauffeur existant.
 app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
-  const { vehicle_category, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret } = req.body;
+  const { driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret } = req.body;
+  // Gammes : au moins une ; la gamme principale reste la meme tant qu'elle fait partie de la liste.
+  const categories = Array.isArray(req.body.vehicle_categories) ? req.body.vehicle_categories.filter((c) => ['confort', 'affaires', 'van'].includes(c)) : null;
+  if (categories && categories.length === 0) return res.status(400).json({ error: 'Choisissez au moins une gamme.' });
+  let vehicle_category, vehicle_categories;
+  if (categories) {
+    const { data: current } = await supabaseAdmin.from('profiles').select('vehicle_category').eq('id', req.params.id).single();
+    vehicle_categories = categories;
+    vehicle_category = categories.includes(current?.vehicle_category) ? current.vehicle_category : categories[0];
+  }
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
-      vehicle_category, driver_role,
+      vehicle_category, vehicle_categories, driver_role,
       can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price,
       full_name: full_name || null, vtc_card_number: vtc_card_number || null, siret: siret || null,
     })
@@ -226,7 +261,7 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
   if (!ride) return res.json({ ok: true });
 
   let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur');
-  query = ride.dispatched_to ? query.eq('id', ride.dispatched_to) : query.eq('vehicle_category', ride.vehicle_category);
+  query = ride.dispatched_to ? query.eq('id', ride.dispatched_to) : query.contains('vehicle_categories', [ride.vehicle_category]);
   const { data: drivers } = await query;
 
   await sendPush(
@@ -295,7 +330,7 @@ async function requireRideCreator(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('role, can_create_rides, vehicle_category')
+      .select('role, can_create_rides, vehicle_category, vehicle_categories')
       .eq('id', req.user.id)
       .single();
     if (profile?.role !== 'chauffeur' || !profile.can_create_rides) {
@@ -310,7 +345,7 @@ async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('role, vehicle_category')
+      .select('role, vehicle_category, vehicle_categories')
       .eq('id', req.user.id)
       .single();
     if (profile?.role !== 'chauffeur') return res.status(403).json({ error: 'Reserve aux chauffeurs' });
@@ -323,7 +358,7 @@ async function requireDriver(req, res, next) {
 app.get('/driver/colleagues', requireDriver, async (req, res) => {
   const { data } = await supabaseAdmin
     .from('profiles')
-    .select('id, full_name, email, vehicle_category, online_status')
+    .select('id, full_name, email, vehicle_category, vehicle_categories, online_status')
     .eq('role', 'chauffeur')
     .not('vehicle_category', 'is', null)
     .order('full_name', { ascending: true });
@@ -332,6 +367,7 @@ app.get('/driver/colleagues', requireDriver, async (req, res) => {
       id: d.id,
       name: d.full_name || d.email,
       vehicle_category: d.vehicle_category,
+      vehicle_categories: d.vehicle_categories ?? [d.vehicle_category],
       online: !!d.online_status,
       isMe: d.id === req.user.id,
     }))
@@ -349,19 +385,20 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
     return res.status(400).json({ error: 'Mode de reglement invalide' });
   }
 
-  let category = req.driverProfile.vehicle_category;
+  const own = req.driverProfile.vehicle_categories ?? [req.driverProfile.vehicle_category];
+  let category = own.includes(b.vehicleCategory) ? b.vehicleCategory : req.driverProfile.vehicle_category;
   let assignment = { status: 'accepted', driver_id: req.user.id, dispatched_to: null };
   if (b.assignTo && b.assignTo !== 'self') {
     assignment = { status: 'dispatched', driver_id: null, dispatched_to: null };
     if (b.assignTo !== 'all') {
       const { data: target } = await supabaseAdmin
         .from('profiles')
-        .select('id, vehicle_category')
+        .select('id, vehicle_category, vehicle_categories')
         .eq('id', b.assignTo)
         .eq('role', 'chauffeur')
         .single();
       if (!target?.vehicle_category) return res.status(400).json({ error: 'Chauffeur introuvable' });
-      category = target.vehicle_category;
+      category = (target.vehicle_categories ?? []).includes(b.vehicleCategory) ? b.vehicleCategory : target.vehicle_category;
       assignment.dispatched_to = target.id;
     }
   }
@@ -396,7 +433,7 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
 
   if (assignment.status === 'dispatched') {
     let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
-    query = assignment.dispatched_to ? query.eq('id', assignment.dispatched_to) : query.eq('vehicle_category', category);
+    query = assignment.dispatched_to ? query.eq('id', assignment.dispatched_to) : query.contains('vehicle_categories', [category]);
     const { data: targets } = await query;
     await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`);
   }
@@ -421,14 +458,14 @@ app.post('/driver/rides/:rideId/release', requireDriver, async (req, res) => {
   if (assignTo && assignTo !== 'all') {
     const { data: target } = await supabaseAdmin
       .from('profiles')
-      .select('id, vehicle_category')
+      .select('id, vehicle_category, vehicle_categories')
       .eq('id', assignTo)
       .eq('role', 'chauffeur')
       .single();
     if (!target?.vehicle_category || target.id === req.user.id) {
       return res.status(400).json({ error: 'Chauffeur invalide' });
     }
-    category = target.vehicle_category;
+    category = (target.vehicle_categories ?? []).includes(ride.vehicle_category) ? ride.vehicle_category : target.vehicle_category;
     dispatchedTo = target.id;
   }
 
@@ -442,7 +479,7 @@ app.post('/driver/rides/:rideId/release', requireDriver, async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
 
   let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
-  query = dispatchedTo ? query.eq('id', dispatchedTo) : query.eq('vehicle_category', category);
+  query = dispatchedTo ? query.eq('id', dispatchedTo) : query.contains('vehicle_categories', [category]);
   const { data: targets } = await query;
   await sendPush((targets ?? []).map((t) => t.push_token), 'Course remise en dispatch', `${ride.pickup_address} -> ${ride.dropoff_address}`);
   await sendAdminEmail('Course remise en dispatch par un chauffeur', `${ride.pickup_address} -> ${ride.dropoff_address}\nLe chauffeur s'est desiste${dispatchedTo ? ' en faveur d\'un collegue' : ' : course dispatchee a tous les chauffeurs de la gamme'}.`);
@@ -792,7 +829,7 @@ async function autoDispatchPending() {
     // La condition sur le statut evite de dispatcher deux fois une course deja traitee par l'admin.
     const { data: updated } = await supabaseAdmin.from('rides').update({ status: 'dispatched', dispatched_to: null }).eq('id', ride.id).eq('status', 'pending').select('id');
     if (!updated?.length) continue;
-    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').eq('vehicle_category', ride.vehicle_category);
+    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').contains('vehicle_categories', [ride.vehicle_category]);
     await sendPush((drivers ?? []).map((d) => d.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`);
     await sendAdminEmail('Course dispatchee automatiquement', `${ride.pickup_address} -> ${ride.dropoff_address}\nDispatch automatique vers tous les chauffeurs de la gamme ${ride.vehicle_category}.`);
   }

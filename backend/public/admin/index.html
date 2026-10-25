@@ -915,7 +915,7 @@ document.getElementById('new-ride-round-trip').addEventListener('change', (e) =>
 
 async function populateNewRideDrivers() {
   const category = document.getElementById('new-ride-category').value;
-  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur').eq('vehicle_category', category);
+  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur').contains('vehicle_categories', [category]);
   const select = document.getElementById('new-ride-driver');
   select.innerHTML = '<option value="">Laisser en attente (dispatch normal)</option>' +
     (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
@@ -1345,7 +1345,7 @@ async function renderStats() {
 async function renderChauffeurs() {
   const { data: chauffeurs } = await supabase
     .from('profiles')
-    .select('id, email, phone, vehicle_category, push_token, created_at, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
+    .select('id, email, phone, vehicle_category, push_token, created_at, vehicle_categories, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
@@ -1360,12 +1360,12 @@ async function renderChauffeurs() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Chauffeur</th><th>Gamme</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
+      <thead><tr><th>Chauffeur</th><th>Gammes</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
       <tbody>
         ${chauffeurs.map((c) => `
           <tr data-chauffeur-id="${c.id}">
             <td>${escapeHtml(c.full_name ?? '')}<br/><span class="hint">${escapeHtml(c.email ?? '')}${c.phone ? '<br/>' + escapeHtml(c.phone) : ''}</span></td>
-            <td>${c.vehicle_category ? VEHICLE_LABELS[c.vehicle_category] : '-'}</td>
+            <td>${CATEGORIES.map((cat) => `<label style="display:flex;align-items:center;margin:2px 0;color:var(--text)"><input type="checkbox" class="edit-cat" value="${cat}" ${(c.vehicle_categories ?? [c.vehicle_category]).includes(cat) ? 'checked' : ''} /> ${VEHICLE_LABELS[cat]}</label>`).join('')}</td>
             <td>${vehicleByDriver[c.id] ? escapeHtml(vehicleByDriver[c.id].display_name) + (vehicleByDriver[c.id].plate ? '<br/><span class="hint">' + escapeHtml(vehicleByDriver[c.id].plate) + '</span>' : '') : '<span class="hint">Aucun (a assigner dans Vehicules)</span>'}</td>
             <td>
               <select class="edit-role">
@@ -1384,13 +1384,26 @@ async function renderChauffeurs() {
               <input class="edit-vtc-card" placeholder="N. carte VTC" value="${escapeHtml(c.vtc_card_number ?? '')}" style="width:120px" />
               <input class="edit-siret" placeholder="SIRET/SIREN" value="${escapeHtml(c.siret ?? '')}" style="width:110px" />
             </td>
-            <td><button class="secondary save-chauffeur">Enregistrer</button></td>
+            <td><button class="secondary save-chauffeur">Enregistrer</button><br/><button class="secondary delete-chauffeur" style="color:var(--error)">Supprimer</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
 
+  container.querySelectorAll('.delete-chauffeur').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      const name = row.querySelector('td').innerText.split('\n')[0] || 'ce chauffeur';
+      if (!confirm(`Supprimer ${name} ? Son acces a l'application sera retire. Si des courses lui sont rattachees, il est archive et l'historique est conserve.`)) return;
+      try {
+        const result = await adminApi(`/admin/chauffeurs/${row.dataset.chauffeurId}`, 'DELETE');
+        if (result.archived) alert("Ce chauffeur a un historique de courses : il est archive (plus d'acces, historique conserve).");
+        renderChauffeurs();
+        renderVehicles();
+      } catch (e) { alert(e.message); }
+    });
+  });
   container.querySelectorAll('.save-chauffeur').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const row = btn.closest('tr');
@@ -1401,11 +1414,13 @@ async function renderChauffeurs() {
       const full_name = row.querySelector('.edit-full-name').value.trim();
       const vtc_card_number = row.querySelector('.edit-vtc-card').value.trim();
       const siret = row.querySelector('.edit-siret').value.trim();
+      const vehicle_categories = [...row.querySelectorAll('.edit-cat:checked')].map((i) => i.value);
+      if (vehicle_categories.length === 0) { alert('Choisissez au moins une gamme.'); return; }
       const { data: { session } } = await supabase.auth.getSession();
       await fetch(`/admin/chauffeurs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret }),
+        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret, vehicle_categories }),
       });
       btn.textContent = 'Enregistre !';
       setTimeout(() => { btn.textContent = 'Enregistrer'; }, 1500);
@@ -1884,7 +1899,7 @@ async function renderPending() {
         .from('profiles')
         .select('id, email, online_status')
         .eq('role', 'chauffeur')
-        .eq('vehicle_category', ride.vehicle_category);
+        .contains('vehicle_categories', [ride.vehicle_category]);
       driversByCategory[ride.vehicle_category] = drivers ?? [];
     }
   }
