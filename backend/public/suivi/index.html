@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Suivi de mission</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0A0C0B; --card: #131715; --card-2: #1A1F1C; --border: #242B27;
+    --accent: #47C415; --accent-text: #0E0F10; --text: #F4F7F5; --muted: #9BA6A0;
+    --amber: #F5B83D; --error: #FF6B6B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  header img { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 10px; }
+  header strong { font-size: 18px; font-weight: 800; }
+  .hero { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 14px; }
+  .hero small { color: var(--muted); font-weight: 600; }
+  .hero h1 { font-size: 24px; margin: 4px 0 6px; text-wrap: balance; }
+  .hero p { margin: 0; color: var(--muted); }
+  .live { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+  .cancelled { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); border-radius: 12px; padding: 12px 14px; font-weight: 700; margin-bottom: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  #map { height: 300px; border-radius: 14px; border: 1px solid var(--border); }
+  .map-note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .step { display: flex; gap: 14px; position: relative; padding-bottom: 18px; }
+  .step:last-child { padding-bottom: 0; }
+  .step::before { content: ''; position: absolute; left: 11px; top: 26px; bottom: 0; width: 2px; background: var(--border); }
+  .step:last-child::before { display: none; }
+  .step.done::before { background: var(--accent); }
+  .dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--border); background: var(--bg); display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--accent-text); }
+  .step.done .dot { background: var(--accent); border-color: var(--accent); }
+  .step.current .dot { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .step.todo { color: var(--muted); }
+  .step .label { font-weight: 700; }
+  .step .time { font-size: 13px; color: var(--muted); }
+  .route { display: grid; gap: 12px; }
+  .stop { display: flex; gap: 12px; }
+  .stop i { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; background: var(--accent); }
+  .stop i.mid { background: var(--amber); }
+  .stop i.end { background: var(--error); }
+  .stop small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { padding: 4px 12px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+  .driver { display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 18px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .center { text-align: center; padding: 60px 16px; color: var(--muted); }
+  .car { width: 20px; height: 34px; border-radius: 9px; background: #0A0A0A; border: 2px solid #fff; display: flex; flex-direction: column; align-items: center; padding: 4px 0; gap: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+  .car b { width: 12px; border-radius: 3px; background: #6B7280; display: block; }
+  .car b:nth-child(1) { height: 7px; } .car b:nth-child(2) { height: 8px; background: #1F2937; } .car b:nth-child(3) { height: 5px; }
+  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"><div class="center">Chargement du suivi...</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const token = location.pathname.split('/').filter(Boolean).pop();
+const esc = (t) => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
+const fmtTime = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+
+let map = null, carMarker = null, lastKey = '';
+
+function progress(r) {
+  if (r.status === 'completed') return 4;
+  if (r.ride_step === 'on_site') return 3;
+  if (r.ride_step === 'en_route') return 2;
+  if (r.status === 'accepted') return 1;
+  return 0;
+}
+
+function headline(r, mad) {
+  if (r.status === 'cancelled') return ['Course annulee', ''];
+  if (r.status === 'completed') return [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'];
+  if (r.ride_step === 'on_site') return mad ? ['Mission en cours', 'Le chauffeur est a votre disposition.'] : ['Le chauffeur est arrive', 'Il vous attend au point de prise en charge.'];
+  if (r.ride_step === 'en_route') return ['Le chauffeur est en route', 'Suivez sa position en direct ci-dessous.'];
+  if (r.status === 'accepted') return ['Chauffeur attribue', 'Il se mettra en route a l\'heure prevue. Cette page se met a jour toute seule.'];
+  return ['Recherche d\'un chauffeur', 'Un chauffeur va etre attribue prochainement.'];
+}
+
+function render(r) {
+  const mad = r.service_type === 'mise_a_disposition';
+  const b = r.branding || {};
+  if (b.accent_color) document.documentElement.style.setProperty('--accent', b.accent_color);
+  if (b.accent_contrast) document.documentElement.style.setProperty('--accent-text', b.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
+  document.title = 'Suivi de mission - ' + (b.app_name || 'Rennes VTC');
+
+  const [title, sub] = headline(r, mad);
+  const current = progress(r);
+  const times = r.step_times || {};
+  const steps = [
+    ['Reservation enregistree', r.created_at],
+    ['Chauffeur attribue', times.accepted],
+    ['Chauffeur en route', times.en_route],
+    [mad ? 'Mission en cours' : 'Chauffeur sur place', times.on_site],
+    [mad ? 'Mission terminee' : 'Course terminee', times.completed],
+  ];
+  const when = r.scheduled_at ? fmtTime(r.scheduled_at) : 'Des que possible';
+  const driver = r.driver;
+  const v = driver?.vehicle;
+  const live = !!r.driverPosition;
+  const stopsHtml = (r.stop_addresses || []).map((s) => `<div class="stop"><i class="mid"></i><div><small>Arret</small>${esc(s)}</div></div>`).join('');
+
+  document.getElementById('root').innerHTML = `
+    <header>
+      ${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="" />` : ''}
+      <strong>${esc(b.app_name || 'Rennes VTC')}</strong>
+    </header>
+    ${r.status === 'cancelled' ? '<div class="cancelled">Cette course a ete annulee.</div>' : ''}
+    <section class="hero">
+      <small>${mad ? 'Mise a disposition' : 'Course'} - ${esc(when)}</small>
+      <h1>${esc(title)}</h1>
+      ${sub ? `<p>${esc(sub)}</p>` : ''}
+      ${live ? '<span class="live">Position en direct</span>' : ''}
+    </section>
+
+    <section class="card">
+      <h2>Carte</h2>
+      <div id="map"></div>
+      <p class="map-note">${live ? 'La position du chauffeur est mise a jour en direct.' : r.status === 'completed' || r.status === 'cancelled' ? '' : 'La position du chauffeur s\'affichera ici des qu\'il sera en route.'}</p>
+    </section>
+
+    <section class="card">
+      <h2>Deroulement</h2>
+      <ol class="steps">
+        ${steps.map(([label, t], i) => `
+          <li class="step ${i <= current && r.status !== 'cancelled' ? 'done' : 'todo'} ${i === current && r.status !== 'completed' && r.status !== 'cancelled' ? 'current' : ''}">
+            <span class="dot">${i <= current && r.status !== 'cancelled' ? '&#10003;' : ''}</span>
+            <div><div class="label">${label}</div><div class="time">${t && i <= current ? esc(fmtTime(t)) : ''}</div></div>
+          </li>`).join('')}
+      </ol>
+    </section>
+
+    ${driver ? `
+    <section class="card">
+      <h2>Votre chauffeur</h2>
+      <div class="driver">
+        <div class="avatar">${esc((driver.firstName || 'C')[0].toUpperCase())}</div>
+        <div><strong>${esc(driver.firstName || 'Chauffeur')}</strong>
+          ${v ? `<div class="muted">${esc([v.display_name, v.color].filter(Boolean).join(' - '))}${v.plate ? ` - <b>${esc(v.plate)}</b>` : ''}</div>` : ''}
+        </div>
+      </div>
+    </section>` : ''}
+
+    <section class="card">
+      <h2>Trajet</h2>
+      <div class="route">
+        <div class="stop"><i></i><div><small>Depart</small>${esc(r.pickup_address)}</div></div>
+        ${stopsHtml}
+        <div class="stop"><i class="end"></i><div><small>Destination${r.round_trip ? ' (aller-retour)' : ''}</small>${esc(r.dropoff_address)}</div></div>
+      </div>
+      <div class="meta">
+        ${r.client_name ? `<span class="chip">Passager : ${esc(r.client_name)}</span>` : ''}
+        ${mad && r.duration_hours ? `<span class="chip">Duree : ${esc(r.duration_hours)} h</span>` : ''}
+      </div>
+    </section>`;
+
+  drawMap(r);
+}
+
+function carIcon() {
+  return L.divIcon({ className: '', iconSize: [24, 38], iconAnchor: [12, 19], html: '<div class="car"><b></b><b></b><b></b></div>' });
+}
+
+function drawMap(r) {
+  const el = document.getElementById('map');
+  if (!el) return;
+  if (!r.pickup_lat || !r.pickup_lng) { el.style.display = 'none'; return; }
+  // render() reconstruit le DOM : on recree la carte a chaque rafraichissement.
+  if (map) { map.remove(); map = null; carMarker = null; }
+  map = L.map(el, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  const pts = [[r.pickup_lat, r.pickup_lng]];
+  L.circleMarker(pts[0], { radius: 9, color: '#fff', weight: 2, fillColor: '#47C415', fillOpacity: 1 }).addTo(map);
+  if (r.dropoff_lat && r.service_type !== 'mise_a_disposition') {
+    pts.push([r.dropoff_lat, r.dropoff_lng]);
+    L.circleMarker(pts[1], { radius: 9, color: '#fff', weight: 2, fillColor: '#FF5C5C', fillOpacity: 1 }).addTo(map);
+    L.polyline(pts.slice(0, 2), { color: '#47C415', weight: 3, dashArray: '6 8' }).addTo(map);
+  }
+  if (r.driverPosition) {
+    const p = [r.driverPosition.lat, r.driverPosition.lng];
+    pts.push(p);
+    carMarker = L.marker(p, { icon: carIcon() }).addTo(map);
+  }
+  if (pts.length === 1) map.setView(pts[0], 14);
+  else map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+}
+
+async function load() {
+  try {
+    const res = await fetch('/public/track/' + encodeURIComponent(token), { cache: 'no-store' });
+    if (res.status === 404) {
+      document.getElementById('root').innerHTML = '<div class="center">Ce lien de suivi est introuvable ou a expire.</div>';
+      return false;
+    }
+    if (!res.ok) throw new Error('http');
+    const data = await res.json();
+    // On ne reconstruit la page que si quelque chose a change ; sinon on deplace seulement la voiture.
+    const key = JSON.stringify({ ...data, driverPosition: !!data.driverPosition });
+    if (key !== lastKey) { lastKey = key; render(data); }
+    else if (data.driverPosition && carMarker) carMarker.setLatLng([data.driverPosition.lat, data.driverPosition.lng]);
+    return true;
+  } catch (e) {
+    return true; // reseau instable : on reessaie au prochain tour
+  }
+}
+
+(async function loop() {
+  const ok = await load();
+  if (ok) setTimeout(loop, 6000);
+})();
+</script>
+</body>
+</html>

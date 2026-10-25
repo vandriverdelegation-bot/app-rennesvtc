@@ -468,6 +468,12 @@
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
+              <p class="hint" style="margin:14px 0 8px">Donneur d'ordre (hotel, entreprise) : facultatif. Le client ci-dessus est alors le passager, et le donneur d'ordre recoit le suivi de mission par email.</p>
+              <div class="form-grid">
+                <div class="field"><label for="new-ride-orderer-name">Donneur d'ordre</label><input id="new-ride-orderer-name" placeholder="Hotel, entreprise..." /></div>
+                <div class="field"><label for="new-ride-orderer-email">Email (recoit le suivi)</label><input id="new-ride-orderer-email" type="email" placeholder="reception@hotel.fr" /></div>
+                <div class="field"><label for="new-ride-orderer-phone">Telephone</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
+              </div>
             </div>
 
             <div class="form-section">
@@ -854,6 +860,9 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     round_trip,
     return_scheduled_at: round_trip ? new Date(`${return_date}T${return_time}`).toISOString() : null,
     tags,
+    orderer_name: document.getElementById('new-ride-orderer-name').value.trim() || null,
+    orderer_email: document.getElementById('new-ride-orderer-email').value.trim() || null,
+    orderer_phone: document.getElementById('new-ride-orderer-phone').value.trim() || null,
     payment_method,
     service_type: 'trajet_simple',
     price,
@@ -879,6 +888,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-return-date').value = '';
   document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
+  ['name', 'email', 'phone'].forEach((f) => { document.getElementById('new-ride-orderer-' + f).value = ''; });
   document.getElementById('new-ride-price').value = '';
   refresh();
 });
@@ -2290,6 +2300,22 @@ async function renderRideClientTab() {
       ${clientInfo}
     </div>
     <div class="rm-section">
+      <div class="rm-title">Donneur d'ordre et suivi de mission</div>
+      <p class="hint">Le donneur d'ordre (hotel, entreprise) recoit un email a chaque etape et peut suivre le chauffeur en direct.</p>
+      <div class="rm-grid">
+        <div><label for="rm-orderer-name">Nom ou societe</label><input id="rm-orderer-name" value="${escapeHtml(ride.orderer_name ?? '')}" /></div>
+        <div><label for="rm-orderer-email">Email</label><input id="rm-orderer-email" type="email" value="${escapeHtml(ride.orderer_email ?? '')}" /></div>
+        <div><label for="rm-orderer-phone">Telephone</label><input id="rm-orderer-phone" value="${escapeHtml(ride.orderer_phone ?? '')}" /></div>
+      </div>
+      <button class="secondary" id="rm-save-orderer">Enregistrer</button>
+      <label for="rm-tracking-link" style="margin-top:12px;display:block">Lien de suivi</label>
+      <div class="rm-row">
+        <input id="rm-tracking-link" readonly style="flex:1;min-width:220px" value="${location.origin}/suivi/${ride.tracking_token}" onclick="this.select()" />
+        <button class="secondary" id="rm-copy-tracking">Copier</button>
+        <button class="secondary" id="rm-open-tracking">Ouvrir</button>
+      </div>
+    </div>
+    <div class="rm-section">
       <div class="rm-title">Changer de client</div>
       <select id="rm-change-client" style="width:100%">
         <option value="">Reservation telephonique (nom/telephone, pas de compte)</option>
@@ -2298,6 +2324,20 @@ async function renderRideClientTab() {
       <button class="secondary" id="rm-save-client">Assigner</button>
     </div>
   `;
+  document.getElementById('rm-save-orderer').addEventListener('click', async () => {
+    await supabase.from('rides').update({
+      orderer_name: document.getElementById('rm-orderer-name').value.trim() || null,
+      orderer_email: document.getElementById('rm-orderer-email').value.trim() || null,
+      orderer_phone: document.getElementById('rm-orderer-phone').value.trim() || null,
+    }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  document.getElementById('rm-copy-tracking').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('rm-tracking-link').value);
+  });
+  document.getElementById('rm-open-tracking').addEventListener('click', () => {
+    window.open(document.getElementById('rm-tracking-link').value, '_blank');
+  });
   const contactBtn = document.getElementById('rm-save-client-contact');
   if (contactBtn) {
     contactBtn.addEventListener('click', async () => {
