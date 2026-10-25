@@ -468,11 +468,14 @@
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
-              <p class="hint" style="margin:14px 0 8px">Donneur d'ordre (hotel, entreprise) : facultatif. Le client ci-dessus est alors le passager, et le donneur d'ordre recoit le suivi de mission par email.</p>
-              <div class="form-grid">
-                <div class="field"><label for="new-ride-orderer-name">Donneur d'ordre</label><input id="new-ride-orderer-name" placeholder="Hotel, entreprise..." /></div>
-                <div class="field"><label for="new-ride-orderer-email">Email (recoit le suivi)</label><input id="new-ride-orderer-email" type="email" placeholder="reception@hotel.fr" /></div>
-                <div class="field"><label for="new-ride-orderer-phone">Telephone</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
+              <button type="button" class="secondary" id="new-ride-orderer-toggle" style="margin-top:14px">+ Suivi au donneur d'ordre</button>
+              <div id="new-ride-orderer-block" style="display:none;margin-top:10px">
+                <p class="hint" style="margin:0 0 8px">Hotel, entreprise... Le client ci-dessus est alors le passager, et le donneur d'ordre recoit un email a chaque etape avec le lien de suivi du chauffeur.</p>
+                <div class="form-grid">
+                  <div class="field"><label for="new-ride-orderer-name">Donneur d'ordre</label><input id="new-ride-orderer-name" placeholder="Hotel, entreprise..." /></div>
+                  <div class="field"><label for="new-ride-orderer-email">Email (recoit le suivi)</label><input id="new-ride-orderer-email" type="email" placeholder="reception@hotel.fr" /></div>
+                  <div class="field"><label for="new-ride-orderer-phone">Telephone</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
+                </div>
               </div>
             </div>
 
@@ -480,17 +483,28 @@
               <h3>Trajet</h3>
               <div class="form-grid">
                 <div class="field">
+                  <label for="new-ride-service">Type de service</label>
+                  <select id="new-ride-service" style="width:100%">
+                    <option value="trajet_simple">Trajet simple</option>
+                    <option value="mise_a_disposition">Mise a disposition</option>
+                  </select>
+                </div>
+                <div class="field" id="new-ride-duration-row" style="display:none">
+                  <label for="new-ride-duration">Duree (heures)</label>
+                  <input id="new-ride-duration" type="number" min="1" step="0.5" value="3" />
+                </div>
+                <div class="field">
                   <label for="new-ride-pickup">Depart</label>
                   <input id="new-ride-pickup" placeholder="Adresse de depart" autocomplete="off" />
                   <div class="suggestions" id="new-ride-pickup-suggestions" style="display:none"></div>
                 </div>
                 <div class="field">
-                  <label for="new-ride-dropoff">Destination</label>
+                  <label for="new-ride-dropoff" id="new-ride-dropoff-label">Destination</label>
                   <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
                   <div class="suggestions" id="new-ride-dropoff-suggestions" style="display:none"></div>
                 </div>
                 <div class="field wide"><label for="new-ride-stops">Points d'arret (separes par ;)</label><input id="new-ride-stops" placeholder="Facultatif" /></div>
-                <div class="field inline"><label><input type="checkbox" id="new-ride-round-trip" /> Aller-retour</label></div>
+                <div class="field inline" id="new-ride-round-trip-field"><label><input type="checkbox" id="new-ride-round-trip" /> Aller-retour</label></div>
                 <div class="field wide" id="new-ride-return-row" style="display:none">
                   <label>Date et heure du retour</label>
                   <div class="row"><input id="new-ride-return-date" type="date" /><input id="new-ride-return-time" type="time" /></div>
@@ -806,6 +820,23 @@ let newRidePickup = null;
 let newRideDropoff = null;
 setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; });
 setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; });
+// Mise a disposition : duree en heures, pas d'aller-retour, destination facultative (lieu de fin = depart par defaut).
+document.getElementById('new-ride-service').addEventListener('change', (e) => {
+  const mad = e.target.value === 'mise_a_disposition';
+  document.getElementById('new-ride-duration-row').style.display = mad ? 'block' : 'none';
+  document.getElementById('new-ride-round-trip-field').style.display = mad ? 'none' : 'flex';
+  document.getElementById('new-ride-dropoff-label').textContent = mad ? 'Lieu de fin de mission (facultatif)' : 'Destination';
+  if (mad) {
+    document.getElementById('new-ride-round-trip').checked = false;
+    document.getElementById('new-ride-return-row').style.display = 'none';
+  }
+});
+document.getElementById('new-ride-orderer-toggle').addEventListener('click', () => {
+  const block = document.getElementById('new-ride-orderer-block');
+  const open = block.style.display === 'none';
+  block.style.display = open ? 'block' : 'none';
+  document.getElementById('new-ride-orderer-toggle').textContent = open ? '- Retirer le suivi au donneur d\'ordre' : '+ Suivi au donneur d\'ordre';
+});
 document.getElementById('new-ride-round-trip').addEventListener('change', (e) => {
   document.getElementById('new-ride-return-row').style.display = e.target.checked ? 'block' : 'none';
 });
@@ -831,13 +862,26 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const price = parseFloat(document.getElementById('new-ride-price').value);
   const driverId = document.getElementById('new-ride-driver').value;
   const stop_addresses = document.getElementById('new-ride-stops').value.split(';').map((s) => s.trim()).filter(Boolean);
-  const round_trip = document.getElementById('new-ride-round-trip').checked;
+  const service_type = document.getElementById('new-ride-service').value;
+  const isMad = service_type === 'mise_a_disposition';
+  const duration_hours = parseFloat(document.getElementById('new-ride-duration').value);
+  const ordererOpen = document.getElementById('new-ride-orderer-block').style.display !== 'none';
+  const round_trip = !isMad && document.getElementById('new-ride-round-trip').checked;
   const return_date = document.getElementById('new-ride-return-date').value;
   const return_time = document.getElementById('new-ride-return-time').value;
   const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
 
-  if (!client_name || !client_phone || !newRidePickup || !newRideDropoff || !price) {
+  const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
+  if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
     errorEl.textContent = 'Nom, telephone, adresses (choisies dans la liste) et prix sont requis.';
+    return;
+  }
+  if (isMad && !duration_hours) {
+    errorEl.textContent = 'Indiquez la duree de la mise a disposition.';
+    return;
+  }
+  if (ordererOpen && !document.getElementById('new-ride-orderer-email').value.trim()) {
+    errorEl.textContent = "Indiquez l'email du donneur d'ordre pour lui envoyer le suivi.";
     return;
   }
   if (round_trip && (!return_date || !return_time)) {
@@ -853,18 +897,19 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     pickup_address: newRidePickup.address,
     pickup_lat: newRidePickup.lat,
     pickup_lng: newRidePickup.lng,
-    dropoff_address: newRideDropoff.address,
-    dropoff_lat: newRideDropoff.lat,
-    dropoff_lng: newRideDropoff.lng,
+    dropoff_address: dropoffLoc.address,
+    dropoff_lat: dropoffLoc.lat,
+    dropoff_lng: dropoffLoc.lng,
     stop_addresses,
     round_trip,
     return_scheduled_at: round_trip ? new Date(`${return_date}T${return_time}`).toISOString() : null,
     tags,
-    orderer_name: document.getElementById('new-ride-orderer-name').value.trim() || null,
-    orderer_email: document.getElementById('new-ride-orderer-email').value.trim() || null,
-    orderer_phone: document.getElementById('new-ride-orderer-phone').value.trim() || null,
+    orderer_name: ordererOpen ? document.getElementById('new-ride-orderer-name').value.trim() || null : null,
+    orderer_email: ordererOpen ? document.getElementById('new-ride-orderer-email').value.trim() || null : null,
+    orderer_phone: ordererOpen ? document.getElementById('new-ride-orderer-phone').value.trim() || null : null,
     payment_method,
-    service_type: 'trajet_simple',
+    service_type,
+    duration_hours: isMad ? duration_hours : null,
     price,
     created_by: 'admin',
     scheduled_at: date && time ? new Date(`${date}T${time}`).toISOString() : null,
@@ -889,6 +934,8 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
   ['name', 'email', 'phone'].forEach((f) => { document.getElementById('new-ride-orderer-' + f).value = ''; });
+  document.getElementById('new-ride-orderer-block').style.display = 'none';
+  document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
   document.getElementById('new-ride-price').value = '';
   refresh();
 });
@@ -2300,7 +2347,7 @@ async function renderRideClientTab() {
       ${clientInfo}
     </div>
     <div class="rm-section">
-      <div class="rm-title">Donneur d'ordre et suivi de mission</div>
+      <div class="rm-title">Suivi au donneur d'ordre</div>
       <p class="hint">Le donneur d'ordre (hotel, entreprise) recoit un email a chaque etape et peut suivre le chauffeur en direct.</p>
       <div class="rm-grid">
         <div><label for="rm-orderer-name">Nom ou societe</label><input id="rm-orderer-name" value="${escapeHtml(ride.orderer_name ?? '')}" /></div>
