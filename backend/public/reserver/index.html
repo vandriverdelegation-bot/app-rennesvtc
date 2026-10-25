@@ -102,6 +102,11 @@
       <div><label>Rehausseurs</label><input id="booster-seats" type="number" min="0" value="0" /></div>
     </div>
 
+    <div id="child-ages-row" style="display:none">
+      <label>Age de l'enfant (ex : 3 ans, ou 3 et 7 ans)</label>
+      <input id="child-ages" placeholder="Age(s) des enfants" />
+    </div>
+
     <label>Mode de reglement</label>
     <select id="payment-method">
       <option value="carte_a_bord">CB a bord</option>
@@ -218,12 +223,19 @@ document.getElementById('round-trip').addEventListener('change', (e) => {
   document.getElementById('return-datetime-row').style.display = e.target.checked ? 'flex' : 'none';
 });
 
+function toggleChildAges() {
+  const seats = (parseInt(document.getElementById('child-seats').value, 10) || 0) + (parseInt(document.getElementById('booster-seats').value, 10) || 0);
+  document.getElementById('child-ages-row').style.display = seats > 0 ? 'block' : 'none';
+}
+['child-seats', 'booster-seats'].forEach((id) => document.getElementById(id).addEventListener('input', toggleChildAges));
+
 function seatsPayload() {
   return {
     passengerCount: parseInt(document.getElementById('passengers').value, 10) || 1,
     luggageCount: parseInt(document.getElementById('luggage').value, 10) || 0,
     childSeats: parseInt(document.getElementById('child-seats').value, 10) || 0,
     boosterSeats: parseInt(document.getElementById('booster-seats').value, 10) || 0,
+    childAges: document.getElementById('child-ages').value.trim(),
   };
 }
 ['passengers', 'luggage', 'child-seats', 'booster-seats'].forEach((id) => document.getElementById(id).addEventListener('change', updatePrice));
@@ -264,6 +276,8 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de depart et de destination dans la liste.'; return; }
   if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et telephone sont requis.'; return; }
   if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
+  const seats = seatsPayload();
+  if ((seats.childSeats > 0 || seats.boosterSeats > 0) && !seats.childAges) { errorEl.textContent = 'Indiquez l\u2019age de l\u2019enfant.'; return; }
   const returnDate = document.getElementById('return-date').value;
   const returnTime = document.getElementById('return-time').value;
   if (roundTrip && (!returnDate || !returnTime)) { errorEl.textContent = 'Indiquez la date et l’heure du retour.'; return; }

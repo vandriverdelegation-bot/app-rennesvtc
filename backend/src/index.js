@@ -319,6 +319,7 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
       luggage_count: Math.max(0, parseInt(b.luggageCount, 10) || 0),
       child_seats: Math.max(0, parseInt(b.childSeats, 10) || 0),
       booster_seats: Math.max(0, parseInt(b.boosterSeats, 10) || 0),
+      child_ages: b.childAges?.trim() || null,
       created_by: 'chauffeur',
       ...assignment,
     })
@@ -506,7 +507,7 @@ app.post('/public/estimate-price', async (req, res) => {
 
 // Cree une reservation depuis le module web public (pas de compte requis).
 app.post('/public/book', async (req, res) => {
-  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats } = req.body;
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges } = req.body;
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
@@ -532,6 +533,7 @@ app.post('/public/book', async (req, res) => {
       luggage_count: Math.max(0, parseInt(luggageCount, 10) || 0),
       child_seats: Math.max(0, parseInt(childSeats, 10) || 0),
       booster_seats: Math.max(0, parseInt(boosterSeats, 10) || 0),
+      child_ages: childAges?.trim() || null,
       payment_method: paymentMethod,
       service_type: 'trajet_simple',
       price,

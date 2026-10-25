@@ -95,6 +95,7 @@ export default function ClientHome({ session }) {
   const [childSeats, setChildSeats] = useState(0);
   const [boosterSeats, setBoosterSeats] = useState(0);
   const [luggageCount, setLuggageCount] = useState(0);
+  const [childAges, setChildAges] = useState('');
   const [driverInfo, setDriverInfo] = useState(null);
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
@@ -249,6 +250,10 @@ export default function ClientHome({ session }) {
       setErrorMsg('Le prix est en cours de calcul, patientez.');
       return;
     }
+    if ((childSeats > 0 || boosterSeats > 0) && !childAges.trim()) {
+      setErrorMsg("Indiquez l'age de l'enfant (siege auto ou rehausseur).");
+      return;
+    }
     let returnScheduledAt = null;
     if (roundTrip) {
       const parsed = parseDateTime(returnDate, returnTime);
@@ -278,6 +283,7 @@ export default function ClientHome({ session }) {
         child_seats: childSeats,
         booster_seats: boosterSeats,
         luggage_count: luggageCount,
+        child_ages: childSeats > 0 || boosterSeats > 0 ? childAges.trim() : null,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
         return_scheduled_at: returnScheduledAt,
@@ -310,6 +316,7 @@ export default function ClientHome({ session }) {
     setChildSeats(0);
     setBoosterSeats(0);
     setLuggageCount(0);
+    setChildAges('');
     fetchActiveRide();
   }
 
@@ -493,6 +500,19 @@ export default function ClientHome({ session }) {
           </View>
         )}
 
+        {serviceType === 'trajet_simple' && (childSeats > 0 || boosterSeats > 0) && (
+          <View style={styles.inlineField}>
+            <Text style={styles.inlineLabel}>Age de l'enfant (ex : 3 ans, ou 3 et 7 ans)</Text>
+            <TextInput
+              style={styles.durationInputWide}
+              value={childAges}
+              onChangeText={setChildAges}
+              placeholder="Age(s) des enfants"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+        )}
+
         {serviceType === 'mise_a_disposition' && (
           <View style={styles.inlineField}>
             <Text style={styles.inlineLabel}>Duree (heures)</Text>
@@ -613,6 +633,15 @@ const styles = StyleSheet.create({
   inlineLabel: { color: theme.colors.textMuted, marginBottom: 6, fontSize: 13 },
   durationInput: {
     width: 90,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: theme.radius,
+    padding: 10,
+    color: theme.colors.text,
+  },
+  durationInputWide: {
+    width: '100%',
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
     backgroundColor: theme.colors.input,

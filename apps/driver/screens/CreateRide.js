@@ -46,6 +46,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [luggageCount, setLuggageCount] = useState('0');
+  const [childAges, setChildAges] = useState('');
   const [assignTo, setAssignTo] = useState('self'); // 'self' | 'all' | id d'un collegue
   const [colleagues, setColleagues] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -141,6 +142,11 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
       return_scheduled_at = returnWhen.toISOString();
     }
 
+    if ((childSeats > 0 || boosterSeats > 0) && !childAges.trim()) {
+      setErrorMsg("Indiquez l'age de l'enfant (siege auto ou rehausseur).");
+      return;
+    }
+
     setSubmitting(true);
     let result;
     try {
@@ -162,6 +168,7 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
           luggageCount: parseInt(luggageCount, 10) || 0,
           childSeats,
           boosterSeats,
+          childAges,
           assignTo,
         }),
       });
@@ -271,6 +278,13 @@ export default function CreateRide({ session, vehicleCategory, canEditPrice, onD
           keyboardType="numeric"
         />
       </View>
+
+      {childSeats > 0 || boosterSeats > 0 ? (
+        <>
+          <Text style={styles.label}>Age de l'enfant (ex : 3 ans)</Text>
+          <TextInput style={styles.input} value={childAges} onChangeText={setChildAges} placeholder="Age(s) des enfants" placeholderTextColor={theme.colors.textMuted} />
+        </>
+      ) : null}
 
       <Text style={styles.label}>Mode de reglement</Text>
       <View style={styles.row}>

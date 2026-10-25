@@ -8,6 +8,13 @@ import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
 import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
 
+// " · 3 ans" a afficher a cote du pictogramme siege enfant ("3, 7" -> " · 3, 7 ans").
+const agesLabel = (ages) => {
+  const t = (ages ?? '').trim();
+  if (!t) return '';
+  return ' · ' + (/ans|an|mois/i.test(t) ? t : t + ' ans');
+};
+
 const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', completed: 'Terminee' };
 
 const PAYMENT_LABELS = {
@@ -52,7 +59,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: active } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, vehicle_category')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, child_ages, vehicle_category')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .maybeSingle();
@@ -61,7 +68,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       setPendingRides(pending ?? []);
@@ -343,8 +350,8 @@ export default function DriverHome({ session }) {
           <View style={styles.pillRow}>
             <Pill>👥 {activeRide.passenger_count ?? 1} passager(s)</Pill>
             <Pill>🧳 {activeRide.luggage_count ?? 0} bagage(s)</Pill>
-            {activeRide.child_seats > 0 ? <Pill highlight>👶 Siege auto x{activeRide.child_seats}</Pill> : null}
-            {activeRide.booster_seats > 0 ? <Pill highlight>🧒 Rehausseur x{activeRide.booster_seats}</Pill> : null}
+            {activeRide.child_seats > 0 ? <Pill highlight>👶 Siege auto x{activeRide.child_seats}{agesLabel(activeRide.child_ages)}</Pill> : null}
+            {activeRide.booster_seats > 0 ? <Pill highlight>🧒 Rehausseur x{activeRide.booster_seats}{agesLabel(activeRide.child_ages)}</Pill> : null}
           </View>
           {!seats ? <Text style={styles.mutedSmall}>Aucun siege enfant demande.</Text> : null}
         </Card>
@@ -436,7 +443,7 @@ export default function DriverHome({ session }) {
               <View style={styles.pillRow}>
                 <Pill>👥 {item.passenger_count ?? 1}</Pill>
                 <Pill>🧳 {item.luggage_count ?? 0}</Pill>
-                {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege</Pill> : null}
+                {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege{agesLabel(item.child_ages)}</Pill> : null}
                 <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
               </View>
               <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
