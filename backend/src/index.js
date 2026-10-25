@@ -457,6 +457,19 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
 });
 
 // Previent le client d'une majoration de prix ajoutee par l'admin.
+// Demande de devis d'un client : transmise par email a l'administrateur.
+app.post('/client/quote', requireSupabaseUser, async (req, res) => {
+  const message = String(req.body.message ?? '').trim().slice(0, 2000);
+  if (!message) return res.status(400).json({ error: 'Message requis' });
+  const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone, email').eq('id', req.user.id).single();
+  const who = profile?.full_name || profile?.email || req.user.email;
+  await sendAdminEmail(
+    `Demande de devis - ${who}`,
+    `Client : ${who}\nTelephone : ${profile?.phone ?? 'non renseigne'}\nEmail : ${profile?.email ?? req.user.email}\n\nDepart : ${req.body.pickup ?? '-'}\nDestination : ${req.body.dropoff ?? '-'}\n\nMessage :\n${message}`
+  );
+  res.json({ ok: true });
+});
+
 // Previent le client a chaque etape de la course (en route, arrive, terminee).
 const STEP_PUSH = {
   en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],

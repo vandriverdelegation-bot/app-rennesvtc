@@ -31,6 +31,7 @@ function AppContent() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [appName, setAppName] = useState('RENNES VTC');
+  const [logoUrl, setLogoUrl] = useState(null);
   const [mode, setMode] = useState('login');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -43,6 +44,7 @@ function AppContent() {
   useEffect(() => {
     fetchAppSettings(supabase).then((settings) => {
       if (settings?.app_name) setAppName(settings.app_name);
+      if (settings?.logo_url) setLogoUrl(settings.logo_url);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -110,7 +112,7 @@ function AppContent() {
             <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Mon compte'}</Text>
           </TouchableOpacity>
         </View>
-        {showMenu ? <ClientMenu session={session} onClose={() => setShowMenu(false)} /> : <ClientHome session={session} />}
+        {showMenu ? <ClientMenu session={session} onClose={() => setShowMenu(false)} /> : <ClientHome session={session} logoUrl={logoUrl} appName={appName} />}
         <StatusBar style="light" />
       </SafeAreaView>
     );

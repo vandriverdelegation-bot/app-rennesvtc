@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
@@ -29,7 +29,7 @@ function parseDateTime(dateStr, timeStr) {
 const SERVICE_TYPES = [
   { value: 'trajet_simple', label: 'Trajet simple', icon: '📍' },
   { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
-  { value: 'forfait', label: 'Forfait', icon: '🏷️' },
+  { value: 'devis', label: 'Demander un devis', icon: '✉️' },
 ];
 
 function SegmentedChoice({ options, value, onChange, oneLine }) {
@@ -77,7 +77,7 @@ function SectionCard({ title, children }) {
   );
 }
 
-export default function ClientHome({ session }) {
+export default function ClientHome({ session, logoUrl, appName }) {
   const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
   const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
@@ -99,6 +99,8 @@ export default function ClientHome({ session }) {
   const [luggageCount, setLuggageCount] = useState(0);
   const [childAges, setChildAges] = useState('');
   const [clientNote, setClientNote] = useState('');
+  const [history, setHistory] = useState([]); // courses terminees ou annulees
+  const [showHistory, setShowHistory] = useState(false);
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
@@ -117,6 +119,22 @@ export default function ClientHome({ session }) {
     const when = (r) => new Date(r.scheduled_at ?? r.created_at).getTime();
     setRides((data ?? []).sort((a, b) => when(a) - when(b)));
   }
+
+  async function fetchHistory() {
+    const { data } = await supabase
+      .from('rides')
+      .select('id, pickup_address, dropoff_address, status, price, scheduled_at, created_at')
+      .eq('client_id', session.user.id)
+      .in('status', ['completed', 'cancelled'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setHistory(data ?? []);
+  }
+
+  // Recharge l'historique quand le nombre de reservations en cours change (course terminee ou annulee).
+  useEffect(() => {
+    fetchHistory();
+  }, [rides?.length]);
 
   useEffect(() => {
     fetchRides();
@@ -224,8 +242,37 @@ export default function ClientHome({ session }) {
     }
   }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, passengerCount, childSeats, boosterSeats, stops]);
 
+  async function handleQuote() {
+    setErrorMsg('');
+    if (!clientNote.trim()) {
+      setErrorMsg('Decrivez votre besoin dans la zone de communication libre.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/client/quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ pickup: pickup?.address ?? null, dropoff: dropoff?.address ?? null, message: clientNote.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Erreur');
+    } catch (e) {
+      setSubmitting(false);
+      setErrorMsg('Envoi impossible, reessayez dans un instant.');
+      return;
+    }
+    setSubmitting(false);
+    setPickup(null);
+    setDropoff(null);
+    setServiceType(null);
+    setClientNote('');
+    setView('home');
+    Alert.alert('Demande envoyee', 'Nous vous repondons rapidement avec votre devis.');
+  }
+
   async function handleRequestRide() {
     setErrorMsg('');
+    if (serviceType === 'devis') return handleQuote();
     if (!pickup || !dropoff) {
       setErrorMsg('Choisissez une adresse de depart et une destination dans la liste.');
       return;
@@ -330,8 +377,13 @@ export default function ClientHome({ session }) {
   if (view === 'home') {
     return (
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.homeContent}>
-        <Text style={styles.title}>Mes reservations</Text>
+        {logoUrl ? (
+          <Image source={{ uri: logoUrl }} style={styles.homeLogo} resizeMode="contain" />
+        ) : (
+          <Text style={styles.homeLogoText}>{appName}</Text>
+        )}
         <Btn title="+ Commander une course" onPress={() => setView('book')} />
+        <Text style={styles.title}>Mes reservations</Text>
         {rides.length === 0 ? (
           <Card>
             <Text style={styles.homeEmptyTitle}>Aucune reservation en cours</Text>
@@ -340,6 +392,28 @@ export default function ClientHome({ session }) {
         ) : (
           rides.map((r) => <RideCard key={r.id} ride={r} session={session} onChanged={fetchRides} />)
         )}
+        {history.length > 0 ? (
+          <>
+            <TouchableOpacity style={styles.historyToggle} onPress={() => setShowHistory((v) => !v)}>
+              <Text style={styles.title}>Historique</Text>
+              <Text style={styles.backLink}>{showHistory ? 'Masquer' : `Afficher (${history.length})`}</Text>
+            </TouchableOpacity>
+            {showHistory
+              ? history.map((h) => (
+                  <Card key={h.id}>
+                    <View style={styles.historyRow}>
+                      <Text style={styles.mutedText}>
+                        {new Date(h.scheduled_at ?? h.created_at).toLocaleDateString('fr-FR')} · {h.status === 'completed' ? 'Terminee' : 'Annulee'}
+                      </Text>
+                      <Text style={styles.historyPrice}>{h.price != null ? `${Number(h.price).toFixed(2)} €` : ''}</Text>
+                    </View>
+                    <Text style={styles.historyAddress}>{h.pickup_address}</Text>
+                    <Text style={styles.mutedText}>vers {h.dropoff_address}</Text>
+                  </Card>
+                ))
+              : null}
+          </>
+        ) : null}
       </ScrollView>
     );
   }
@@ -401,9 +475,11 @@ export default function ClientHome({ session }) {
         )}
       </SectionCard>
 
-      <SectionCard title="Gamme de vehicule">
-        <VehicleChoice value={vehicleCategory} onChange={setVehicleCategory} photos={vehiclePhotos} />
-      </SectionCard>
+      {serviceType !== 'devis' && (
+        <SectionCard title="Gamme de vehicule">
+          <VehicleChoice value={vehicleCategory} onChange={setVehicleCategory} photos={vehiclePhotos} />
+        </SectionCard>
+      )}
 
       <SectionCard title="Service">
         <SegmentedChoice options={SERVICE_TYPES} value={serviceType} onChange={setServiceType} oneLine />
@@ -507,30 +583,32 @@ export default function ClientHome({ session }) {
         )}
       </SectionCard>
 
-      <SectionCard title="Mode de reglement">
-        <SegmentedChoice options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
-      </SectionCard>
+      {serviceType !== 'devis' && (
+        <SectionCard title="Mode de reglement">
+          <SegmentedChoice options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
+        </SectionCard>
+      )}
 
-      <SectionCard title="Informations complementaires">
+      <SectionCard title={serviceType === 'devis' ? 'Communication libre' : 'Informations complementaires'}>
         <TextInput
-          style={styles.noteInput}
+          style={[styles.noteInput, serviceType === 'devis' && { minHeight: 140 }]}
           value={clientNote}
           onChangeText={setClientNote}
-          placeholder="Numero de vol, code d'entree, precision sur le lieu de prise en charge..."
+          placeholder={serviceType === 'devis' ? 'Decrivez votre besoin : date, horaires, nombre de personnes, evenement, trajets...' : "Numero de vol, code d'entree, precision sur le lieu de prise en charge..."}
           placeholderTextColor={theme.colors.textMuted}
           multiline
         />
       </SectionCard>
 
-      {priceError ? <Text style={styles.error}>{priceError}</Text> : null}
-      {priceManual ? (
+      {serviceType !== 'devis' && priceError ? <Text style={styles.error}>{priceError}</Text> : null}
+      {serviceType === 'devis' ? null : priceManual ? (
         <Text style={styles.priceEstimate}>Prix fixe par le chauffeur a la prise en charge</Text>
       ) : price ? (
         <Text style={styles.priceEstimate}>Prix estime : {price} €</Text>
       ) : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleRequestRide} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? '...' : 'Demander une course'}</Text>
+        <Text style={styles.buttonText}>{submitting ? '...' : serviceType === 'devis' ? 'Envoyer ma demande de devis' : 'Demander une course'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -538,6 +616,12 @@ export default function ClientHome({ session }) {
 
 const styles = StyleSheet.create({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
+  homeLogo: { width: '100%', height: 110, marginBottom: 4 },
+  homeLogoText: { color: theme.colors.text, fontSize: 28, fontWeight: '800', textAlign: 'center', letterSpacing: 1 },
+  historyToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  historyPrice: { color: theme.colors.accent, fontWeight: '800' },
+  historyAddress: { color: theme.colors.text, fontWeight: '600' },
   homeContent: { padding: 16, gap: 14, paddingBottom: 32 },
   homeEmptyTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '700' },
   backLink: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
