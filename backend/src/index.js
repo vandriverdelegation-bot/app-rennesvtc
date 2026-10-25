@@ -457,6 +457,25 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
 });
 
 // Previent le client d'une majoration de prix ajoutee par l'admin.
+// Previent le client a chaque etape de la course (en route, arrive, terminee).
+const STEP_PUSH = {
+  en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],
+  on_site: ['Votre chauffeur est arrive', 'Il vous attend au point de prise en charge.'],
+  completed: ['Course terminee', 'Merci de votre confiance, a bientot avec Rennes VTC.'],
+};
+app.post('/notify/step', requireSupabaseUser, async (req, res) => {
+  const { rideId, step } = req.body;
+  const message = STEP_PUSH[step];
+  if (!message) return res.status(400).json({ error: 'Etape inconnue' });
+  const { data: ride } = await supabaseAdmin.from('rides').select('client_id, driver_id').eq('id', rideId).single();
+  if (!ride || ride.driver_id !== req.user.id) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
+  if (ride.client_id) {
+    const { data: client } = await supabaseAdmin.from('profiles').select('push_token').eq('id', ride.client_id).single();
+    await sendPush([client?.push_token], message[0], message[1]);
+  }
+  res.json({ ok: true });
+});
+
 app.post('/notify/surcharge', requireSupabaseUser, async (req, res) => {
   const { rideId, amount, reason } = req.body;
   const { data: ride } = await supabaseAdmin

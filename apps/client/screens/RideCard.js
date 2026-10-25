@@ -19,6 +19,24 @@ function formatWhen(ride) {
   return d.toLocaleDateString('fr-FR') + ' a ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Petite voiture noire vue de dessus, dessinee en vues (pas d'image a embarquer).
+function CarMarker({ coordinate }) {
+  const [track, setTrack] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setTrack(false), 500); // evite le redessin permanent sous Android
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <Marker coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={track}>
+      <View style={styles.car}>
+        <View style={styles.carWindshield} />
+        <View style={styles.carRoof} />
+        <View style={styles.carRearWindow} />
+      </View>
+    </Marker>
+  );
+}
+
 function MiniMap({ ride }) {
   const points = [
     { latitude: ride.pickup_lat, longitude: ride.pickup_lng },
@@ -37,7 +55,7 @@ function MiniMap({ ride }) {
     <MapView style={styles.map} region={region} scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}>
       <Marker coordinate={points[0]} pinColor={theme.colors.accent} />
       <Marker coordinate={points[1]} pinColor="red" />
-      {points[2] ? <Marker coordinate={points[2]} pinColor="#3B82F6" /> : null}
+      {points[2] ? <CarMarker coordinate={points[2]} /> : null}
       <Polyline coordinates={points.slice(0, 2)} strokeColor={theme.colors.accent} strokeWidth={3} />
     </MapView>
   );
@@ -150,6 +168,10 @@ const styles = StyleSheet.create({
   price: { color: theme.colors.accent, fontSize: 22, fontWeight: '800' },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   map: { width: '100%', height: 150, borderRadius: 14 },
+  car: { width: 20, height: 34, borderRadius: 9, backgroundColor: '#0A0A0A', borderWidth: 1.5, borderColor: '#FFFFFF', alignItems: 'center', paddingVertical: 4, gap: 2 },
+  carWindshield: { width: 12, height: 7, borderRadius: 3, backgroundColor: '#6B7280' },
+  carRoof: { width: 12, height: 8, borderRadius: 2, backgroundColor: '#1F2937' },
+  carRearWindow: { width: 12, height: 5, borderRadius: 2, backgroundColor: '#6B7280' },
   driverBox: { gap: 4, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, paddingTop: 12 },
   driverName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
   muted: { color: theme.colors.textMuted, fontSize: 13 },

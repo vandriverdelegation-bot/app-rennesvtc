@@ -221,12 +221,22 @@ export default function DriverHome({ session }) {
     refresh();
   }
 
+  // Previent le client du changement d'etape (notification push).
+  function notifyStep(rideId, step) {
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/step`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ rideId, step }),
+    }).catch(() => {});
+  }
+
   async function handleComplete() {
     await supabase
       .from('rides')
       .update({ status: 'completed', ride_step: 'completed' })
       .eq('id', activeRide.id)
       .eq('driver_id', session.user.id);
+    notifyStep(activeRide.id, 'completed');
     refresh();
   }
 
@@ -236,6 +246,7 @@ export default function DriverHome({ session }) {
       .update({ ride_step: nextStep })
       .eq('id', activeRide.id)
       .eq('driver_id', session.user.id);
+    notifyStep(activeRide.id, nextStep);
     refresh();
   }
 
