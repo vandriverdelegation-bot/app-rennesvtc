@@ -990,7 +990,7 @@ const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 async function loadFleet() {
   const [{ data: vehicles }, { data: drivers }] = await Promise.all([
     supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, email, full_name, vehicle_category').eq('role', 'chauffeur').order('email', { ascending: true }),
+    supabase.from('profiles').select('id, email, full_name, vehicle_category, driver_role').eq('role', 'chauffeur').order('email', { ascending: true }),
   ]);
   return { vehicles: vehicles ?? [], drivers: drivers ?? [] };
 }
@@ -999,7 +999,7 @@ function driverOptions(drivers, vehicles, currentId) {
   const taken = new Set(vehicles.map((v) => v.driver_id).filter(Boolean));
   return '<option value="">Non assigne</option>' + drivers
     .filter((d) => d.id === currentId || !taken.has(d.id))
-    .map((d) => `<option value="${d.id}" ${d.id === currentId ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)}</option>`)
+    .map((d) => `<option value="${d.id}" ${d.id === currentId ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)}${d.driver_role === 'principal' ? ' (principal)' : ''}</option>`)
     .join('');
 }
 
