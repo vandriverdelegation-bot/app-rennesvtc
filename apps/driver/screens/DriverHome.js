@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput } from 'react-native';
 import * as Location from 'expo-location';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -44,12 +44,15 @@ export default function DriverHome({ session }) {
   const [colleagues, setColleagues] = useState([]);
   const [releaseTarget, setReleaseTarget] = useState('all'); // 'all' ou id d'un collegue
   const [releasing, setReleasing] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [priceEditing, setPriceEditing] = useState(false);
+  const [newPrice, setNewPrice] = useState('');
   const locationSubscription = useRef(null);
 
   async function refresh() {
     const { data: active } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, vehicle_category')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, vehicle_category')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .maybeSingle();
@@ -229,9 +232,38 @@ export default function DriverHome({ session }) {
     refresh();
   }
 
-  function handleNavigate() {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup_lat},${activeRide.pickup_lng}`;
-    Linking.openURL(url);
+  // Apres "Je suis sur place" on guide vers la destination ; avant, vers le depart.
+  function navTarget() {
+    return activeRide.ride_step === 'on_site'
+      ? { lat: activeRide.dropoff_lat, lng: activeRide.dropoff_lng, label: 'la destination' }
+      : { lat: activeRide.pickup_lat, lng: activeRide.pickup_lng, label: 'le depart' };
+  }
+
+  function handleNavigate(app) {
+    const { lat, lng } = navTarget();
+    const urls = {
+      waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
+      google: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+      other: `geo:${lat},${lng}?q=${lat},${lng}`, // Android propose alors tous les GPS installes
+    };
+    setNavOpen(false);
+    Linking.openURL(urls[app]).catch(() => Linking.openURL(urls.google));
+  }
+
+  async function handleSavePrice() {
+    const value = parseFloat(newPrice.replace(',', '.'));
+    if (isNaN(value) || value < 0) {
+      setErrorMsg('Saisissez un tarif valide.');
+      return;
+    }
+    setErrorMsg('');
+    const { error } = await supabase.from('rides').update({ price: value }).eq('id', activeRide.id).eq('driver_id', session.user.id);
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    setPriceEditing(false);
+    refresh();
   }
 
   function handleDownloadBonCommande() {
@@ -290,6 +322,19 @@ export default function DriverHome({ session }) {
             <SectionLabel>Prix</SectionLabel>
             <Text style={styles.bigPrice}>{activeRide.price != null ? `${Number(activeRide.price).toFixed(2)} €` : '-'}</Text>
           </View>
+          {permissions.can_edit_price ? (
+            priceEditing ? (
+              <View style={{ gap: 8 }}>
+                <TextInput style={styles.priceInput} value={newPrice} onChangeText={setNewPrice} keyboardType="decimal-pad" placeholder="Nouveau tarif en euros" placeholderTextColor={theme.colors.textMuted} />
+                <View style={styles.contactRow}>
+                  <View style={{ flex: 1 }}><Btn title="Enregistrer" onPress={handleSavePrice} /></View>
+                  <View style={{ flex: 1 }}><Btn title="Annuler" variant="secondary" onPress={() => setPriceEditing(false)} /></View>
+                </View>
+              </View>
+            ) : (
+              <Btn title="Modifier le tarif" variant="secondary" onPress={() => { setNewPrice(String(activeRide.price ?? '')); setPriceEditing(true); }} />
+            )
+          ) : null}
           <View style={styles.pillRow}>
             <Pill>{SERVICE_LABELS[activeRide.service_type]}</Pill>
             <Pill>{PAYMENT_LABELS[activeRide.payment_method]}</Pill>
@@ -306,7 +351,17 @@ export default function DriverHome({ session }) {
 
         <Card>
           <RouteBlock pickup={activeRide.pickup_address} dropoff={activeRide.dropoff_address} />
-          <Btn title="Naviguer vers le depart" onPress={handleNavigate} />
+          {!navOpen ? (
+            <Btn title={`Naviguer vers ${navTarget().label}`} onPress={() => setNavOpen(true)} />
+          ) : (
+            <View style={{ gap: 10 }}>
+              <SectionLabel>Choisir mon GPS</SectionLabel>
+              <Btn title="Waze" onPress={() => handleNavigate('waze')} />
+              <Btn title="Google Maps" variant="secondary" onPress={() => handleNavigate('google')} />
+              <Btn title="Autre application GPS" variant="secondary" onPress={() => handleNavigate('other')} />
+              <Btn title="Annuler" variant="secondary" onPress={() => setNavOpen(false)} />
+            </View>
+          )}
         </Card>
 
         {clientInfo ? (
@@ -419,6 +474,7 @@ const styles = StyleSheet.create({
   mutedSmall: { color: theme.colors.textMuted, fontSize: 13 },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   error: { color: theme.colors.error },
+  priceInput: { borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: 12, padding: 12, color: theme.colors.text, fontSize: 18 },
   releaseOption: { borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: 12, padding: 12 },
   releaseOptionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   releaseText: { color: theme.colors.text },
