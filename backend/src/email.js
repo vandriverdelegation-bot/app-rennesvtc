@@ -32,8 +32,17 @@ async function sendEmail(to, subject, text, attachments) {
   }
 }
 
-function sendAdminEmail(subject, text) {
-  return sendEmail(ADMIN_EMAIL, subject, text);
+// Adresse des alertes : reglage de l'admin (Apparence), sinon adresse par defaut ci-dessus.
+async function sendAdminEmail(subject, text) {
+  let to = ADMIN_EMAIL;
+  try {
+    const { supabaseAdmin } = require('./supabaseAdmin');
+    const { data } = await supabaseAdmin.from('app_settings').select('admin_email').eq('id', true).single();
+    if (data?.admin_email) to = data.admin_email;
+  } catch (e) {
+    console.log('Adresse des alertes admin illisible, adresse par defaut utilisee:', e.message);
+  }
+  return sendEmail(to, subject, text);
 }
 
 module.exports = { sendEmail, sendAdminEmail };

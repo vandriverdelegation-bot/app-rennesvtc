@@ -90,7 +90,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
   const [vehicleCategory, setVehicleCategory] = useState(null);
   const [vehiclePhotos, setVehiclePhotos] = useState({});
   const [serviceType, setServiceType] = useState(null);
-  const [durationHours, setDurationHours] = useState('2');
+  const [durationHours, setDurationHours] = useState('3');
   const [forfaits, setForfaits] = useState([]);
   const [selectedForfaitId, setSelectedForfaitId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);

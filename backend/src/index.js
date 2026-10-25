@@ -586,6 +586,10 @@ app.post('/client/quote', requireSupabaseUser, async (req, res) => {
     `Demande de devis - ${who}`,
     `Client : ${who}\nTelephone : ${profile?.phone ?? 'non renseigne'}\nEmail : ${profile?.email ?? req.user.email}\n\nDepart : ${req.body.pickup ?? '-'}\nDestination : ${req.body.dropoff ?? '-'}\n\nMessage :\n${message}`
   );
+  const clientTo = profile?.email ?? req.user.email;
+  if (clientTo) {
+    await sendEmail(clientTo, 'Votre demande de devis a bien été reçue', `Bonjour,\n\nNous avons bien reçu votre demande de devis et nous revenons vers vous rapidement.\n\nVotre message :\n${message}\n\nRennes VTC - 07 68 42 52 62`);
+  }
   res.json({ ok: true });
 });
 

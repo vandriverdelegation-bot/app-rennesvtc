@@ -363,6 +363,8 @@
             <input id="app-contact-phone" placeholder="Telephone" style="flex:1" />
             <input id="app-contact-website" placeholder="Site web" style="flex:1" />
           </div>
+          <label for="app-admin-email" style="display:block;margin-top:6px">Email qui recoit les alertes (nouvelles demandes, devis, dossiers chauffeurs)</label>
+          <input id="app-admin-email" type="email" placeholder="vous@exemple.fr" />
           <div class="price-row">
             <input id="app-facebook" placeholder="Facebook" style="flex:1" />
             <input id="app-instagram" placeholder="Instagram" style="flex:1" />
@@ -1721,6 +1723,7 @@ async function renderAppSettings() {
   document.getElementById('app-contact-email').value = data.contact_email ?? '';
   document.getElementById('app-contact-phone').value = data.contact_phone ?? '';
   document.getElementById('app-contact-website').value = data.contact_website ?? '';
+  document.getElementById('app-admin-email').value = data.admin_email ?? '';
   document.getElementById('app-facebook').value = data.facebook_url ?? '';
   document.getElementById('app-instagram').value = data.instagram_url ?? '';
   document.getElementById('app-x').value = data.x_url ?? '';
@@ -1773,6 +1776,7 @@ document.getElementById('app-settings-save').addEventListener('click', async () 
     contact_email: document.getElementById('app-contact-email').value.trim() || null,
     contact_phone: document.getElementById('app-contact-phone').value.trim() || null,
     contact_website: document.getElementById('app-contact-website').value.trim() || null,
+    admin_email: document.getElementById('app-admin-email').value.trim() || null,
     facebook_url: document.getElementById('app-facebook').value.trim() || null,
     instagram_url: document.getElementById('app-instagram').value.trim() || null,
     x_url: document.getElementById('app-x').value.trim() || null,
