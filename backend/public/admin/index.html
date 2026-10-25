@@ -384,6 +384,12 @@
         </div>
 
         <div class="card">
+          <h3>Conditions generales de vente (CGV)</h3>
+          <p class="hint">Affichees sur la page /conditions, liee a la case a cocher de la reservation web.</p>
+          <textarea id="app-cgv" style="min-height:140px"></textarea>
+        </div>
+
+        <div class="card">
           <h3>Conditions generales d'utilisation (CGU)</h3>
           <textarea id="app-cgu" style="min-height:140px"></textarea>
         </div>
@@ -1392,6 +1398,7 @@ async function renderAppSettings() {
   document.getElementById('app-support-phone').value = data.support_phone ?? '';
   document.getElementById('app-support-visible').checked = !!data.support_phone_visible;
   document.getElementById('app-cgu').value = data.cgu_text ?? '';
+  document.getElementById('app-cgv').value = data.cgv_text ?? '';
   document.getElementById('app-company-name').value = data.company_legal_name ?? '';
   document.getElementById('app-company-siret').value = data.company_siret ?? '';
   document.getElementById('app-company-address').value = data.company_address ?? '';
@@ -1443,6 +1450,7 @@ document.getElementById('app-settings-save').addEventListener('click', async () 
     support_phone: document.getElementById('app-support-phone').value.trim() || null,
     support_phone_visible: document.getElementById('app-support-visible').checked,
     cgu_text: document.getElementById('app-cgu').value.trim() || null,
+    cgv_text: document.getElementById('app-cgv').value.trim() || null,
     company_legal_name: document.getElementById('app-company-name').value.trim() || null,
     company_siret: document.getElementById('app-company-siret').value.trim() || null,
     company_address: document.getElementById('app-company-address').value.trim() || null,

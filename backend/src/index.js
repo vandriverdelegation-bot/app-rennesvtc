@@ -667,7 +667,8 @@ app.post('/public/estimate-price', async (req, res) => {
 
 // Cree une reservation depuis le module web public (pas de compte requis).
 app.post('/public/book', async (req, res) => {
-  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours } = req.body;
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours, acceptedTerms } = req.body;
+  if (!acceptedTerms) return res.status(400).json({ error: 'Veuillez accepter les CGV et CGU.' });
   const isMad = serviceType === 'mise_a_disposition';
   if (isMad && !(parseFloat(durationHours) > 0)) return res.status(400).json({ error: 'Indiquez la durée de la mise à disposition.' });
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
@@ -683,6 +684,7 @@ app.post('/public/book', async (req, res) => {
       client_name: clientName,
       client_phone: clientPhone,
       client_email: clientEmail?.trim() || null,
+      terms_accepted_at: new Date().toISOString(),
       vehicle_category: vehicleCategory,
       pickup_address: pickup.address,
       pickup_lat: pickup.lat,

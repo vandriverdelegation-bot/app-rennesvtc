@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conditions générales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { color-scheme: dark; --bg: #070908; --panel: #0F1311; --line: #1F2723; --accent: #47C415; --text: #F3F6F4; --muted: #94A09A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: var(--text); background: radial-gradient(900px 420px at 85% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 24px 18px 80px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 800; font-size: 20px; }
+  .brand img { width: 44px; height: 44px; object-fit: contain; border-radius: 12px; display: none; }
+  .back { color: var(--accent); font-weight: 600; text-decoration: none; }
+  h1 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 800; font-size: clamp(30px, 5vw, 44px); letter-spacing: -0.02em; margin: 0 0 18px; }
+  nav { display: flex; gap: 10px; margin-bottom: 22px; }
+  nav a { padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; font-weight: 600; background: var(--panel); }
+  nav a:hover { border-color: var(--accent); color: var(--accent); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 26px; margin-bottom: 18px; scroll-margin-top: 16px; }
+  h2 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: 24px; margin: 0 0 14px; }
+  .text { white-space: pre-wrap; color: #D5DCD7; font-size: 15.5px; }
+  .empty { color: var(--muted); font-style: italic; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><img id="logo" alt="" /><span id="name">Rennes VTC</span></div>
+    <a class="back" href="javascript:history.length > 1 ? history.back() : window.close()">&larr; Retour</a>
+  </header>
+  <h1>Conditions générales</h1>
+  <nav><a href="#cgv">CGV</a><a href="#cgu">CGU</a></nav>
+  <section id="cgv"><h2>Conditions générales de vente (CGV)</h2><div class="text empty" id="cgv-text">Chargement...</div></section>
+  <section id="cgu"><h2>Conditions générales d'utilisation (CGU)</h2><div class="text empty" id="cgu-text">Chargement...</div></section>
+</div>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const supabase = createClient('https://igrhehamvaaturnyttgb.supabase.co', 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK');
+
+const { data } = await supabase.from('app_settings').select('*').eq('id', true).single();
+if (data?.accent_color) document.documentElement.style.setProperty('--accent', data.accent_color);
+if (data?.app_name) document.getElementById('name').textContent = data.app_name;
+if (data?.logo_url) { const logo = document.getElementById('logo'); logo.src = data.logo_url; logo.style.display = 'block'; }
+for (const [id, text] of [['cgv-text', data?.cgv_text], ['cgu-text', data?.cgu_text]]) {
+  const el = document.getElementById(id);
+  el.textContent = text || 'Ce document sera bientôt disponible. Pour toute question, contactez-nous.';
+  el.classList.toggle('empty', !text);
+}
+</script>
+</body>
+</html>

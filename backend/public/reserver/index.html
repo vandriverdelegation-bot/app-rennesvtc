@@ -109,7 +109,9 @@
   .cta:active:not(:disabled) { transform: translateY(1px); }
   .cta:disabled { opacity: .55; cursor: default; }
   .reassure { color: var(--muted); font-size: 13.5px; margin: 14px 0 0; text-align: center; }
-  .cgu-note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; text-align: center; }
+  .terms { display: flex; align-items: flex-start; gap: 12px; margin: 18px 0 0; cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text); }
+  .terms input { flex-shrink: 0; margin-top: 1px; }
+  .terms a { color: var(--accent); font-weight: 700; text-underline-offset: 3px; }
 
   /* Confirmation */
   .confirmation { max-width: 520px; margin: 8vh auto 0; text-align: center; padding: 40px 28px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 26px; }
@@ -258,10 +260,13 @@
           <li><span>Passagers</span><span id="sum-pax">1</span></li>
         </ul>
         <div class="sum-price" id="price-display"></div>
+        <label class="terms">
+          <input type="checkbox" id="accept-terms" />
+          <span>J'accepte les <a href="/conditions/#cgv" target="_blank" rel="noopener">CGV</a> et <a href="/conditions/#cgu" target="_blank" rel="noopener">CGU</a></span>
+        </label>
         <p id="error" class="error"></p>
         <button class="cta" id="submit-btn">Demander la course</button>
-        <p class="reassure">Sans engagement. Un chauffeur vous est attribué rapidement et vous êtes prévenu par email.</p>
-        <p class="cgu-note" id="cgu-note" style="display:none"></p>
+        <p class="reassure">Un chauffeur vous est attribué rapidement et vous êtes prévenu par email.</p>
       </aside>
     </div>
   </div>
@@ -345,10 +350,6 @@ supabase.from('app_settings').select('*').eq('id', true).single().then(({ data }
     help.href = 'tel:' + phone.replace(/\s/g, '');
     document.getElementById('help-phone').textContent = phone;
     help.style.display = 'block';
-  }
-  if (data.cgu_text) {
-    document.getElementById('cgu-note').style.display = 'block';
-    document.getElementById('cgu-note').textContent = 'En réservant, vous acceptez nos conditions générales d’utilisation.';
   }
 });
 
@@ -461,6 +462,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
 
+  if (!document.getElementById('accept-terms').checked) { errorEl.textContent = 'Veuillez accepter les CGV et CGU pour valider la réservation.'; return; }
   if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de véhicule.'; return; }
   if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de départ et de destination dans la liste.'; return; }
   if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et téléphone sont requis.'; return; }
@@ -480,7 +482,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       clientName, clientPhone, clientEmail: clientEmail || null,
-      serviceType: service, durationHours: isMad() ? durationHours : null,
+      serviceType: service, durationHours: isMad() ? durationHours : null, acceptedTerms: true,
       vehicleCategory, pickup, dropoff, roundTrip: isMad() ? false : roundTrip, paymentMethod, price, ...seatsPayload(),
       scheduledAt: date && time ? new Date(`${date}T${time}`).toISOString() : null,
       returnAt: roundTrip && returnDate && returnTime ? new Date(`${returnDate}T${returnTime}`).toISOString() : null,
