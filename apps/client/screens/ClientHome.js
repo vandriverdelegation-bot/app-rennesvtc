@@ -109,7 +109,7 @@ export default function ClientHome({ session }) {
     const { data } = await supabase
       .from('rides')
       .select(
-        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats'
+        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, ride_step, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats'
       )
       .eq('client_id', session.user.id)
       .in('status', ['pending', 'dispatched', 'accepted'])

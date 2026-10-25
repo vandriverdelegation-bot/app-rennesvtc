@@ -115,7 +115,7 @@ export default function DriverHome({ session }) {
     return () => clearInterval(interval);
   }, [vehicleCategory]);
 
-  // Envoie la position GPS du chauffeur pendant qu'une course est en cours, pour le suivi cote client.
+  // Envoie la position GPS du chauffeur uniquement une fois en route (jamais avant), pour le suivi cote client.
   useEffect(() => {
     async function startTracking() {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -136,14 +136,14 @@ export default function DriverHome({ session }) {
       );
     }
 
-    if (activeRide) {
+    if (activeRide && ['en_route', 'on_site'].includes(activeRide.ride_step)) {
       startTracking();
     }
     return () => {
       locationSubscription.current?.remove();
       locationSubscription.current = null;
     };
-  }, [activeRide?.id]);
+  }, [activeRide?.id, activeRide?.ride_step]);
 
   // Coordonnees du client, recuperees via le backend une fois la course acceptee.
   useEffect(() => {
