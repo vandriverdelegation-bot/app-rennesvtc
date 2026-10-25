@@ -29,20 +29,20 @@ function parseDateTime(dateStr, timeStr) {
 const SERVICE_TYPES = [
   { value: 'trajet_simple', label: 'Trajet simple', icon: '📍' },
   { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
-  { value: 'forfait', label: 'Forfait', icon: '🎁' },
+  { value: 'forfait', label: 'Forfait', icon: '🏷️' },
 ];
 
-function SegmentedChoice({ options, value, onChange }) {
+function SegmentedChoice({ options, value, onChange, oneLine }) {
   return (
-    <View style={styles.choiceRow}>
+    <View style={[styles.choiceRow, oneLine && styles.choiceRowOneLine]}>
       {options.map((o) => (
         <TouchableOpacity
           key={o.value}
-          style={[styles.choiceOption, value === o.value && styles.choiceOptionSelected]}
+          style={[styles.choiceOption, oneLine && styles.choiceOptionOneLine, value === o.value && styles.choiceOptionSelected]}
           onPress={() => onChange(o.value)}
         >
           {o.icon ? <Text style={styles.choiceIcon}>{o.icon}</Text> : null}
-          <Text style={value === o.value ? styles.choiceTextSelected : styles.choiceText}>{o.label}</Text>
+          <Text style={[value === o.value ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{o.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -98,6 +98,7 @@ export default function ClientHome({ session }) {
   const [boosterSeats, setBoosterSeats] = useState(0);
   const [luggageCount, setLuggageCount] = useState(0);
   const [childAges, setChildAges] = useState('');
+  const [clientNote, setClientNote] = useState('');
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
@@ -283,6 +284,7 @@ export default function ClientHome({ session }) {
         booster_seats: boosterSeats,
         luggage_count: luggageCount,
         child_ages: childSeats > 0 || boosterSeats > 0 ? childAges.trim() : null,
+        client_note: clientNote.trim() || null,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
         return_scheduled_at: returnScheduledAt,
@@ -316,6 +318,7 @@ export default function ClientHome({ session }) {
     setBoosterSeats(0);
     setLuggageCount(0);
     setChildAges('');
+    setClientNote('');
     fetchRides();
     setView('home');
   }
@@ -403,7 +406,7 @@ export default function ClientHome({ session }) {
       </SectionCard>
 
       <SectionCard title="Service">
-        <SegmentedChoice options={SERVICE_TYPES} value={serviceType} onChange={setServiceType} />
+        <SegmentedChoice options={SERVICE_TYPES} value={serviceType} onChange={setServiceType} oneLine />
 
         {serviceType === 'trajet_simple' && (
           <View style={styles.choiceRow}>
@@ -508,6 +511,17 @@ export default function ClientHome({ session }) {
         <SegmentedChoice options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
       </SectionCard>
 
+      <SectionCard title="Informations complementaires">
+        <TextInput
+          style={styles.noteInput}
+          value={clientNote}
+          onChangeText={setClientNote}
+          placeholder="Numero de vol, code d'entree, precision sur le lieu de prise en charge..."
+          placeholderTextColor={theme.colors.textMuted}
+          multiline
+        />
+      </SectionCard>
+
       {priceError ? <Text style={styles.error}>{priceError}</Text> : null}
       {priceManual ? (
         <Text style={styles.priceEstimate}>Prix fixe par le chauffeur a la prise en charge</Text>
@@ -583,6 +597,19 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: theme.radius - 4,
     marginBottom: 4,
+  },
+  choiceRowOneLine: { flexWrap: 'nowrap' },
+  choiceOptionOneLine: { minWidth: 0 },
+  noteInput: {
+    width: '100%',
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    backgroundColor: theme.colors.input,
+    borderRadius: theme.radius,
+    padding: 10,
+    color: theme.colors.text,
+    textAlignVertical: 'top',
   },
   choiceOptionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   choiceIcon: { fontSize: 18, marginBottom: 2 },

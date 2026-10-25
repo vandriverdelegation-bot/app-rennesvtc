@@ -59,7 +59,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: active } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, child_ages, vehicle_category')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .maybeSingle();
@@ -68,7 +68,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       setPendingRides(pending ?? []);
@@ -354,6 +354,7 @@ export default function DriverHome({ session }) {
             {activeRide.booster_seats > 0 ? <Pill highlight>🧒 Rehausseur x{activeRide.booster_seats}{agesLabel(activeRide.child_ages)}</Pill> : null}
           </View>
           {!seats ? <Text style={styles.mutedSmall}>Aucun siege enfant demande.</Text> : null}
+          {activeRide.client_note ? <ClientNote text={activeRide.client_note} /> : null}
         </Card>
 
         <Card>
@@ -447,6 +448,7 @@ export default function DriverHome({ session }) {
                 <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
               </View>
               <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+              {item.client_note ? <ClientNote text={item.client_note} /> : null}
               <RideMiniMap
                 pickupLat={item.pickup_lat}
                 pickupLng={item.pickup_lng}
@@ -465,7 +467,18 @@ export default function DriverHome({ session }) {
   );
 }
 
+function ClientNote({ text }) {
+  return (
+    <View style={styles.noteBox}>
+      <SectionLabel>Information du client</SectionLabel>
+      <Text style={styles.noteText}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  noteBox: { borderWidth: 1, borderColor: theme.colors.accent, borderRadius: 14, padding: 12, gap: 4 },
+  noteText: { color: theme.colors.text, fontSize: 15 },
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   activeContent: { padding: 16, gap: 14, paddingBottom: 32 },
   listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },
