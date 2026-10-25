@@ -109,8 +109,8 @@ async function requireSupabaseUser(req, res, next) {
 
 async function requireAdmin(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
-    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', req.user.id).single();
-    if (profile?.role !== 'admin') return res.status(403).json({ error: 'Reserve a l administrateur' });
+    const { data: profile } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', req.user.id).single();
+    if (profile?.role !== 'admin' && !profile?.is_owner) return res.status(403).json({ error: 'Reserve a l administrateur' });
     next();
   });
 }
@@ -605,8 +605,8 @@ app.post('/client/quote', requireSupabaseUser, async (req, res) => {
 // Vrai pour le chauffeur de la course ou pour un administrateur (changement d'etape fait depuis l'admin).
 async function isDriverOrAdmin(userId, ride) {
   if (ride.driver_id === userId) return true;
-  const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', userId).single();
-  return profile?.role === 'admin';
+  const { data: profile } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', userId).single();
+  return profile?.role === 'admin' || !!profile?.is_owner;
 }
 
 // Previent le client a chaque etape de la course (en route, arrive, terminee).

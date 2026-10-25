@@ -78,6 +78,7 @@
   #login-screen button { margin: 8px 0 0; }
 
   #app-screen { display: none; }
+  .in-app #logout-btn { display: none; }
   .app-layout { display: flex; min-height: 100vh; }
 
   /* Navigation laterale groupee */
@@ -250,6 +251,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
+<script>if (window.__IN_APP) document.documentElement.classList.add('in-app');</script>
 
 <div id="login-screen">
   <h1>RENNES <span class="accent">VTC</span></h1>
@@ -808,8 +810,8 @@ async function handleLogin() {
     loginError.textContent = error.message;
     return;
   }
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
-  if (profile?.role !== 'admin') {
+  const { data: profile } = await supabase.from('profiles').select('role, is_owner').eq('id', data.user.id).single();
+  if (profile?.role !== 'admin' && !profile?.is_owner) {
     loginError.textContent = "Ce compte n'est pas un compte administrateur.";
     await supabase.auth.signOut();
   }
@@ -821,8 +823,8 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
     appScreen.style.display = 'none';
     return;
   }
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-  if (profile?.role !== 'admin') return; // handleLogin affiche deja l'erreur et deconnecte
+  const { data: profile } = await supabase.from('profiles').select('role, is_owner').eq('id', session.user.id).single();
+  if (profile?.role !== 'admin' && !profile?.is_owner) return; // handleLogin affiche deja l'erreur et deconnecte
   loginScreen.style.display = 'none';
   appScreen.style.display = 'block';
   refresh();
@@ -1377,7 +1379,7 @@ async function renderChauffeurs() {
             <td>
               <label><input type="checkbox" class="edit-can-create" ${c.can_create_rides ? 'checked' : ''} /> Creer</label>
               <label><input type="checkbox" class="edit-can-price" ${c.can_edit_price ? 'checked' : ''} /> Prix</label>
-              <label title="Recoit les alertes admin sur son telephone et voit le lien vers le back-office dans l'app chauffeur"><input type="checkbox" class="edit-owner" ${c.is_owner ? 'checked' : ''} /> Proprietaire</label>
+              <label title="Recoit les alertes admin sur son telephone et voit le lien vers le back-office dans l'app chauffeur"><input type="checkbox" class="edit-owner" ${c.is_owner ? 'checked' : ''} /> Proprietaire (administrateur)</label>
             </td>
             <td>${c.push_token ? 'Activees' : 'Non activees'}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>

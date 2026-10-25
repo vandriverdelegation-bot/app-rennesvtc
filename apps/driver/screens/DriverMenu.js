@@ -3,6 +3,7 @@ import { ActivityIndicator, BackHandler, Linking, ScrollView, StyleSheet, Switch
 import { registerPushToken, theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
+import BackOffice from './BackOffice';
 
 const STATUS_LABELS = { completed: 'Terminee', cancelled: 'Annulee', accepted: 'En cours' };
 
@@ -297,6 +298,16 @@ export default function DriverMenu({ session, onClose }) {
     await supabase.auth.signOut();
   }
 
+  if (view === 'backoffice') {
+    return (
+      <View style={styles.scroll}>
+        <View style={styles.settingsBack}>
+          <BackLink onPress={() => setView('menu')} />
+        </View>
+        <BackOffice />
+      </View>
+    );
+  }
   if (view === 'revenue') return <RevenueView session={session} onBack={() => setView('menu')} />;
   if (view === 'comptes') return <ComptesView session={session} onBack={() => setView('menu')} />;
   if (view === 'history') return <HistoryView session={session} onBack={() => setView('menu')} />;
@@ -329,7 +340,7 @@ export default function DriverMenu({ session, onClose }) {
         <MenuItem
           label="Back-office"
           hint="Administration Rennes VTC (reserve au proprietaire)"
-          onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/admin/`)}
+          onPress={() => setView('backoffice')}
         />
       ) : null}
       <MenuItem
