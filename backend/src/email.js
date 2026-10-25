@@ -1,7 +1,7 @@
 // Domaine mail.rennesvtc.com verifie sur Resend (sous-domaine dedie, pour ne pas
 // toucher a la redirection de boite mail du domaine principal).
 const FROM = 'Rennes VTC <noreply@mail.rennesvtc.com>';
-const ADMIN_EMAIL = 'vandriverdelegation@gmail.com';
+const ADMIN_EMAIL = 'rennesvtc@gmail.com';
 
 // Trace chaque envoi (reussi ou non) dans email_log ; ne doit jamais faire echouer l'envoi lui-meme.
 async function logEmail(to, subject, status, detail) {

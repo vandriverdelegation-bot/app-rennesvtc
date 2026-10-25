@@ -271,7 +271,7 @@ export default function DriverMenu({ session, onClose }) {
   const loadProfile = useCallback(async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, phone, vtc_card_number, vehicle_category, online_status')
+      .select('full_name, phone, vtc_card_number, vehicle_category, online_status, is_owner')
       .eq('id', session.user.id)
       .single();
     setProfile(data);
@@ -325,6 +325,13 @@ export default function DriverMenu({ session, onClose }) {
       <MenuItem label="Courses en compte" hint="Paiements en attente et regles" onPress={() => setView('comptes')} />
       <MenuItem label="Historique de mes courses" hint="Courses acceptees, terminees, bons de commande" onPress={() => setView('history')} />
       <MenuItem label="Notifications" hint="Alertes de nouvelles courses" onPress={() => setView('notifications')} />
+      {profile?.is_owner ? (
+        <MenuItem
+          label="Back-office"
+          hint="Administration Rennes VTC (reserve au proprietaire)"
+          onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/admin/`)}
+        />
+      ) : null}
       <MenuItem
         label="Gamme, statut, telephone et disponibilites"
         hint={profile?.online_status ? 'Vous etes en ligne' : 'Vous etes hors ligne'}

@@ -1345,7 +1345,7 @@ async function renderStats() {
 async function renderChauffeurs() {
   const { data: chauffeurs } = await supabase
     .from('profiles')
-    .select('id, email, phone, vehicle_category, push_token, created_at, vehicle_categories, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret')
+    .select('id, email, phone, vehicle_category, push_token, created_at, vehicle_categories, driver_role, can_create_rides, can_edit_price, is_owner, full_name, vtc_card_number, siret')
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
@@ -1377,6 +1377,7 @@ async function renderChauffeurs() {
             <td>
               <label><input type="checkbox" class="edit-can-create" ${c.can_create_rides ? 'checked' : ''} /> Creer</label>
               <label><input type="checkbox" class="edit-can-price" ${c.can_edit_price ? 'checked' : ''} /> Prix</label>
+              <label title="Recoit les alertes admin sur son telephone et voit le lien vers le back-office dans l'app chauffeur"><input type="checkbox" class="edit-owner" ${c.is_owner ? 'checked' : ''} /> Proprietaire</label>
             </td>
             <td>${c.push_token ? 'Activees' : 'Non activees'}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
@@ -1416,12 +1417,13 @@ async function renderChauffeurs() {
       const vtc_card_number = row.querySelector('.edit-vtc-card').value.trim();
       const siret = row.querySelector('.edit-siret').value.trim();
       const vehicle_categories = [...row.querySelectorAll('.edit-cat:checked')].map((i) => i.value);
+      const is_owner = row.querySelector('.edit-owner').checked;
       if (vehicle_categories.length === 0) { alert('Choisissez au moins une gamme.'); return; }
       const { data: { session } } = await supabase.auth.getSession();
       await fetch(`/admin/chauffeurs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret, vehicle_categories }),
+        body: JSON.stringify({ driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret, vehicle_categories, is_owner }),
       });
       btn.textContent = 'Enregistre !';
       setTimeout(() => { btn.textContent = 'Enregistrer'; }, 1500);

@@ -20,6 +20,12 @@ async function pickVehicle(driverId, category) {
   return pool.find((v) => v.vehicle_category === category) ?? pool[0] ?? null;
 }
 
+// Notification push aux proprietaires (chauffeurs marques "proprietaire") : nouvelle demande, devis...
+async function notifyOwners(title, body) {
+  const { data } = await supabaseAdmin.from('profiles').select('push_token').eq('is_owner', true).not('push_token', 'is', null);
+  await sendPush((data ?? []).map((d) => d.push_token), title, body);
+}
+
 function formatRideRecap(ride) {
   const lines = [
     `Depart : ${ride.pickup_address}`,
@@ -194,6 +200,7 @@ app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
     .update({
       vehicle_category, vehicle_categories, driver_role,
       can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price,
+      ...(req.body.is_owner !== undefined ? { is_owner: !!req.body.is_owner } : {}),
       full_name: full_name || null, vtc_card_number: vtc_card_number || null, siret: siret || null,
     })
     .eq('id', req.params.id)
@@ -245,6 +252,7 @@ app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
   autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
   // Une reservation saisie par l'admin n'a pas besoin de le prevenir lui-meme.
   if (!fromAdmin) {
+    await notifyOwners('Nouvelle demande de course', `${ride.pickup_address} -> ${ride.dropoff_address}`);
     await sendAdminEmail(
       'Nouvelle demande de course',
       `${formatRideRecap(ride)}\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
@@ -582,6 +590,7 @@ app.post('/client/quote', requireSupabaseUser, async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message requis' });
   const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone, email').eq('id', req.user.id).single();
   const who = profile?.full_name || profile?.email || req.user.email;
+  await notifyOwners('Demande de devis', `${who} : ${message.slice(0, 100)}`);
   await sendAdminEmail(
     `Demande de devis - ${who}`,
     `Client : ${who}\nTelephone : ${profile?.phone ?? 'non renseigne'}\nEmail : ${profile?.email ?? req.user.email}\n\nDepart : ${req.body.pickup ?? '-'}\nDestination : ${req.body.dropoff ?? '-'}\n\nMessage :\n${message}`
@@ -814,6 +823,7 @@ app.post('/public/book', async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
 
   autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
+  await notifyOwners('Nouvelle demande de course (web)', `${ride.pickup_address} -> ${ride.dropoff_address}`);
   await sendAdminEmail(
     'Nouvelle demande de course (reservation web)',
     `${formatRideRecap(ride)}\n${isMad ? `Mise a disposition : ${parseFloat(durationHours)} h\n` : ''}Client : ${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
