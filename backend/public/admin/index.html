@@ -464,9 +464,10 @@
             <div class="form-section">
               <h3>Client</h3>
               <div class="form-grid">
-                <div class="field"><label for="new-ride-client-name">Nom du client</label><input id="new-ride-client-name" placeholder="Nom et prenom" /></div>
+                <div class="field"><label for="new-ride-client-firstname">Prenom</label><input id="new-ride-client-firstname" placeholder="Prenom" /></div>
+                <div class="field"><label for="new-ride-client-name">Nom</label><input id="new-ride-client-name" placeholder="Nom" /></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
-                <div class="field"><label for="new-ride-client-email">Email</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
+                <div class="field"><label for="new-ride-client-email">Email (recoit la confirmation)</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
               <button type="button" class="secondary" id="new-ride-orderer-toggle" style="margin-top:14px">+ Suivi au donneur d'ordre</button>
@@ -854,9 +855,9 @@ document.getElementById('new-ride-category').addEventListener('change', populate
 document.getElementById('add-ride').addEventListener('click', async () => {
   const errorEl = document.getElementById('new-ride-error');
   errorEl.textContent = '';
-  const client_name = document.getElementById('new-ride-client-name').value.trim();
+  const client_name = [document.getElementById('new-ride-client-firstname').value.trim(), document.getElementById('new-ride-client-name').value.trim()].filter(Boolean).join(' ');
   const client_phone = document.getElementById('new-ride-client-phone').value.trim();
-  const client_email = document.getElementById('new-ride-client-email').value.trim() || null;
+  const client_email = document.getElementById('new-ride-client-email').value.trim();
   const vehicle_category = document.getElementById('new-ride-category').value;
   const date = document.getElementById('new-ride-date').value;
   const time = document.getElementById('new-ride-time').value;
@@ -876,6 +877,10 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
   if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
     errorEl.textContent = 'Nom, telephone, adresses (choisies dans la liste) et prix sont requis.';
+    return;
+  }
+  if (!client_email || !client_email.includes('@')) {
+    errorEl.textContent = "L'email du client est requis : il recoit la confirmation de la reservation.";
     return;
   }
   if (isMad && !duration_hours) {
@@ -919,9 +924,18 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     status: driverId ? 'accepted' : 'pending',
     driver_id: driverId || null,
   };
-  const { error } = await supabase.from('rides').insert(payload);
+  const { data: created, error } = await supabase.from('rides').insert(payload).select('id').single();
   if (error) { errorEl.textContent = error.message; return; }
 
+  // Confirmation au client : de la demande, ou directement de l'acceptation si un chauffeur est deja choisi.
+  const { data: { session } } = await supabase.auth.getSession();
+  fetch(driverId ? '/notify/accepted' : '/notify/new-ride', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ rideId: created.id, fromAdmin: true }),
+  }).catch(() => {});
+
+  document.getElementById('new-ride-client-firstname').value = '';
   document.getElementById('new-ride-client-name').value = '';
   document.getElementById('new-ride-client-phone').value = '';
   document.getElementById('new-ride-client-email').value = '';

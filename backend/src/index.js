@@ -174,29 +174,33 @@ async function fetchBonCommandeData(rideId) {
 // Previent l'admin par email qu'une nouvelle demande de course attend un dispatch,
 // et confirme au client que sa demande a bien ete recue.
 app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
-  const { rideId } = req.body;
+  const { rideId, fromAdmin } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at, client_id')
+    .select('pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at, client_id, client_email')
     .eq('id', rideId)
     .single();
   if (!ride) return res.json({ ok: true });
 
   autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
-  await sendAdminEmail(
-    'Nouvelle demande de course',
-    `${formatRideRecap(ride)}\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
-  );
+  // Une reservation saisie par l'admin n'a pas besoin de le prevenir lui-meme.
+  if (!fromAdmin) {
+    await sendAdminEmail(
+      'Nouvelle demande de course',
+      `${formatRideRecap(ride)}\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
+    );
+  }
 
-  if (ride.client_id) {
-    const { data: client } = await supabaseAdmin.from('profiles').select('email').eq('id', ride.client_id).single();
-    if (client?.email) {
-      await sendEmail(
-        client.email,
-        'Votre demande de course a bien ete recue',
-        `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
-      );
-    }
+  const { data: client } = ride.client_id
+    ? await supabaseAdmin.from('profiles').select('email').eq('id', ride.client_id).single()
+    : { data: null };
+  const to = client?.email || ride.client_email;
+  if (to) {
+    await sendEmail(
+      to,
+      'Votre demande de course a bien ete recue',
+      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
+    );
   }
   res.json({ ok: true });
 });
@@ -229,7 +233,7 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
   const { rideId } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('client_id, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
+    .select('client_id, client_email, orderer_email, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
     .eq('id', rideId)
     .single();
   if (!ride) return res.json({ ok: true });
@@ -242,7 +246,9 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
 
   if (client) await sendPush([client.push_token], 'Chauffeur trouve', 'Un chauffeur a accepte votre course.');
 
-  if (client?.email) {
+  // Le donneur d'ordre recoit deja son propre email d'attribution (suivi) : pas de doublon a la meme adresse.
+  const clientTo = client?.email || ride.client_email;
+  if (clientTo && clientTo.toLowerCase() !== (ride.orderer_email ?? '').toLowerCase()) {
     const { data: driver } = await supabaseAdmin
       .from('profiles')
       .select('email, phone, full_name')
@@ -252,7 +258,7 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
       ? `Chauffeur : ${driver.full_name || driver.email}${driver.phone ? `\nTelephone du chauffeur : ${driver.phone}` : ''}`
       : '';
     await sendEmail(
-      client.email,
+      clientTo,
       'Un chauffeur a accepte votre course',
       `Bonjour,\n\nUn chauffeur a accepte votre course.\n\n${driverInfo}\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
     );
