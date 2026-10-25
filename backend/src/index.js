@@ -126,6 +126,15 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
   res.status(201).json({ id: data.user.id, email: data.user.email });
 });
 
+// La gamme d'un chauffeur (utilisee pour le dispatch) suit celle de son vehicule.
+app.patch('/admin/chauffeurs/:id/category', requireAdmin, async (req, res) => {
+  const { vehicle_category } = req.body;
+  if (!['confort', 'affaires', 'van'].includes(vehicle_category)) return res.status(400).json({ error: 'Gamme inconnue' });
+  const { error } = await supabaseAdmin.from('profiles').update({ vehicle_category }).eq('id', req.params.id).eq('role', 'chauffeur');
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
 // Modifie la gamme/role/permissions/infos legales d'un chauffeur existant.
 app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
   const { vehicle_category, driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret } = req.body;

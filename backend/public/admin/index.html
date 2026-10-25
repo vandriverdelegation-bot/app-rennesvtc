@@ -606,26 +606,18 @@
       <div class="page" id="page-vehicules">
         <h2>Vehicules</h2>
         <div id="vehicles-list"></div>
-        <h3 style="margin-top:24px">Ajouter un vehicule</h3>
+        <h3 style="margin-top:28px">Ajouter un vehicule</h3>
         <div class="card">
-          <div class="price-row">
-            <input id="new-vehicle-name" placeholder="Nom affiche (ex: Mercedes Classe E)" style="width:220px" />
-            <select id="new-vehicle-category"></select>
-            <select id="new-vehicle-driver"><option value="">Non assigne</option></select>
-          </div>
-          <div class="price-row">
-            <input id="new-vehicle-plate" placeholder="Plaque d'immatriculation" style="width:150px" />
-            <input id="new-vehicle-color" placeholder="Couleur" style="width:120px" />
-            <input id="new-vehicle-seats" type="number" placeholder="Places" style="width:80px" value="4" />
-          </div>
-          <div class="price-row">
-            <input id="new-vehicle-bags-s" type="number" placeholder="Bagages S" style="width:100px" value="0" />
-            <input id="new-vehicle-bags-m" type="number" placeholder="Bagages M" style="width:100px" value="0" />
-            <input id="new-vehicle-bags-l" type="number" placeholder="Bagages L" style="width:100px" value="0" />
-          </div>
-          <div class="price-row">
-            <input id="new-vehicle-options" placeholder="Options (separees par des virgules : climatisation, wifi...)" style="width:340px" />
-            <input id="new-vehicle-photo" type="file" accept="image/*" style="width:220px" />
+          <p class="hint" style="margin-top:0">Un vehicule appartient a une gamme et est assigne a un seul chauffeur. Plusieurs chauffeurs peuvent partager la meme gamme : le client ne voit que la gamme, jamais le vehicule. En assignant un chauffeur, sa gamme devient celle du vehicule.</p>
+          <div class="form-grid">
+            <div class="field"><label for="new-vehicle-name">Nom du vehicule</label><input id="new-vehicle-name" placeholder="Ex : Mercedes Classe E" /></div>
+            <div class="field"><label for="new-vehicle-category">Gamme</label><select id="new-vehicle-category" style="width:100%"></select></div>
+            <div class="field"><label for="new-vehicle-driver">Chauffeur assigne</label><select id="new-vehicle-driver" style="width:100%"><option value="">Non assigne</option></select></div>
+            <div class="field"><label for="new-vehicle-plate">Plaque d'immatriculation</label><input id="new-vehicle-plate" placeholder="AB-123-CD" /></div>
+            <div class="field"><label for="new-vehicle-color">Couleur</label><input id="new-vehicle-color" placeholder="Noir" /></div>
+            <div class="field"><label for="new-vehicle-seats">Places</label><input id="new-vehicle-seats" type="number" min="1" value="4" /></div>
+            <div class="field wide"><label for="new-vehicle-options">Options (separees par des virgules : climatisation, wifi...)</label><input id="new-vehicle-options" /></div>
+            <div class="field wide"><label for="new-vehicle-photo">Photo (affichee au client pour illustrer la gamme)</label><input id="new-vehicle-photo" type="file" accept="image/*" /></div>
           </div>
           <button id="add-vehicle">Ajouter le vehicule</button>
           <p id="new-vehicle-error" class="error"></p>
@@ -994,41 +986,68 @@ document.getElementById('add-ride').addEventListener('click', async () => {
 
 const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
+// Chauffeurs sans vehicule + chauffeur du vehicule edite (un chauffeur = un seul vehicule).
+async function loadFleet() {
+  const [{ data: vehicles }, { data: drivers }] = await Promise.all([
+    supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, email, full_name, vehicle_category').eq('role', 'chauffeur').order('email', { ascending: true }),
+  ]);
+  return { vehicles: vehicles ?? [], drivers: drivers ?? [] };
+}
+
+function driverOptions(drivers, vehicles, currentId) {
+  const taken = new Set(vehicles.map((v) => v.driver_id).filter(Boolean));
+  return '<option value="">Non assigne</option>' + drivers
+    .filter((d) => d.id === currentId || !taken.has(d.id))
+    .map((d) => `<option value="${d.id}" ${d.id === currentId ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)}</option>`)
+    .join('');
+}
+
+// La gamme du chauffeur (utilisee pour le dispatch) suit celle de son vehicule.
+async function syncDriverCategory(driverId, category) {
+  if (!driverId) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  await fetch(`/admin/chauffeurs/${driverId}/category`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ vehicle_category: category }),
+  });
+}
+
 async function populateVehicleForm() {
   document.getElementById('new-vehicle-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
-  const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur');
-  document.getElementById('new-vehicle-driver').innerHTML = '<option value="">Non assigne</option>' +
-    (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+  const { vehicles, drivers } = await loadFleet();
+  document.getElementById('new-vehicle-driver').innerHTML = driverOptions(drivers, vehicles, null);
 }
 
 async function renderVehicles() {
   await populateVehicleForm();
-  const { data: vehicles } = await supabase
-    .from('vehicles')
-    .select('*, profiles(email)')
-    .order('created_at', { ascending: false });
+  const { vehicles, drivers } = await loadFleet();
 
   const container = document.getElementById('vehicles-list');
-  if (!vehicles || vehicles.length === 0) {
+  if (vehicles.length === 0) {
     container.innerHTML = '<p>Aucun vehicule pour le moment.</p>';
     return;
   }
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Nom</th><th>Gamme</th><th>Plaque</th><th>Couleur</th><th>Places</th><th>Bagages</th><th>Options</th><th>Chauffeur</th><th>Actif</th><th></th></tr></thead>
+      <thead><tr><th>Vehicule</th><th>Gamme</th><th>Chauffeur assigne</th><th>Plaque</th><th>Couleur</th><th>Places</th><th>Options</th><th>Actif</th><th></th></tr></thead>
       <tbody>
         ${vehicles.map((v) => `
           <tr>
             <td>${escapeHtml(v.display_name)}${v.photo_url ? `<br/><img src="${escapeHtml(v.photo_url)}" style="width:80px;border-radius:6px;margin-top:4px" />` : ''}</td>
-            <td>${VEHICLE_LABELS[v.vehicle_category]}</td>
+            <td>
+              <select data-vehicle-category="${v.id}">
+                ${CATEGORIES.map((c) => `<option value="${c}" ${c === v.vehicle_category ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
+              </select>
+            </td>
+            <td><select data-vehicle-driver="${v.id}">${driverOptions(drivers, vehicles, v.driver_id)}</select></td>
             <td>${escapeHtml(v.plate ?? '-')}</td>
             <td>${escapeHtml(v.color ?? '-')}</td>
             <td>${v.seats}</td>
-            <td>S:${v.bags_s} M:${v.bags_m} L:${v.bags_l}</td>
             <td>${(v.options ?? []).map(escapeHtml).join(', ') || '-'}</td>
-            <td>${escapeHtml(v.profiles?.email ?? 'Non assigne')}</td>
-            <td><input type="checkbox" data-vehicle-active="${v.id}" ${v.active ? 'checked' : ''} style="width:auto" /></td>
+            <td><input type="checkbox" data-vehicle-active="${v.id}" ${v.active ? 'checked' : ''} /></td>
             <td><button class="secondary" data-delete-vehicle="${v.id}">Supprimer</button></td>
           </tr>
         `).join('')}
@@ -1036,9 +1055,29 @@ async function renderVehicles() {
     </table>
   `;
 
+  const byId = Object.fromEntries(vehicles.map((v) => [v.id, v]));
   container.querySelectorAll('[data-vehicle-active]').forEach((checkbox) => {
     checkbox.addEventListener('change', async () => {
       await supabase.from('vehicles').update({ active: checkbox.checked }).eq('id', checkbox.dataset.vehicleActive);
+    });
+  });
+  container.querySelectorAll('[data-vehicle-category]').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const v = byId[select.dataset.vehicleCategory];
+      const { error } = await supabase.from('vehicles').update({ vehicle_category: select.value }).eq('id', v.id);
+      if (error) { alert(error.message); return; }
+      await syncDriverCategory(v.driver_id, select.value);
+      renderVehicles();
+    });
+  });
+  container.querySelectorAll('[data-vehicle-driver]').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const v = byId[select.dataset.vehicleDriver];
+      const { error } = await supabase.from('vehicles').update({ driver_id: select.value || null }).eq('id', v.id);
+      if (error) { alert(error.message.includes('duplicate') ? 'Ce chauffeur a deja un vehicule.' : error.message); renderVehicles(); return; }
+      await syncDriverCategory(select.value, v.vehicle_category);
+      renderVehicles();
+      renderChauffeurs();
     });
   });
   container.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
@@ -1046,6 +1085,7 @@ async function renderVehicles() {
       if (!confirm('Supprimer ce vehicule ?')) return;
       await supabase.from('vehicles').delete().eq('id', btn.dataset.deleteVehicle);
       renderVehicles();
+      renderChauffeurs();
     });
   });
 }
@@ -1059,13 +1099,10 @@ document.getElementById('add-vehicle').addEventListener('click', async () => {
   const plate = document.getElementById('new-vehicle-plate').value.trim() || null;
   const color = document.getElementById('new-vehicle-color').value.trim() || null;
   const seats = parseInt(document.getElementById('new-vehicle-seats').value, 10) || 4;
-  const bags_s = parseInt(document.getElementById('new-vehicle-bags-s').value, 10) || 0;
-  const bags_m = parseInt(document.getElementById('new-vehicle-bags-m').value, 10) || 0;
-  const bags_l = parseInt(document.getElementById('new-vehicle-bags-l').value, 10) || 0;
   const options = document.getElementById('new-vehicle-options').value.split(',').map((o) => o.trim()).filter(Boolean);
   const photoFile = document.getElementById('new-vehicle-photo').files[0];
 
-  if (!display_name) { errorEl.textContent = 'Le nom affiche est requis.'; return; }
+  if (!display_name) { errorEl.textContent = 'Le nom du vehicule est requis.'; return; }
 
   let photo_url = null;
   if (photoFile) {
@@ -1076,9 +1113,10 @@ document.getElementById('add-vehicle').addEventListener('click', async () => {
   }
 
   const { error } = await supabase.from('vehicles').insert({
-    display_name, vehicle_category, driver_id, plate, color, seats, bags_s, bags_m, bags_l, options, photo_url,
+    display_name, vehicle_category, driver_id, plate, color, seats, options, photo_url,
   });
-  if (error) { errorEl.textContent = error.message; return; }
+  if (error) { errorEl.textContent = error.message.includes('duplicate') ? 'Ce chauffeur a deja un vehicule.' : error.message; return; }
+  await syncDriverCategory(driver_id, vehicle_category);
 
   document.getElementById('new-vehicle-name').value = '';
   document.getElementById('new-vehicle-plate').value = '';
@@ -1086,6 +1124,7 @@ document.getElementById('add-vehicle').addEventListener('click', async () => {
   document.getElementById('new-vehicle-options').value = '';
   document.getElementById('new-vehicle-photo').value = '';
   renderVehicles();
+  renderChauffeurs();
 });
 
 async function renderAvailability() {
@@ -1249,6 +1288,9 @@ async function renderChauffeurs() {
     .eq('role', 'chauffeur')
     .order('created_at', { ascending: false });
 
+  const { data: fleet } = await supabase.from('vehicles').select('driver_id, display_name, plate').not('driver_id', 'is', null);
+  const vehicleByDriver = Object.fromEntries((fleet ?? []).map((v) => [v.driver_id, v]));
+
   const container = document.getElementById('chauffeurs-list');
   if (!chauffeurs || chauffeurs.length === 0) {
     container.innerHTML = '<p>Aucun chauffeur pour le moment.</p>';
@@ -1257,12 +1299,13 @@ async function renderChauffeurs() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Gamme</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
+      <thead><tr><th>Email</th><th>Gamme</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
       <tbody>
         ${chauffeurs.map((c) => `
           <tr data-chauffeur-id="${c.id}">
             <td>${escapeHtml(c.email ?? '')}</td>
             <td>${c.vehicle_category ? VEHICLE_LABELS[c.vehicle_category] : '-'}</td>
+            <td>${vehicleByDriver[c.id] ? escapeHtml(vehicleByDriver[c.id].display_name) + (vehicleByDriver[c.id].plate ? '<br/><span class="hint">' + escapeHtml(vehicleByDriver[c.id].plate) + '</span>' : '') : '<span class="hint">Aucun (a assigner dans Vehicules)</span>'}</td>
             <td>
               <select class="edit-role">
                 <option value="secondaire" ${c.driver_role !== 'principal' ? 'selected' : ''}>Secondaire</option>
