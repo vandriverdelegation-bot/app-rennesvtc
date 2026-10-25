@@ -532,18 +532,18 @@ export default function ClientHome({ session, logoUrl, appName }) {
       )}
 
       <SectionCard title="Service">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
+        <View style={styles.stack}>
           {SERVICE_TYPES.map((o) => (
             <TouchableOpacity
               key={o.value}
-              style={[styles.tile, serviceType === o.value && styles.choiceOptionSelected]}
+              style={[styles.stackRow, serviceType === o.value && styles.choiceOptionSelected]}
               onPress={() => setServiceType(o.value)}
             >
-              <Text style={styles.choiceIcon}>{o.icon}</Text>
-              <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{o.label}</Text>
+              <Text style={styles.stackIcon}>{o.icon}</Text>
+              <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, styles.stackLabel]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {serviceType === 'trajet_simple' && (
           <View style={styles.choiceRow}>
@@ -626,18 +626,18 @@ export default function ClientHome({ session, logoUrl, appName }) {
             {forfaits.length === 0 ? (
               <Text style={styles.mutedText}>Aucun forfait disponible pour cette gamme.</Text>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
+              <View style={styles.stack}>
                 {forfaits.map((f) => (
                   <TouchableOpacity
                     key={f.id}
-                    style={[styles.forfaitTile, selectedForfaitId === f.id && styles.choiceOptionSelected]}
+                    style={[styles.stackRow, selectedForfaitId === f.id && styles.choiceOptionSelected]}
                     onPress={() => setSelectedForfaitId(f.id)}
                   >
-                    <Text style={[selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{f.name}</Text>
+                    <Text style={[selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText, styles.stackLabel]}>{f.name}</Text>
                     <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accentText }]}>{f.price} €</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             )}
           </View>
         )}
@@ -742,29 +742,21 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius - 4,
     marginBottom: 4,
   },
-  tileRow: { gap: 10, paddingRight: 4 },
-  tile: {
-    width: 112,
+  stack: { width: '100%', gap: 8 },
+  stackRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
     backgroundColor: theme.colors.input,
     borderRadius: 14,
     paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 14,
   },
-  forfaitTile: {
-    minWidth: 130,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    backgroundColor: theme.colors.input,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    gap: 4,
-  },
+  stackIcon: { fontSize: 20 },
+  stackLabel: { flex: 1, fontSize: 15 },
   forfaitPrice: { color: theme.colors.accent, fontSize: 18, fontWeight: '800' },
   noteInput: {
     width: '100%',
