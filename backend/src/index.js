@@ -111,7 +111,7 @@ async function fetchBonCommandeData(rideId) {
   }
 
   const [{ data: company }, { data: driver }, { data: vehicle }] = await Promise.all([
-    supabaseAdmin.from('app_settings').select('company_legal_name, company_siret, company_address').eq('id', true).single(),
+    supabaseAdmin.from('app_settings').select('company_legal_name, company_siret, company_address, logo_url').eq('id', true).single(),
     ride.driver_id
       ? supabaseAdmin.from('profiles').select('email, full_name, vtc_card_number, siret').eq('id', ride.driver_id).single()
       : Promise.resolve({ data: null }),
