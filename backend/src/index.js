@@ -12,6 +12,14 @@ const { registerDriverOnboarding } = require('./driverOnboarding');
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
 
+// Vehicule d'un chauffeur pour une course : celui de la gamme demandee (actif de preference), sinon le premier.
+async function pickVehicle(driverId, category) {
+  const { data } = await supabaseAdmin.from('vehicles').select('display_name, color, plate, vehicle_category, active').eq('driver_id', driverId).order('created_at', { ascending: true });
+  const all = data ?? [];
+  const pool = all.some((v) => v.active) ? all.filter((v) => v.active) : all;
+  return pool.find((v) => v.vehicle_category === category) ?? pool[0] ?? null;
+}
+
 function formatRideRecap(ride) {
   const lines = [
     `Depart : ${ride.pickup_address}`,
@@ -42,7 +50,7 @@ function trackingTexts(step, mad) {
 async function sendTrackingEmail(rideId, step) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('tracking_token, orderer_email, client_name, pickup_address, dropoff_address, service_type, scheduled_at, duration_hours, driver_id')
+    .select('tracking_token, orderer_email, client_name, pickup_address, dropoff_address, service_type, scheduled_at, duration_hours, driver_id, vehicle_category')
     .eq('id', rideId)
     .single();
   if (!ride?.orderer_email) return;
@@ -52,9 +60,9 @@ async function sendTrackingEmail(rideId, step) {
 
   let driverInfo = '';
   if (ride.driver_id) {
-    const [{ data: driver }, { data: vehicle }] = await Promise.all([
+    const [{ data: driver }, vehicle] = await Promise.all([
       supabaseAdmin.from('profiles').select('full_name, email').eq('id', ride.driver_id).single(),
-      supabaseAdmin.from('vehicles').select('display_name, color, plate').eq('driver_id', ride.driver_id).limit(1).maybeSingle(),
+      pickVehicle(ride.driver_id, ride.vehicle_category),
     ]);
     const firstName = (driver?.full_name || '').split(' ')[0] || 'Votre chauffeur';
     driverInfo = `Chauffeur : ${firstName}${vehicle ? ` - ${[vehicle.display_name, vehicle.color, vehicle.plate].filter(Boolean).join(', ')}` : ''}\n`;
@@ -134,8 +142,13 @@ app.patch('/admin/chauffeurs/:id/category', requireAdmin, async (req, res) => {
   // Un chauffeur sur une seule gamme change de gamme ; un chauffeur sur plusieurs gammes gagne celle du vehicule.
   const { data: current } = await supabaseAdmin.from('profiles').select('vehicle_categories').eq('id', req.params.id).eq('role', 'chauffeur').single();
   const existing = current?.vehicle_categories ?? [];
-  const vehicle_categories = existing.length > 1 ? [...new Set([...existing, vehicle_category])] : [vehicle_category];
-  const { error } = await supabaseAdmin.from('profiles').update({ vehicle_category, vehicle_categories }).eq('id', req.params.id).eq('role', 'chauffeur');
+  const { count: vehicleCount } = await supabaseAdmin.from('vehicles').select('*', { count: 'exact', head: true }).eq('driver_id', req.params.id);
+  // Un seul vehicule et une seule gamme : la gamme du chauffeur suit celle du vehicule. Sinon (plusieurs vehicules ou
+  // gammes, ou nouvelle assignation) la gamme est ajoutee sans rien retirer.
+  const replace = req.body.mode !== 'add' && existing.length <= 1 && (vehicleCount ?? 0) <= 1;
+  const vehicle_categories = replace ? [vehicle_category] : [...new Set([...existing, vehicle_category])];
+  const primary = replace || !existing.length ? vehicle_category : (await supabaseAdmin.from('profiles').select('vehicle_category').eq('id', req.params.id).single()).data?.vehicle_category ?? vehicle_category;
+  const { error } = await supabaseAdmin.from('profiles').update({ vehicle_category: vehicle_categories.includes(primary) ? primary : vehicle_category, vehicle_categories }).eq('id', req.params.id).eq('role', 'chauffeur');
   if (error) return res.status(400).json({ error: error.message });
   res.json({ ok: true });
 });
@@ -157,8 +170,10 @@ app.delete('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
     if (!error) return res.json({ ok: true, deleted: true });
   }
-  await supabaseAdmin.from('profiles').update({ role: 'ancien', push_token: null, online_status: false }).eq('id', id);
-  await supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: '876000h' });
+  // L'adresse email est liberee (renommee) pour pouvoir etre reutilisee par un nouveau compte.
+  const archivedEmail = `ancien-${id}@archive.invalid`;
+  await supabaseAdmin.from('profiles').update({ role: 'ancien', push_token: null, online_status: false, email: archivedEmail }).eq('id', id);
+  await supabaseAdmin.auth.admin.updateUserById(id, { email: archivedEmail, ban_duration: '876000h' });
   res.json({ ok: true, archived: true });
 });
 
@@ -192,7 +207,7 @@ app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
 async function fetchBonCommandeData(rideId) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('client_id, client_name, client_phone, driver_id, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at')
+    .select('client_id, client_name, client_phone, driver_id, vehicle_category, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at')
     .eq('id', rideId)
     .single();
   if (!ride) return null;
@@ -209,7 +224,7 @@ async function fetchBonCommandeData(rideId) {
       ? supabaseAdmin.from('profiles').select('email, full_name, vtc_card_number, siret').eq('id', ride.driver_id).single()
       : Promise.resolve({ data: null }),
     ride.driver_id
-      ? supabaseAdmin.from('vehicles').select('display_name, plate').eq('driver_id', ride.driver_id).limit(1).maybeSingle()
+      ? pickVehicle(ride.driver_id, ride.vehicle_category).then((data) => ({ data }))
       : Promise.resolve({ data: null }),
   ]);
 
@@ -661,7 +676,7 @@ app.get('/public/track/:token', async (req, res) => {
   const token = String(req.params.token).slice(0, 64);
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('status, ride_step, service_type, scheduled_at, duration_hours, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, stop_addresses, round_trip, client_name, driver_id, driver_lat, driver_lng, step_times, created_at')
+    .select('status, ride_step, service_type, vehicle_category, scheduled_at, duration_hours, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, stop_addresses, round_trip, client_name, driver_id, driver_lat, driver_lng, step_times, created_at')
     .eq('tracking_token', token)
     .maybeSingle();
   if (!ride) return res.status(404).json({ error: 'Suivi introuvable' });
@@ -670,9 +685,9 @@ app.get('/public/track/:token', async (req, res) => {
   const live = ride.status === 'accepted' && ['en_route', 'on_site'].includes(ride.ride_step) && ride.driver_lat != null;
   let driver = null;
   if (ride.driver_id && ['accepted', 'completed'].includes(ride.status)) {
-    const [{ data: profile }, { data: vehicle }] = await Promise.all([
+    const [{ data: profile }, vehicle] = await Promise.all([
       supabaseAdmin.from('profiles').select('full_name').eq('id', ride.driver_id).single(),
-      supabaseAdmin.from('vehicles').select('display_name, color, plate').eq('driver_id', ride.driver_id).limit(1).maybeSingle(),
+      pickVehicle(ride.driver_id, ride.vehicle_category),
     ]);
     driver = { firstName: (profile?.full_name || '').split(' ')[0] || null, vehicle: vehicle ?? null };
   }

@@ -42,8 +42,14 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
     }
     if (!CATEGORIES.includes(vehicle_category)) return res.status(400).json({ error: 'Choisissez une gamme.' });
     const cleanEmail = email.trim().toLowerCase();
-    const { data: existing } = await supabaseAdmin.from('profiles').select('id').ilike('email', cleanEmail).limit(1);
-    if (existing?.length) return res.status(400).json({ error: 'Cet email correspond déjà à un compte.' });
+    const { data: existing } = await supabaseAdmin.from('profiles').select('role').ilike('email', cleanEmail).neq('role', 'ancien').limit(1);
+    if (existing?.length) {
+      return res.status(400).json({
+        error: existing[0].role === 'admin'
+          ? "Cet email est celui d'un compte administrateur. Un compte chauffeur doit avoir sa propre adresse : utilisez par exemple prenom+chauffeur@gmail.com, qui arrive dans la même boîte."
+          : 'Cet email correspond déjà à un compte.',
+      });
+    }
 
     const { data: inv, error } = await supabaseAdmin
       .from('driver_invitations')

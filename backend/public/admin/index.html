@@ -624,7 +624,7 @@
         <div id="vehicles-list"></div>
         <h3 style="margin-top:28px">Ajouter un vehicule</h3>
         <div class="card">
-          <p class="hint" style="margin-top:0">Un vehicule appartient a une gamme et est assigne a un seul chauffeur. Plusieurs chauffeurs peuvent partager la meme gamme : le client ne voit que la gamme, jamais le vehicule. En assignant un chauffeur, sa gamme devient celle du vehicule.</p>
+          <p class="hint" style="margin-top:0">Un vehicule appartient a une gamme et est assigne a un chauffeur. Un chauffeur peut avoir plusieurs vehicules (par exemple une berline et un van) et plusieurs chauffeurs peuvent partager une gamme : le client ne voit que la gamme, jamais le vehicule. En assignant un chauffeur, la gamme du vehicule est ajoutee a ses gammes.</p>
           <div class="form-grid">
             <div class="field"><label for="new-vehicle-name">Nom du vehicule</label><input id="new-vehicle-name" placeholder="Ex : Mercedes Classe E" /></div>
             <div class="field"><label for="new-vehicle-category">Gamme</label><select id="new-vehicle-category" style="width:100%"></select></div>
@@ -1057,21 +1057,19 @@ async function loadFleet() {
 }
 
 function driverOptions(drivers, vehicles, currentId) {
-  const taken = new Set(vehicles.map((v) => v.driver_id).filter(Boolean));
   return '<option value="">Non assigne</option>' + drivers
-    .filter((d) => d.id === currentId || !taken.has(d.id))
     .map((d) => `<option value="${d.id}" ${d.id === currentId ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)}${d.driver_role === 'principal' ? ' (principal)' : ''}</option>`)
     .join('');
 }
 
 // La gamme du chauffeur (utilisee pour le dispatch) suit celle de son vehicule.
-async function syncDriverCategory(driverId, category) {
+async function syncDriverCategory(driverId, category, mode) {
   if (!driverId) return;
   const { data: { session } } = await supabase.auth.getSession();
   await fetch(`/admin/chauffeurs/${driverId}/category`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-    body: JSON.stringify({ vehicle_category: category }),
+    body: JSON.stringify({ vehicle_category: category, mode }),
   });
 }
 
@@ -1127,7 +1125,7 @@ async function renderVehicles() {
       const v = byId[select.dataset.vehicleCategory];
       const { error } = await supabase.from('vehicles').update({ vehicle_category: select.value }).eq('id', v.id);
       if (error) { alert(error.message); return; }
-      await syncDriverCategory(v.driver_id, select.value);
+      await syncDriverCategory(v.driver_id, select.value, 'follow');
       renderVehicles();
     });
   });
@@ -1135,8 +1133,8 @@ async function renderVehicles() {
     select.addEventListener('change', async () => {
       const v = byId[select.dataset.vehicleDriver];
       const { error } = await supabase.from('vehicles').update({ driver_id: select.value || null }).eq('id', v.id);
-      if (error) { alert(error.message.includes('duplicate') ? 'Ce chauffeur a deja un vehicule.' : error.message); renderVehicles(); return; }
-      await syncDriverCategory(select.value, v.vehicle_category);
+      if (error) { alert(error.message); renderVehicles(); return; }
+      await syncDriverCategory(select.value, v.vehicle_category, 'add');
       renderVehicles();
       renderChauffeurs();
     });
@@ -1177,7 +1175,7 @@ document.getElementById('add-vehicle').addEventListener('click', async () => {
     display_name, vehicle_category, driver_id, plate, color, seats, options, photo_url,
   });
   if (error) { errorEl.textContent = error.message.includes('duplicate') ? 'Ce chauffeur a deja un vehicule.' : error.message; return; }
-  await syncDriverCategory(driver_id, vehicle_category);
+  await syncDriverCategory(driver_id, vehicle_category, 'add');
 
   document.getElementById('new-vehicle-name').value = '';
   document.getElementById('new-vehicle-plate').value = '';
@@ -1350,7 +1348,8 @@ async function renderChauffeurs() {
     .order('created_at', { ascending: false });
 
   const { data: fleet } = await supabase.from('vehicles').select('driver_id, display_name, plate').not('driver_id', 'is', null);
-  const vehicleByDriver = Object.fromEntries((fleet ?? []).map((v) => [v.driver_id, v]));
+  const vehiclesByDriver = {};
+  (fleet ?? []).forEach((v) => { (vehiclesByDriver[v.driver_id] ??= []).push(v); });
 
   const container = document.getElementById('chauffeurs-list');
   if (!chauffeurs || chauffeurs.length === 0) {
@@ -1366,7 +1365,7 @@ async function renderChauffeurs() {
           <tr data-chauffeur-id="${c.id}">
             <td>${escapeHtml(c.full_name ?? '')}<br/><span class="hint">${escapeHtml(c.email ?? '')}${c.phone ? '<br/>' + escapeHtml(c.phone) : ''}</span></td>
             <td>${CATEGORIES.map((cat) => `<label style="display:flex;align-items:center;margin:2px 0;color:var(--text)"><input type="checkbox" class="edit-cat" value="${cat}" ${(c.vehicle_categories ?? [c.vehicle_category]).includes(cat) ? 'checked' : ''} /> ${VEHICLE_LABELS[cat]}</label>`).join('')}</td>
-            <td>${vehicleByDriver[c.id] ? escapeHtml(vehicleByDriver[c.id].display_name) + (vehicleByDriver[c.id].plate ? '<br/><span class="hint">' + escapeHtml(vehicleByDriver[c.id].plate) + '</span>' : '') : '<span class="hint">Aucun (a assigner dans Vehicules)</span>'}</td>
+            <td>${vehiclesByDriver[c.id] ? vehiclesByDriver[c.id].map((v) => escapeHtml(v.display_name) + (v.plate ? ' <span class="hint">(' + escapeHtml(v.plate) + ')</span>' : '')).join('<br/>') : '<span class="hint">Aucun (a assigner dans Vehicules)</span>'}</td>
             <td>
               <select class="edit-role">
                 <option value="secondaire" ${c.driver_role !== 'principal' ? 'selected' : ''}>Secondaire</option>
