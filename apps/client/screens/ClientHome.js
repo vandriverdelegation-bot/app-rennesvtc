@@ -391,7 +391,7 @@ export default function ClientHome({ session }) {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={styles.scrollView}
       contentContainerStyle={styles.scrollContainer}
       keyboardShouldPersistTaps="handled"
     >
@@ -569,6 +569,7 @@ export default function ClientHome({ session }) {
 
 const styles = StyleSheet.create({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
+  scrollView: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { width: '100%', alignItems: 'center', gap: 14, padding: 20, backgroundColor: theme.colors.background },
   map: { width: '100%', flex: 1 },
   statusBar: { width: '100%', padding: 18, backgroundColor: theme.colors.card },
