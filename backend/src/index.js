@@ -661,10 +661,9 @@ app.post('/public/estimate-price', async (req, res) => {
 
 // Cree une reservation depuis le module web public (pas de compte requis).
 app.post('/public/book', async (req, res) => {
-  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours, ordererName, ordererEmail, ordererPhone } = req.body;
+  const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours } = req.body;
   const isMad = serviceType === 'mise_a_disposition';
   if (isMad && !(parseFloat(durationHours) > 0)) return res.status(400).json({ error: 'Indiquez la duree de la mise a disposition.' });
-  const trackingEmail = (ordererEmail || clientEmail || '').trim() || null;
   if (!clientName || !clientPhone || !vehicleCategory || !pickup?.address || !dropoff?.address || !paymentMethod || price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
@@ -694,9 +693,6 @@ app.post('/public/book', async (req, res) => {
       payment_method: paymentMethod,
       service_type: isMad ? 'mise_a_disposition' : 'trajet_simple',
       duration_hours: isMad ? parseFloat(durationHours) : null,
-      orderer_name: ordererName?.trim() || null,
-      orderer_email: trackingEmail,
-      orderer_phone: ordererPhone?.trim() || null,
       price,
       created_by: 'web',
       scheduled_at: scheduledAt || null,
@@ -709,13 +705,13 @@ app.post('/public/book', async (req, res) => {
   autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
   await sendAdminEmail(
     'Nouvelle demande de course (reservation web)',
-    `${formatRideRecap(ride)}\n${isMad ? `Mise a disposition : ${parseFloat(durationHours)} h\n` : ''}${ordererName ? `Donneur d'ordre : ${ordererName} (${ordererPhone || '-'}, ${trackingEmail || '-'})\nPassager : ` : 'Client : '}${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
+    `${formatRideRecap(ride)}\n${isMad ? `Mise a disposition : ${parseFloat(durationHours)} h\n` : ''}Client : ${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
   );
-  if (trackingEmail) {
+  if (clientEmail) {
     await sendEmail(
-      trackingEmail,
+      clientEmail,
       'Votre demande de course a bien ete recue',
-      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement. Vous recevrez un email a chaque etape de la mission.\n\n${formatRideRecap(ride)}\n\nSuivi de la mission : ${BASE_URL}/suivi/${ride.tracking_token}\n\nMerci de votre confiance.\nRennes VTC`
+      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
     );
   }
   res.json({ ok: true, id: ride.id });

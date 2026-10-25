@@ -45,8 +45,6 @@
   .error { color: var(--error); font-size: 14px; margin-top: 10px; }
   .confirmation { text-align: center; padding: 60px 16px; }
   .confirmation h2 { color: var(--accent); }
-  .orderer { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 4px 14px 14px; margin-top: 10px; }
-  .orderer-note { color: var(--text-muted); font-size: 13px; margin: 12px 0 0; }
   .cgu-note { color: var(--text-muted); font-size: 12px; margin-top: 10px; }
 </style>
 </head>
@@ -126,28 +124,12 @@
       <option value="especes">Especes</option>
     </select>
 
-    <div class="checkbox-row">
-      <input type="checkbox" id="third-party" />
-      <label style="margin:0;text-transform:none;font-weight:400;font-size:14px">Je reserve pour un passager (hotel, entreprise...)</label>
-    </div>
-    <div id="orderer-block" class="orderer" style="display:none">
-      <p class="orderer-note">Le donneur d'ordre recoit un email a chaque etape de la mission, avec un lien pour suivre le chauffeur en direct.</p>
-      <label>Donneur d'ordre (nom ou societe)</label>
-      <input id="orderer-name" placeholder="Hotel, entreprise..." />
-      <label>Email du donneur d'ordre (recoit le suivi)</label>
-      <input id="orderer-email" type="email" placeholder="reception@hotel.fr" />
-      <label>Telephone du donneur d'ordre</label>
-      <input id="orderer-phone" placeholder="0200000000" />
-    </div>
-
-    <label id="name-label">Nom</label>
+    <label>Nom</label>
     <input id="client-name" placeholder="Votre nom" />
-    <label id="phone-label">Telephone</label>
+    <label>Telephone</label>
     <input id="client-phone" placeholder="0600000000" />
-    <div id="client-email-row">
-      <label>Email (pour recevoir la confirmation et le suivi de la mission)</label>
-      <input id="client-email" type="email" placeholder="vous@exemple.fr" />
-    </div>
+    <label>Email (optionnel, pour recevoir la confirmation)</label>
+    <input id="client-email" type="email" placeholder="vous@exemple.fr" />
 
     <div id="price-display"></div>
     <p id="error" class="error"></p>
@@ -159,7 +141,6 @@
   <div id="confirmation-view" style="display:none" class="confirmation">
     <h2>Demande envoyee !</h2>
     <p>Merci, votre demande a bien ete recue. Un chauffeur va vous etre attribue prochainement.</p>
-    <p id="confirmation-tracking" style="color:var(--text-muted);font-size:14px"></p>
   </div>
 </div>
 
@@ -193,16 +174,6 @@ document.querySelectorAll('[data-service]').forEach((el) => {
   });
 });
 document.getElementById('duration').addEventListener('input', () => updatePrice());
-
-// Reservation pour un tiers : le client saisi est le passager, le donneur d'ordre recoit le suivi.
-document.getElementById('third-party').addEventListener('change', (e) => {
-  const on = e.target.checked;
-  document.getElementById('orderer-block').style.display = on ? 'block' : 'none';
-  document.getElementById('client-email-row').style.display = on ? 'none' : 'block';
-  document.getElementById('name-label').textContent = on ? 'Nom du passager' : 'Nom';
-  document.getElementById('phone-label').textContent = on ? 'Telephone du passager' : 'Telephone';
-  document.getElementById('client-name').placeholder = on ? 'Nom du passager' : 'Votre nom';
-});
 
 function renderGammes(photos) {
   document.getElementById('gammes').innerHTML = CATEGORIES.map((c) => `
@@ -333,12 +304,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
 
   if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de vehicule.'; return; }
   if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de depart et de destination dans la liste.'; return; }
-  const thirdParty = document.getElementById('third-party').checked;
-  const ordererName = document.getElementById('orderer-name').value.trim();
-  const ordererEmail = document.getElementById('orderer-email').value.trim();
-  const ordererPhone = document.getElementById('orderer-phone').value.trim();
-  if (!clientName || !clientPhone) { errorEl.textContent = thirdParty ? 'Nom et telephone du passager sont requis.' : 'Nom et telephone sont requis.'; return; }
-  if (thirdParty && (!ordererName || !ordererEmail)) { errorEl.textContent = 'Indiquez le nom et l\u2019email du donneur d\u2019ordre pour le suivi.'; return; }
+  if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et telephone sont requis.'; return; }
   const durationHours = parseFloat(document.getElementById('duration').value);
   if (isMad() && !durationHours) { errorEl.textContent = 'Indiquez la duree de la mise a disposition.'; return; }
   if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
@@ -354,9 +320,8 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   const res = await fetch('/public/book', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      clientName, clientPhone, clientEmail: thirdParty ? null : clientEmail || null,
+      clientName, clientPhone, clientEmail: clientEmail || null,
       serviceType: service, durationHours: isMad() ? durationHours : null,
-      ordererName: thirdParty ? ordererName : null, ordererEmail: thirdParty ? ordererEmail : null, ordererPhone: thirdParty ? ordererPhone : null,
       vehicleCategory, pickup, dropoff, roundTrip: isMad() ? false : roundTrip, paymentMethod, price, ...seatsPayload(),
       scheduledAt: date && time ? new Date(`${date}T${time}`).toISOString() : null,
       returnAt: roundTrip && returnDate && returnTime ? new Date(`${returnDate}T${returnTime}`).toISOString() : null,
@@ -367,10 +332,6 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   btn.textContent = 'Demander la course';
   if (result.error) { errorEl.textContent = result.error; return; }
 
-  const trackedEmail = thirdParty ? ordererEmail : clientEmail;
-  document.getElementById('confirmation-tracking').textContent = trackedEmail
-    ? 'Un email de suivi sera envoye a ' + trackedEmail + ' a chaque etape de la mission.'
-    : '';
   document.getElementById('form-view').style.display = 'none';
   document.getElementById('confirmation-view').style.display = 'block';
 });
