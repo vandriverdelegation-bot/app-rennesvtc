@@ -1,23 +1,28 @@
 {
   "expo": {
-    "name": "client",
+    "name": "Rennes VTC",
     "slug": "client",
     "owner": "rennesvtcs-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0E0F10",
+    "backgroundColor": "#000000",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rennesvtc.client",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0E0F10",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.rennesvtc.client"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,6 +31,22 @@
       "eas": {
         "projectId": "2a0bb41d-9e49-40d9-b741-0d3f3c3ba82e"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#47C415"
+        }
+      ]
+    ]
   }
 }

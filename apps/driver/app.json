@@ -1,23 +1,28 @@
 {
   "expo": {
-    "name": "driver",
+    "name": "Rennes VTC Driver",
     "slug": "driver",
     "owner": "rennesvtcs-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0E0F10",
+    "backgroundColor": "#000000",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rennesvtc.driver",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0E0F10",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.rennesvtc.driver"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,6 +31,28 @@
       "eas": {
         "projectId": "2cd7a7d9-ae1f-4448-b78e-1cc344e05f0b"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#47C415"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Rennes VTC Driver utilise votre position pour suivre la course en cours et la partager avec le client une fois en route."
+        }
+      ]
+    ]
   }
 }
