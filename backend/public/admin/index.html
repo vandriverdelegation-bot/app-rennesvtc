@@ -194,6 +194,8 @@
   tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
   tbody tr:last-child td { border-bottom: none; }
   td input, td select { margin: 2px 0; }
+  .price-row input[type=checkbox], .field input[type=checkbox], td input[type=checkbox], .rm-row input[type=checkbox] { width: 18px; height: 18px; margin: 0 8px 0 0; }
+  .price-row input[type=file] { width: 100%; }
   #history-list, #chauffeurs-list, #vehicles-list, #clients-list, #availability-list {
     background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); overflow-x: auto;
   }
@@ -324,7 +326,7 @@
           <div class="price-row">
             <div style="flex:1;min-width:220px">
               <label>Nom de l'application</label>
-              <input id="app-name" />
+              <input id="app-name" style="width:100%" />
             </div>
             <div>
               <label>Couleur d'accent</label>
@@ -345,7 +347,7 @@
             </div>
             <div style="flex:1">
               <label>Changer le logo</label>
-              <input id="app-logo-file" type="file" accept="image/*" />
+              <input id="app-logo-file" type="file" accept="image/*" style="width:100%" />
             </div>
           </div>
           <div>
