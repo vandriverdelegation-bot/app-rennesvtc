@@ -521,6 +521,17 @@
             </div>
 
             <div class="form-section">
+              <h3>Passagers et bagages</h3>
+              <div class="form-grid">
+                <div class="field"><label for="new-ride-passengers">Passagers</label><input id="new-ride-passengers" type="number" min="1" value="1" /></div>
+                <div class="field"><label for="new-ride-luggage">Bagages</label><input id="new-ride-luggage" type="number" min="0" value="0" /></div>
+                <div class="field"><label for="new-ride-child-seats">Sieges auto</label><input id="new-ride-child-seats" type="number" min="0" value="0" /></div>
+                <div class="field"><label for="new-ride-booster-seats">Rehausseurs</label><input id="new-ride-booster-seats" type="number" min="0" value="0" /></div>
+                <div class="field wide"><label for="new-ride-child-ages">Age des enfants (si siege auto ou rehausseur)</label><input id="new-ride-child-ages" placeholder="Ex : 3 ans, ou 3 et 7 ans" /></div>
+              </div>
+            </div>
+
+            <div class="form-section">
               <h3>Date, prix et dispatch</h3>
               <div class="form-grid">
                 <div class="field">
@@ -871,6 +882,11 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const price = parseFloat(document.getElementById('new-ride-price').value);
   const driverId = document.getElementById('new-ride-driver').value;
   const stop_addresses = document.getElementById('new-ride-stops').value.split(';').map((s) => s.trim()).filter(Boolean);
+  const passenger_count = Math.max(1, parseInt(document.getElementById('new-ride-passengers').value, 10) || 1);
+  const luggage_count = Math.max(0, parseInt(document.getElementById('new-ride-luggage').value, 10) || 0);
+  const child_seats = Math.max(0, parseInt(document.getElementById('new-ride-child-seats').value, 10) || 0);
+  const booster_seats = Math.max(0, parseInt(document.getElementById('new-ride-booster-seats').value, 10) || 0);
+  const child_ages = document.getElementById('new-ride-child-ages').value.trim();
   const service_type = document.getElementById('new-ride-service').value;
   const isMad = service_type === 'mise_a_disposition';
   const duration_hours = parseFloat(document.getElementById('new-ride-duration').value);
@@ -887,6 +903,10 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   }
   if (!client_email || !client_email.includes('@')) {
     errorEl.textContent = "L'email du client est requis : il recoit la confirmation de la reservation.";
+    return;
+  }
+  if ((child_seats > 0 || booster_seats > 0) && !child_ages) {
+    errorEl.textContent = "Indiquez l'age de l'enfant (siege auto ou rehausseur).";
     return;
   }
   if (isMad && !duration_hours) {
@@ -907,6 +927,11 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     client_name,
     client_phone,
     client_email,
+    passenger_count,
+    luggage_count,
+    child_seats,
+    booster_seats,
+    child_ages: child_seats > 0 || booster_seats > 0 ? child_ages : null,
     vehicle_category,
     pickup_address: newRidePickup.address,
     pickup_lat: newRidePickup.lat,
@@ -957,6 +982,9 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-return-date').value = '';
   document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
+  document.getElementById('new-ride-passengers').value = '1';
+  ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
+  document.getElementById('new-ride-child-ages').value = '';
   ['name', 'email', 'phone'].forEach((f) => { document.getElementById('new-ride-orderer-' + f).value = ''; });
   document.getElementById('new-ride-orderer-block').style.display = 'none';
   document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
@@ -2248,8 +2276,11 @@ async function renderRideCourseTab() {
         <input type="number" id="rm-passengers" value="${ride.passenger_count ?? 1}" style="width:84px" /><label>passagers</label>
         <input type="number" id="rm-child-seats" value="${ride.child_seats ?? 0}" style="width:84px" /><label>sieges auto</label>
         <input type="number" id="rm-booster-seats" value="${ride.booster_seats ?? 0}" style="width:84px" /><label>rehausseurs</label>
-        <button class="secondary" id="rm-save-options">Enregistrer</button>
+        <input type="number" id="rm-luggage" value="${ride.luggage_count ?? 0}" style="width:84px" /><label>bagages</label>
       </div>
+      <label for="rm-child-ages" style="margin-top:12px;display:block">Age des enfants</label>
+      <input id="rm-child-ages" value="${escapeHtml(ride.child_ages ?? '')}" placeholder="Ex : 3 ans, ou 3 et 7 ans" />
+      <button class="secondary" id="rm-save-options">Enregistrer</button>
     </div>
 
     <div class="rm-section">
@@ -2323,7 +2354,9 @@ async function renderRideCourseTab() {
     const passenger_count = parseInt(document.getElementById('rm-passengers').value, 10) || 1;
     const child_seats = parseInt(document.getElementById('rm-child-seats').value, 10) || 0;
     const booster_seats = parseInt(document.getElementById('rm-booster-seats').value, 10) || 0;
-    await supabase.from('rides').update({ passenger_count, child_seats, booster_seats }).eq('id', ride.id);
+    const luggage_count = parseInt(document.getElementById('rm-luggage').value, 10) || 0;
+    const child_ages = document.getElementById('rm-child-ages').value.trim() || null;
+    await supabase.from('rides').update({ passenger_count, child_seats, booster_seats, luggage_count, child_ages }).eq('id', ride.id);
     await refreshRideModal();
   });
   document.getElementById('rm-save-notes').addEventListener('click', async () => {
@@ -2338,6 +2371,15 @@ async function renderRideCourseTab() {
       const patch = { ride_step };
       if (ride_step === 'completed') patch.status = 'completed';
       await supabase.from('rides').update(patch).eq('id', ride.id);
+      // Meme prevenance (push + emails de suivi) que lorsque le chauffeur change d'etape.
+      if (ride_step !== 'not_started' && ride_step !== ride.ride_step) {
+        const { data: { session } } = await supabase.auth.getSession();
+        fetch('/notify/step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ rideId: ride.id, step: ride_step }),
+        }).catch(() => {});
+      }
       await refreshRideModal();
       refresh();
     });

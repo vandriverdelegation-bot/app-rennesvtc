@@ -280,6 +280,12 @@ export default function DriverHome({ session }) {
       setErrorMsg(error.message);
       return;
     }
+    // Previent le client du nouveau tarif (push + email).
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/price`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ rideId: activeRide.id, oldPrice: activeRide.price }),
+    }).catch(() => {});
     setPriceEditing(false);
     refresh();
   }

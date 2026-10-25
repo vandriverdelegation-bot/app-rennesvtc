@@ -527,6 +527,13 @@ app.post('/client/quote', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Vrai pour le chauffeur de la course ou pour un administrateur (changement d'etape fait depuis l'admin).
+async function isDriverOrAdmin(userId, ride) {
+  if (ride.driver_id === userId) return true;
+  const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', userId).single();
+  return profile?.role === 'admin';
+}
+
 // Previent le client a chaque etape de la course (en route, arrive, terminee).
 const STEP_PUSH = {
   en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],
@@ -538,12 +545,41 @@ app.post('/notify/step', requireSupabaseUser, async (req, res) => {
   const message = STEP_PUSH[step];
   if (!message) return res.status(400).json({ error: 'Etape inconnue' });
   const { data: ride } = await supabaseAdmin.from('rides').select('client_id, driver_id').eq('id', rideId).single();
-  if (!ride || ride.driver_id !== req.user.id) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
+  if (!ride || !(await isDriverOrAdmin(req.user.id, ride))) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
   if (ride.client_id) {
     const { data: client } = await supabaseAdmin.from('profiles').select('push_token').eq('id', ride.client_id).single();
     await sendPush([client?.push_token], message[0], message[1]);
   }
   await sendTrackingEmail(rideId, step);
+  res.json({ ok: true });
+});
+
+// Previent le client (push + email) quand le prix de sa course change (modification par le chauffeur).
+app.post('/notify/price', requireSupabaseUser, async (req, res) => {
+  const { rideId, oldPrice } = req.body;
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('client_id, client_email, driver_id, price, pickup_address, dropoff_address, scheduled_at')
+    .eq('id', rideId)
+    .single();
+  if (!ride || !(await isDriverOrAdmin(req.user.id, ride))) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
+  if (ride.price == null || Number(oldPrice) === Number(ride.price)) return res.json({ ok: true });
+
+  const { data: client } = ride.client_id
+    ? await supabaseAdmin.from('profiles').select('push_token, email').eq('id', ride.client_id).single()
+    : { data: null };
+  const message = oldPrice != null && oldPrice !== ''
+    ? `Le tarif de votre course est passe de ${oldPrice} € a ${ride.price} €.`
+    : `Le tarif de votre course est fixe a ${ride.price} €.`;
+  await sendPush([client?.push_token], 'Tarif modifie', message);
+  const to = client?.email || ride.client_email;
+  if (to) {
+    await sendEmail(
+      to,
+      'Le tarif de votre course a ete modifie',
+      `Bonjour,\n\n${message}\n\nCourse : ${ride.pickup_address} -> ${ride.dropoff_address}${ride.scheduled_at ? `\nDate et heure : ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : ''}\n\nPour toute question, contactez-nous au 07 68 42 52 62.\n\nRennes VTC`
+    );
+  }
   res.json({ ok: true });
 });
 
