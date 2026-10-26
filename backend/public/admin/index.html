@@ -319,6 +319,12 @@
           <p class="hint" style="margin-top:12px">Le delai vous laisse la main : si vous dispatchez la course vous-meme avant la fin, rien n'est envoye en double.</p>
           <p id="auto-dispatch-status" class="hint" style="margin:0"></p>
         </div>
+        <div class="card" style="margin-top:14px;max-width:640px">
+          <h3>Sauvegarde</h3>
+          <p class="hint">Chaque nuit, la base (reservations, clients, chauffeurs, tarifs) et les documents des chauffeurs sont copies vers un stockage prive. Les 14 dernieres copies sont conservees.</p>
+          <p id="backup-status" style="font-weight:600">Chargement...</p>
+          <button class="secondary" id="backup-now">Sauvegarder maintenant</button>
+        </div>
       </div>
 
       <div class="page" id="page-apparence">
@@ -833,6 +839,7 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
   renderHistory();
   renderAppSettings();
   renderReservationWeb();
+  renderBackupStatus();
 });
 
 let refreshing = false;
@@ -1742,6 +1749,26 @@ async function renderAppSettings() {
   document.getElementById('app-company-siret').value = data.company_siret ?? '';
   document.getElementById('app-company-address').value = data.company_address ?? '';
 }
+
+// Sauvegarde : etat de la derniere copie et declenchement manuel.
+async function renderBackupStatus() {
+  const el = document.getElementById('backup-status');
+  try {
+    const s = await adminApi('/admin/backup');
+    el.textContent = !s.configured ? 'Non configuree : stockage de sauvegarde a relier au serveur.' : s.last ? `Derniere sauvegarde : ${new Date(s.last).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Configuree, aucune sauvegarde pour le moment.';
+  } catch { el.textContent = 'Etat indisponible.'; }
+}
+document.getElementById('backup-now').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  btn.textContent = 'Sauvegarde en cours...';
+  try {
+    const r = await adminApi('/admin/backup', 'POST');
+    document.getElementById('backup-status').textContent = r.skipped ? r.skipped : `Sauvegarde terminee : ${r.rows} lignes, ${r.documentsCopied} document(s) ajoute(s).`;
+  } catch (err) { document.getElementById('backup-status').textContent = 'Echec : ' + err.message; }
+  btn.disabled = false;
+  btn.textContent = 'Sauvegarder maintenant';
+});
 
 // Dispatch automatique : enregistre des qu'on change le reglage.
 async function saveAutoDispatch() {

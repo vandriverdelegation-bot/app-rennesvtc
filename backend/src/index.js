@@ -8,6 +8,7 @@ const { sendPush } = require('./push');
 const { computeTrajetSimplePrice } = require('../../packages/shared/pricingEngine');
 const { buildBonCommandePdf } = require('./bonCommande');
 const { registerDriverOnboarding } = require('./driverOnboarding');
+const { registerBackup } = require('./backup');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -839,6 +840,7 @@ app.post('/public/book', async (req, res) => {
 });
 
 registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail, sendAdminEmail, baseUrl: BASE_URL });
+registerBackup(app, { supabaseAdmin, requireAdmin, sendAdminEmail });
 
 // Dispatch automatique : si l'admin l'a active, les courses restees en attente au-dela du delai choisi
 // partent chez tous les chauffeurs de leur gamme. La verification est aussi relancee toutes les 30 s.
