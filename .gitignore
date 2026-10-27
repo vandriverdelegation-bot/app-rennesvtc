@@ -3,3 +3,7 @@ node_modules/
 .expo/
 dist/
 .github-token
+
+# Fichiers Firebase (ne pas versionner)
+google-services.json
+*-firebase-adminsdk-*.json
