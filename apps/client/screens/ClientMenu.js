@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { registerPushToken, theme } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { Btn, Card } from '../ui';
@@ -181,6 +181,32 @@ export default function ClientMenu({ session, onClose }) {
     await supabase.auth.signOut();
   }
 
+  function confirmDelete() {
+    Alert.alert(
+      'Supprimer mon compte ?',
+      'Votre compte et vos coordonnees seront supprimes definitivement. Vos reservations a venir seront annulees. Cette action est irreversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/client/account`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              });
+              if (!res.ok) throw new Error((await res.json()).error);
+              await supabase.auth.signOut();
+            } catch (e) {
+              Alert.alert('Suppression impossible', e.message);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   if (view === 'account') return <AccountView session={session} profile={profile} onBack={() => setView('menu')} onSaved={setProfile} />;
   if (view === 'history') return <HistoryView session={session} onBack={() => setView('menu')} />;
   if (view === 'notifications') return <NotificationsView session={session} onBack={() => setView('menu')} />;
@@ -193,6 +219,9 @@ export default function ClientMenu({ session, onClose }) {
       <MenuItem label="Notifications" hint="Suivi de ma course" onPress={() => setView('notifications')} />
       <TouchableOpacity style={styles.logout} onPress={handleLogout} disabled={loggingOut}>
         <Text style={styles.logoutText}>{loggingOut ? 'Deconnexion...' : 'Se deconnecter'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={confirmDelete} style={{ alignItems: 'center', padding: 12 }}>
+        <Text style={styles.muted}>Supprimer mon compte</Text>
       </TouchableOpacity>
     </ScrollView>
   );
