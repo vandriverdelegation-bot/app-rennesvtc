@@ -844,7 +844,7 @@ registerBackup(app, { supabaseAdmin, requireAdmin, sendAdminEmail });
 
 // Dispatch automatique : si l'admin l'a active, les courses restees en attente au-dela du delai choisi
 // partent chez tous les chauffeurs de leur gamme. La verification est aussi relancee toutes les 30 s.
-// shortcut: le delai repose sur ce serveur ; l'hebergement gratuit s'endort apres 15 min, donc delai <= 10 min.
+// shortcut: le delai repose sur ce serveur (verification toutes les 30 s) ; il doit rester allume (plan Render payant).
 async function autoDispatchPending() {
   const { data: settings } = await supabaseAdmin.from('app_settings').select('auto_dispatch_enabled, auto_dispatch_delay_minutes').eq('id', true).single();
   if (!settings?.auto_dispatch_enabled) return;
