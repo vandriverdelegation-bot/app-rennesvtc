@@ -26,6 +26,7 @@ const W = 523; // largeur utile A4
 const GREY = '#C8C8C8';
 const LIGHT = '#E8E8E8';
 const DISPATCH_PHONE = '07 68 42 52 62';
+const LICENCE = '035 21 03 79 02';
 
 // Génère la « fiche de mission » (bon de commande / billet collectif) au format PDF.
 // Voir arrêtés du 14 février 1986 (article 5) et du 6 janvier 1993 (article 3).
@@ -64,7 +65,7 @@ async function buildBonCommandePdf({ company, driver, vehicle, ride }) {
     }
     doc.fillColor('#000').font('Helvetica-Bold').fontSize(10);
     doc.text('Dispatch', M, 124, { continued: true, underline: true }).text(` : ${DISPATCH_PHONE}`, { underline: false });
-    if (driver?.vtc_card_number) doc.font('Helvetica-Bold').fontSize(10).text(`Carte professionnelle VTC : ${driver.vtc_card_number}`, M, 138, { underline: false });
+    doc.font('Helvetica-Bold').fontSize(10).text(`Licence : ${LICENCE}`, M, 138, { underline: false });
 
     const tx = M + W - 260;
     cell(tx, 30, 260, 24, 'Fiche de mission', { fill: GREY, size: 14, bold: true });
