@@ -4,6 +4,7 @@ import { theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
+import { DateField, TimeField } from '../DateTimeFields';
 
 function assignLabel(assignTo, colleagues) {
   if (assignTo === 'self') return 'Moi-meme (course acceptee)';
@@ -27,6 +28,8 @@ const PAYMENT_METHODS = [
 
 export default function CreateRide({ session, vehicleCategory, categories = [], canEditPrice, onDone, onCancel }) {
   const [ownCategory, setOwnCategory] = useState(vehicleCategory);
+  const [serviceType, setServiceType] = useState('trajet_simple'); // ou 'mise_a_disposition'
+  const [durationHours, setDurationHours] = useState('3');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [pickup, setPickup] = useState(null);
@@ -69,6 +72,16 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
     setPrice(null);
     setPriceManual(false);
     setPriceError('');
+    if (serviceType === 'mise_a_disposition') {
+      const hours = parseFloat(durationHours);
+      if (!hours) return;
+      supabase.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', rideCategory).single().then(({ data }) => {
+        if (!data) return;
+        if (hours < data.min_hours) return setPriceError(`Duree minimum : ${data.min_hours}h`);
+        setPrice(Math.round(hours * data.price_per_hour * 100) / 100);
+      });
+      return;
+    }
     if (!pickup || !dropoff) return;
     const when = parseDateTime(laterDate, laterTime) || new Date();
     Promise.all([
@@ -96,12 +109,12 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         setPriceError("Impossible de calculer le prix pour cet itineraire.");
       }
     });
-  }, [pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops, rideCategory]);
+  }, [serviceType, durationHours, pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops, rideCategory]);
 
   function parseScheduledAt() {
     if (!laterDate && !laterTime) return null;
     const when = parseDateTime(laterDate, laterTime);
-    if (!when) throw new Error('Date/heure invalide (format JJ/MM/AAAA et HH:MM).');
+    if (!when) throw new Error('Date/heure invalide : choisissez la date et une heure.');
     return when.toISOString();
   }
 
@@ -127,6 +140,10 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
       setErrorMsg('Saisissez le prix (tarification en mode Manuel pour cette gamme).');
       return;
     }
+    if (serviceType === 'mise_a_disposition' && !(parseFloat(durationHours) > 0)) {
+      setErrorMsg('Indiquez la duree de la mise a disposition (en heures).');
+      return;
+    }
     let scheduled_at;
     try {
       scheduled_at = parseScheduledAt();
@@ -138,7 +155,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
     if (roundTrip) {
       const returnWhen = parseDateTime(returnDate, returnTime);
       if (!returnWhen) {
-        setErrorMsg('Date/heure de retour invalide (format JJ/MM/AAAA et HH:MM).');
+        setErrorMsg('Date/heure de retour invalide : choisissez la date et une heure.');
         return;
       }
       return_scheduled_at = returnWhen.toISOString();
@@ -173,6 +190,8 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
           childAges,
           assignTo,
           vehicleCategory: ownCategory,
+          serviceType,
+          durationHours: serviceType === 'mise_a_disposition' ? parseFloat(durationHours) : null,
         }),
       });
       result = await res.json();
@@ -193,6 +212,15 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
       <Text style={styles.title}>Creer une reservation</Text>
       <Text style={styles.hint}>Pour une course recue par telephone ou en direct.</Text>
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+
+      <Text style={styles.label}>Service</Text>
+      <View style={styles.row}>
+        {[['trajet_simple', 'Trajet'], ['mise_a_disposition', 'Mise a disposition']].map(([value, label]) => (
+          <TouchableOpacity key={value} style={[styles.choice, serviceType === value && styles.choiceSelected]} onPress={() => setServiceType(value)}>
+            <Text style={serviceType === value ? styles.choiceTextSelected : styles.choiceText}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <Text style={styles.label}>Nom du client</Text>
       <TextInput style={styles.input} value={clientName} onChangeText={setClientName} placeholder="Nom du client" placeholderTextColor={theme.colors.textMuted} />
@@ -220,8 +248,14 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         <Text style={styles.link}>+ Ajouter un point d'arret</Text>
       </TouchableOpacity>
 
-      <Text style={styles.label}>Destination</Text>
-      <AddressAutocomplete placeholder="Adresse de destination" onSelect={setDropoff} />
+      <Text style={styles.label}>{serviceType === 'mise_a_disposition' ? 'Lieu de fin de mise a disposition' : 'Destination'}</Text>
+      <AddressAutocomplete placeholder={serviceType === 'mise_a_disposition' ? 'Adresse de fin' : 'Adresse de destination'} onSelect={setDropoff} />
+      {serviceType === 'mise_a_disposition' ? (
+        <>
+          <Text style={styles.label}>Duree (heures)</Text>
+          <TextInput style={styles.input} value={durationHours} onChangeText={setDurationHours} keyboardType="numeric" placeholderTextColor={theme.colors.textMuted} />
+        </>
+      ) : null}
 
       <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
         <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
@@ -234,16 +268,16 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         <>
           <Text style={styles.label}>Date et heure du retour</Text>
           <View style={styles.row}>
-            <TextInput style={[styles.input, styles.rowInput]} value={returnDate} onChangeText={setReturnDate} placeholder="JJ/MM/AAAA" placeholderTextColor={theme.colors.textMuted} />
-            <TextInput style={[styles.input, styles.rowInput]} value={returnTime} onChangeText={setReturnTime} placeholder="HH:MM" placeholderTextColor={theme.colors.textMuted} />
+            <DateField style={styles.rowInput} value={returnDate} onChange={setReturnDate} />
+            <TimeField style={styles.rowInput} value={returnTime} onChange={setReturnTime} />
           </View>
         </>
       )}
 
       <Text style={styles.label}>Date et heure (laisser vide pour tout de suite)</Text>
       <View style={styles.row}>
-        <TextInput style={[styles.input, styles.rowInput]} value={laterDate} onChangeText={setLaterDate} placeholder="JJ/MM/AAAA" placeholderTextColor={theme.colors.textMuted} />
-        <TextInput style={[styles.input, styles.rowInput]} value={laterTime} onChangeText={setLaterTime} placeholder="HH:MM" placeholderTextColor={theme.colors.textMuted} />
+        <DateField style={styles.rowInput} value={laterDate} onChange={setLaterDate} />
+        <TimeField style={styles.rowInput} value={laterTime} onChange={setLaterTime} />
       </View>
 
       <Text style={styles.label}>Passagers / bagages / sieges</Text>

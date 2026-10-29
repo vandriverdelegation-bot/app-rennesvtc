@@ -6,6 +6,7 @@ import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
 import RideCard from './RideCard';
 import { Btn, Card } from '../ui';
+import { DateField, TimeField } from '../DateTimeFields';
 
 const STATUS_LABELS = {
   pending: "En attente d'un chauffeur...",
@@ -309,7 +310,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
     if (!asap) {
       const when = parseDateTime(rideDate, rideTime);
       if (!when) {
-        setErrorMsg("Indiquez la date et l'heure de la course (JJ/MM/AAAA et HH:MM), ou cochez « Des que possible ».");
+        setErrorMsg("Indiquez la date et l'heure de la course (choisissez la date puis l'heure), ou cochez « Des que possible ».");
         return;
       }
       if (when < new Date()) {
@@ -322,7 +323,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
     if (roundTrip) {
       const parsed = parseDateTime(returnDate, returnTime);
       if (!parsed) {
-        setErrorMsg('Indiquez la date et l\'heure du retour (JJ/MM/AAAA et HH:MM).');
+        setErrorMsg('Indiquez la date et l\'heure du retour.');
         return;
       }
       returnScheduledAt = parsed.toISOString();
@@ -478,20 +479,8 @@ export default function ClientHome({ session, logoUrl, appName }) {
         </TouchableOpacity>
         {roundTrip && (
           <View style={styles.row}>
-            <TextInput
-              style={[styles.durationInput, { flex: 1 }]}
-              value={returnDate}
-              onChangeText={setReturnDate}
-              placeholder="Retour : JJ/MM/AAAA"
-              placeholderTextColor={theme.colors.textMuted}
-            />
-            <TextInput
-              style={[styles.durationInput, { flex: 1 }]}
-              value={returnTime}
-              onChangeText={setReturnTime}
-              placeholder="HH:MM"
-              placeholderTextColor={theme.colors.textMuted}
-            />
+            <DateField style={{ flex: 1 }} value={returnDate} onChange={setReturnDate} placeholder="Date du retour" />
+            <TimeField style={{ flex: 1 }} value={returnTime} onChange={setReturnTime} placeholder="Heure" />
           </View>
         )}
       </SectionCard>
@@ -504,22 +493,8 @@ export default function ClientHome({ session, logoUrl, appName }) {
           </TouchableOpacity>
           {!asap && (
             <View style={styles.row}>
-              <TextInput
-                style={[styles.durationInput, { flex: 1 }]}
-                value={rideDate}
-                onChangeText={setRideDate}
-                placeholder="JJ/MM/AAAA"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="numbers-and-punctuation"
-              />
-              <TextInput
-                style={[styles.durationInput, { flex: 1 }]}
-                value={rideTime}
-                onChangeText={setRideTime}
-                placeholder="HH:MM"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="numbers-and-punctuation"
-              />
+              <DateField style={{ flex: 1 }} value={rideDate} onChange={setRideDate} />
+              <TimeField style={{ flex: 1 }} value={rideTime} onChange={setRideTime} />
             </View>
           )}
         </SectionCard>

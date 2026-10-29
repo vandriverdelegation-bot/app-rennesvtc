@@ -180,7 +180,7 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
     if (docs.some((d) => !DOC_TYPES[d.type] || !String(d.path).startsWith(inv.id + '/'))) return fail('Document invalide.');
 
     const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: inv.email, password: b.password, email_confirm: true, user_metadata: { role: 'candidat' },
+      email: inv.email, password: b.password, email_confirm: true, user_metadata: { role: 'candidat' }, app_metadata: { role: 'candidat' },
     });
     if (createError) return fail(createError.message.includes('already') ? 'Un compte existe déjà avec cet email.' : createError.message);
     const userId = created.user.id;

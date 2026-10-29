@@ -128,6 +128,7 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
     password,
     email_confirm: true,
     user_metadata: { role: 'chauffeur' },
+    app_metadata: { role: 'chauffeur' },
   });
 
   if (error) {
@@ -354,10 +355,10 @@ async function requireRideCreator(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('role, can_create_rides, vehicle_category, vehicle_categories')
+      .select('role, can_create_rides, is_owner, vehicle_category, vehicle_categories')
       .eq('id', req.user.id)
       .single();
-    if (profile?.role !== 'chauffeur' || !profile.can_create_rides) {
+    if (profile?.role !== 'chauffeur' || !(profile.can_create_rides || profile.is_owner)) {
       return res.status(403).json({ error: "Vous n'avez pas l'autorisation de creer des reservations." });
     }
     req.driverProfile = profile;
@@ -408,6 +409,9 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
   if (!['carte_a_bord', 'especes'].includes(b.paymentMethod)) {
     return res.status(400).json({ error: 'Mode de reglement invalide' });
   }
+  const mad = b.serviceType === 'mise_a_disposition';
+  const hours = parseFloat(b.durationHours);
+  if (mad && !(hours > 0)) return res.status(400).json({ error: 'Duree de mise a disposition invalide' });
 
   const own = req.driverProfile.vehicle_categories ?? [req.driverProfile.vehicle_category];
   let category = own.includes(b.vehicleCategory) ? b.vehicleCategory : req.driverProfile.vehicle_category;
@@ -441,7 +445,8 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
       scheduled_at: b.scheduledAt || null,
       vehicle_category: category,
       payment_method: b.paymentMethod,
-      service_type: 'trajet_simple',
+      service_type: mad ? 'mise_a_disposition' : 'trajet_simple',
+      duration_hours: mad ? hours : null,
       price: b.price,
       passenger_count: Math.max(1, parseInt(b.passengerCount, 10) || 1),
       luggage_count: Math.max(0, parseInt(b.luggageCount, 10) || 0),

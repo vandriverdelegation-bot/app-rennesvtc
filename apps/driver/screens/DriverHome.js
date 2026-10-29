@@ -79,12 +79,12 @@ export default function DriverHome({ session }) {
   async function fetchProfile() {
     const { data } = await supabase
       .from('profiles')
-      .select('vehicle_category, vehicle_categories, can_create_rides, can_edit_price, online_status')
+      .select('vehicle_category, vehicle_categories, can_create_rides, can_edit_price, is_owner, online_status')
       .eq('id', session.user.id)
       .single();
     setVehicleCategory(data?.vehicle_category ?? null);
     setCategories(data?.vehicle_categories ?? (data?.vehicle_category ? [data.vehicle_category] : []));
-    setPermissions({ can_create_rides: !!data?.can_create_rides, can_edit_price: !!data?.can_edit_price });
+    setPermissions({ can_create_rides: !!(data?.can_create_rides || data?.is_owner), can_edit_price: !!(data?.can_edit_price || data?.is_owner) });
     setOnlineStatus(!!data?.online_status);
   }
 

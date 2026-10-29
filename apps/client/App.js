@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
@@ -18,6 +18,9 @@ function renderAppName(appName) {
     </>
   );
 }
+
+// Retour de la connexion Google : le navigateur rouvre l'app sur ce lien (schema declare dans app.json).
+const GOOGLE_REDIRECT = 'rennesvtc-client://auth';
 
 export default function App() {
   return (
@@ -40,6 +43,7 @@ function AppContent() {
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [needPhone, setNeedPhone] = useState(false);
 
   useEffect(() => {
     fetchAppSettings(supabase).then((settings) => {
@@ -57,24 +61,55 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    async function finishGoogle(url) {
+      if (!url?.startsWith(GOOGLE_REDIRECT)) return;
+      const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '');
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token && refresh_token) await supabase.auth.setSession({ access_token, refresh_token });
+      else setErrorMsg(params.get('error_description') || 'Connexion Google impossible.');
+    }
+    Linking.getInitialURL().then(finishGoogle);
+    const sub = Linking.addEventListener('url', (e) => finishGoogle(e.url));
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     if (!session) return;
     registerPushToken(supabase, session.user.id);
     // Reporte le nom et le telephone saisis a l'inscription dans le profil (une seule fois).
     const meta = session.user.user_metadata ?? {};
-    if (meta.full_name || meta.phone) {
-      supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', session.user.id)
-        .single()
-        .then(({ data }) => {
-          const patch = {};
-          if (!data?.full_name && meta.full_name) patch.full_name = meta.full_name;
-          if (!data?.phone && meta.phone) patch.phone = meta.phone;
-          if (Object.keys(patch).length) supabase.from('profiles').update(patch).eq('id', session.user.id).then(() => {});
-        });
-    }
+    supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => {
+        const patch = {};
+        if (!data?.full_name && (meta.full_name || meta.name)) patch.full_name = meta.full_name || meta.name;
+        if (!data?.phone && meta.phone) patch.phone = meta.phone;
+        if (Object.keys(patch).length) supabase.from('profiles').update(patch).eq('id', session.user.id).then(() => {});
+        // Un compte cree avec Google n'a pas de telephone : on le demande avant d'aller plus loin.
+        setNeedPhone(!(data?.phone || patch.phone));
+      });
   }, [session?.user.id]);
+
+  async function handleGoogle() {
+    setErrorMsg('');
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: GOOGLE_REDIRECT, skipBrowserRedirect: true } });
+    if (error) setErrorMsg(error.message);
+    else Linking.openURL(data.url);
+  }
+
+  async function savePhone() {
+    if (phone.trim().length < 6) return setErrorMsg('Indiquez un numero de telephone valide.');
+    const { error } = await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id);
+    if (error) setErrorMsg(error.message);
+    else {
+      setErrorMsg('');
+      setNeedPhone(false);
+    }
+  }
 
   async function handleSubmit() {
     setErrorMsg('');
@@ -99,6 +134,22 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator color={theme.colors.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  if (session && needPhone) {
+    return (
+      <SafeAreaView style={styles.loginSafe}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Derniere etape</Text>
+          <Text style={styles.link}>Votre chauffeur a besoin de votre numero pour vous joindre.</Text>
+          <TextInput style={styles.input} placeholder="Telephone" placeholderTextColor={theme.colors.textMuted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+          {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+          <TouchableOpacity style={styles.button} onPress={savePhone}>
+            <Text style={styles.buttonText}>Continuer</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -153,6 +204,9 @@ function AppContent() {
           <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={submitting}>
             <Text style={styles.buttonText}>{submitting ? '...' : mode === 'login' ? 'Se connecter' : "S'inscrire"}</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogle}>
+            <Text style={styles.googleText}>Continuer avec Google</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setMode(mode === 'login' ? 'signup' : 'login')}>
             <Text style={styles.link}>
               {mode === 'login' ? 'Pas encore de compte ? Inscrivez-vous' : 'Deja un compte ? Connectez-vous'}
@@ -166,6 +220,8 @@ function AppContent() {
 }
 
 const styles = StyleSheet.create({
+  googleButton: { width: '100%', borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: theme.radius, padding: 14, alignItems: 'center', marginTop: 10 },
+  googleText: { color: theme.colors.text, fontWeight: '600' },
   loginSafe: { flex: 1, backgroundColor: theme.colors.background },
   container: {
     flexGrow: 1,
