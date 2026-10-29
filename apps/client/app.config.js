@@ -10,7 +10,6 @@ module.exports = ({ config }) => {
     plugins,
     android: {
       ...config.android,
-      config: strip.includes('maps') ? undefined : { googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } },
       googleServicesFile: strip.includes('firebase') ? undefined : process.env.GOOGLE_SERVICES_JSON,
     },
   };

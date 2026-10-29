@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
+import RouteSketch from './RouteSketch';
 import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
 
 const STATUS_LABELS = {
@@ -19,46 +19,13 @@ function formatWhen(ride) {
   return d.toLocaleDateString('fr-FR') + ' a ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Petite voiture noire vue de dessus, dessinee en vues (pas d'image a embarquer).
-function CarMarker({ coordinate }) {
-  const [track, setTrack] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setTrack(false), 500); // evite le redessin permanent sous Android
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <Marker coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={track}>
-      <View style={styles.car}>
-        <View style={styles.carWindshield} />
-        <View style={styles.carRoof} />
-        <View style={styles.carRearWindow} />
-      </View>
-    </Marker>
-  );
-}
-
 function MiniMap({ ride }) {
   const points = [
     { latitude: ride.pickup_lat, longitude: ride.pickup_lng },
     { latitude: ride.dropoff_lat, longitude: ride.dropoff_lng },
   ];
   if (['en_route', 'on_site'].includes(ride.ride_step) && ride.driver_lat && ride.driver_lng) points.push({ latitude: ride.driver_lat, longitude: ride.driver_lng });
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-  const region = {
-    latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-    longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-    latitudeDelta: Math.max((Math.max(...lats) - Math.min(...lats)) * 1.8, 0.02),
-    longitudeDelta: Math.max((Math.max(...lngs) - Math.min(...lngs)) * 1.8, 0.02),
-  };
-  return (
-    <MapView style={styles.map} region={region} scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}>
-      <Marker coordinate={points[0]} pinColor={theme.colors.accent} />
-      <Marker coordinate={points[1]} pinColor="red" />
-      {points[2] ? <CarMarker coordinate={points[2]} /> : null}
-      <Polyline coordinates={points.slice(0, 2)} strokeColor={theme.colors.accent} strokeWidth={3} />
-    </MapView>
-  );
+  return <RouteSketch points={points} height={150} />;
 }
 
 // Reservation du client : recapitulatif, petite carte, coordonnees du chauffeur et annulation.
@@ -167,11 +134,6 @@ const styles = StyleSheet.create({
   when: { color: theme.colors.text, fontSize: 17, fontWeight: '700', marginTop: 2 },
   price: { color: theme.colors.accent, fontSize: 22, fontWeight: '800' },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  map: { width: '100%', height: 150, borderRadius: 14 },
-  car: { width: 20, height: 34, borderRadius: 9, backgroundColor: '#0A0A0A', borderWidth: 1.5, borderColor: '#FFFFFF', alignItems: 'center', paddingVertical: 4, gap: 2 },
-  carWindshield: { width: 12, height: 7, borderRadius: 3, backgroundColor: '#6B7280' },
-  carRoof: { width: 12, height: 8, borderRadius: 2, backgroundColor: '#1F2937' },
-  carRearWindow: { width: 12, height: 5, borderRadius: 2, backgroundColor: '#6B7280' },
   driverBox: { gap: 4, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, paddingTop: 12 },
   driverName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
   muted: { color: theme.colors.textMuted, fontSize: 13 },
