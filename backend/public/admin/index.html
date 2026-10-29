@@ -2658,6 +2658,12 @@ async function renderRideCourseTab() {
       <input id="rm-tags" value="${escapeHtml((ride.tags ?? []).join(', '))}" placeholder="separes par des virgules" />
       <button class="secondary" id="rm-save-tags">Enregistrer les tags</button>
     </div>
+
+    <div class="rm-section">
+      <div class="rm-title">Supprimer</div>
+      <div class="hint">Supprime définitivement cette réservation (courses passées comprises : elles disparaissent aussi du chiffre d'affaires). Pour la conserver, passez-la plutôt au statut Annulée.</div>
+      <button class="secondary" id="rm-delete" style="border-color:var(--danger,#FF5C5C);color:var(--danger,#FF5C5C)">Supprimer cette réservation</button>
+    </div>
   `;
 
   rmPickupLoc = { address: ride.pickup_address, lat: ride.pickup_lat, lng: ride.pickup_lng };
@@ -2742,6 +2748,14 @@ async function renderRideCourseTab() {
       await refreshRideModal();
       refresh();
     });
+  });
+  document.getElementById('rm-delete').addEventListener('click', async () => {
+    if (!confirm('Supprimer définitivement cette réservation ? Cette action est irréversible.')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/admin/rides/${ride.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Suppression impossible.'); return; }
+    closeRideModal();
+    refresh();
   });
   document.getElementById('rm-save-tags').addEventListener('click', async () => {
     const tags = document.getElementById('rm-tags').value.split(',').map((t) => t.trim()).filter(Boolean);

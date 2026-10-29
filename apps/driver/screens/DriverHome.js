@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
+import RideCalendar, { dayKey } from './RideCalendar';
 import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
 
 // " · 3 ans" a afficher a cote du pictogramme siege enfant ("3, 7" -> " · 3, 7 ans").
@@ -56,15 +57,29 @@ export default function DriverHome({ session }) {
   const [priceEditing, setPriceEditing] = useState(false);
   const [newPrice, setNewPrice] = useState('');
   const locationSubscription = useRef(null);
+  const [myRides, setMyRides] = useState([]); // toutes mes courses acceptees
+  const [tab, setTab] = useState('available'); // 'available' | 'upcoming'
+  const [selectedDay, setSelectedDay] = useState(null);
+  const selectedRef = useRef(null); // course ouverte depuis « Mes reservations » (lue par refresh, qui tourne dans un intervalle)
+  const openRide = (id) => { selectedRef.current = id; refresh(); };
 
   async function refresh() {
-    const { data: active } = await supabase
+    const { data: mine } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
-      .maybeSingle();
-    setActiveRide(active ?? null);
+      .order('scheduled_at', { ascending: true, nullsFirst: true });
+    const list = mine ?? [];
+    setMyRides(list);
+    // Course en cours : celle commencee, sinon la prochaine si elle est imminente (ou immediate), sinon celle ouverte depuis « Mes reservations ».
+    const soon = Date.now() + 90 * 60000;
+    const active =
+      list.find((r) => ['en_route', 'on_site'].includes(r.ride_step)) ??
+      list.find((r) => !r.scheduled_at || new Date(r.scheduled_at).getTime() <= soon) ??
+      list.find((r) => r.id === selectedRef.current) ??
+      null;
+    setActiveRide(active);
 
     if (!active) {
       const { data: pending } = await supabase
@@ -164,6 +179,7 @@ export default function DriverHome({ session }) {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (showCreateRide) { setShowCreateRide(false); return true; }
       if (showSettings) { setShowSettings(false); return true; }
+      if (selectedRef.current) { selectedRef.current = null; refresh(); return true; }
       return false;
     });
     return () => sub.remove();
@@ -347,6 +363,11 @@ export default function DriverHome({ session }) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>
+        {selectedRef.current === activeRide.id && !['en_route', 'on_site'].includes(activeRide.ride_step) ? (
+          <TouchableOpacity onPress={() => { selectedRef.current = null; refresh(); }}>
+            <Text style={styles.link}>← Mes réservations à venir</Text>
+          </TouchableOpacity>
+        ) : null}
         <View style={styles.titleRow}>
           <Text style={styles.title}>Course en cours</Text>
           <Pill highlight>{STEP_LABELS[activeRide.ride_step ?? 'not_started']}</Pill>
@@ -452,13 +473,47 @@ export default function DriverHome({ session }) {
 
   return (
     <View style={styles.listScreen}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Courses disponibles</Text>
-        <Pill>{pendingRides.length}</Pill>
+      <View style={styles.tabRow}>
+        {[['available', `Courses disponibles (${pendingRides.length})`], ['upcoming', `Mes réservations à venir (${myRides.length})`]].map(([key, label]) => (
+          <TouchableOpacity key={key} style={[styles.tab, tab === key && styles.tabActive]} onPress={() => setTab(key)}>
+            <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
       {permissions.can_create_rides ? <Btn title="+ Saisir une reservation" onPress={() => setShowCreateRide(true)} /> : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
-      {pendingRides.length === 0 ? (
+      {tab === 'upcoming' ? (
+        <ScrollView style={styles.list} contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+          <RideCalendar rides={myRides} selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+          {myRides.filter((r) => !selectedDay || (r.scheduled_at && dayKey(new Date(r.scheduled_at)) === selectedDay)).length === 0 ? (
+            <Card>
+              <Text style={styles.clientName}>{selectedDay ? 'Aucune réservation ce jour-là' : 'Aucune réservation à venir'}</Text>
+              <Text style={styles.mutedSmall}>Les courses que vous acceptez pour plus tard apparaissent ici.</Text>
+            </Card>
+          ) : (
+            myRides
+              .filter((r) => !selectedDay || (r.scheduled_at && dayKey(new Date(r.scheduled_at)) === selectedDay))
+              .map((item) => (
+                <Card key={item.id}>
+                  <View style={styles.rowBetween}>
+                    <View style={{ flex: 1 }}>
+                      <SectionLabel>Date et heure</SectionLabel>
+                      <Text style={styles.dateValue}>{formatRideDateTime(item.scheduled_at)}</Text>
+                    </View>
+                    <Text style={styles.bigPrice}>{item.price != null ? `${Number(item.price).toFixed(2)} €` : '-'}</Text>
+                  </View>
+                  <View style={styles.pillRow}>
+                    <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
+                    <Pill>👥 {item.passenger_count ?? 1}</Pill>
+                    <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
+                  </View>
+                  <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                  <Btn title="Ouvrir la course" onPress={() => openRide(item.id)} />
+                </Card>
+              ))
+          )}
+        </ScrollView>
+      ) : pendingRides.length === 0 ? (
         <Card>
           <Text style={styles.clientName}>Aucune course pour le moment</Text>
           <Text style={styles.mutedSmall}>Les nouvelles courses de votre gamme apparaissent ici automatiquement.</Text>
@@ -521,6 +576,11 @@ const styles = StyleSheet.create({
   listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
   list: { width: '100%' },
+  tabRow: { flexDirection: 'row', gap: 8 },
+  tab: { flex: 1, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
+  tabActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  tabText: { color: theme.colors.textMuted, fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  tabTextActive: { color: theme.colors.accentText },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

@@ -161,6 +161,14 @@ app.patch('/admin/chauffeurs/:id/category', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Supprime definitivement une reservation (demande explicite de l'admin, confirmee dans l'interface).
+app.delete('/admin/rides/:id', requireAdmin, async (req, res) => {
+  const { error, count } = await supabaseAdmin.from('rides').delete({ count: 'exact' }).eq('id', req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  if (!count) return res.status(404).json({ error: 'Reservation introuvable' });
+  res.json({ ok: true });
+});
+
 // Supprime un chauffeur. Sans historique de courses : suppression complete du compte. Avec historique :
 // archivage (plus aucun acces, historique et chiffres conserves).
 app.delete('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
