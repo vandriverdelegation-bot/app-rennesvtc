@@ -125,10 +125,10 @@ function NotificationsView({ session, onBack }) {
   async function handleToggle(value) {
     setMessage('');
     if (value) {
-      await registerPushToken(supabase, session.user.id);
+      const failure = await registerPushToken(supabase, session.user.id);
       const { data } = await supabase.from('profiles').select('push_token').eq('id', session.user.id).single();
       setEnabled(!!data?.push_token);
-      if (!data?.push_token) setMessage("Activation impossible : autorisez les notifications pour l'app dans les reglages du telephone (indisponible dans Expo Go).");
+      if (!data?.push_token) setMessage(`Activation impossible : ${failure || 'raison inconnue'}`);
     } else {
       await supabase.from('profiles').update({ push_token: null }).eq('id', session.user.id);
       setEnabled(false);
