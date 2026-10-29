@@ -532,6 +532,7 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
       client_id: null,
       client_name: b.clientName,
       client_phone: b.clientPhone,
+      client_email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.clientEmail ?? '').trim()) ? b.clientEmail.trim() : null,
       pickup_address: b.pickup.address, pickup_lat: b.pickup.lat, pickup_lng: b.pickup.lng,
       dropoff_address: b.dropoff.address, dropoff_lat: b.dropoff.lat, dropoff_lng: b.dropoff.lng,
       stop_addresses: b.stopAddresses ?? [],
@@ -554,6 +555,9 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Si le chauffeur a donne l'email du client et prend la course lui-meme : confirmation au client (et bon de commande).
+  if (assignment.status === 'accepted' && ride.client_email) await announceAccepted(ride.id);
 
   if (assignment.status === 'dispatched') {
     let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
@@ -904,6 +908,9 @@ app.post('/public/book', async (req, res) => {
   }
   if (paymentMethod === 'compte') {
     return res.status(400).json({ error: 'Ce mode de règlement est réservé au back-office.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(clientEmail ?? '').trim())) {
+    return res.status(400).json({ error: 'Une adresse email valide est requise.' });
   }
   const { data: ride, error } = await supabaseAdmin
     .from('rides')

@@ -9,6 +9,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Propriétaire : boutons **Confort / Affaires / Van** pour changer la gamme d'une course déjà acceptée.
 - Page principale : onglets **Courses disponibles** / **Mes réservations à venir** + petit calendrier (`RideCalendar.js`). Une course acceptée pour plus tard reste dans « à venir » ; elle s'ouvre seule si elle est commencée, immédiate ou dans moins de 1 h 30.
 - **Chat** avec le client / donneur d'ordre dans « Course en cours » (`RideChat.js`), ouvert dès qu'un chauffeur est attribué.
+- Saisie d'une réservation : champ **Email du client (facultatif)** ; s'il est renseigné et que le chauffeur prend la course, le client reçoit la confirmation.
 - Étape « Sur place » : bouton **Prévenir le client par SMS** (ouvre l'appli SMS avec le message prêt, gratuit, un appui sur Envoyer).
 - Notifications : l'écran affiche la **vraie raison** de l'échec (la cause de l'échec actuel est inconnue : Firebase est bien dans l'APK).
 
@@ -19,6 +20,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Notifications : même message d'erreur détaillé.
 
 ## Déjà en ligne (backend, pas besoin de build)
+- Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.
 - Admin : bouton **Assigner ce chauffeur** dans une réservation (même en dispatch auto) ; la page de suivi du donneur d'ordre se rafraîchit toutes les 4 s et propose le **chat** avec le chauffeur.
 - Migration `040_chat_courses.sql` à appliquer sur Supabase pour que le chat fonctionne.
 - Admin : gamme modifiable à tout moment, suppression d'une réservation (confirmation, définitive).

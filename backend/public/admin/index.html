@@ -569,6 +569,7 @@
 
             <button id="add-ride">Creer la reservation</button>
             <p id="new-ride-error" class="error"></p>
+            <p id="new-ride-created" class="hint" style="font-weight:700"></p>
           </div>
         </section>
 
@@ -981,8 +982,8 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     errorEl.textContent = 'Indiquez la duree de la mise a disposition.';
     return;
   }
-  if (ordererOpen && !document.getElementById('new-ride-orderer-email').value.trim()) {
-    errorEl.textContent = "Indiquez l'email du donneur d'ordre pour lui envoyer le suivi.";
+  if (ordererOpen && !document.getElementById('new-ride-orderer-email').value.trim() && !document.getElementById('new-ride-orderer-phone').value.trim()) {
+    errorEl.textContent = "Indiquez l'email ou le telephone (WhatsApp) du donneur d'ordre pour lui envoyer le suivi.";
     return;
   }
   if (round_trip && (!return_date || !return_time)) {
@@ -1023,7 +1024,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     status: driverId ? 'accepted' : 'pending',
     driver_id: driverId || null,
   };
-  const { data: created, error } = await supabase.from('rides').insert(payload).select('id').single();
+  const { data: created, error } = await supabase.from('rides').insert(payload).select('id, tracking_token').single();
   if (error) { errorEl.textContent = error.message; return; }
 
   // Confirmation au client : de la demande, ou directement de l'acceptation si un chauffeur est deja choisi.
@@ -1033,6 +1034,18 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify({ rideId: created.id, fromAdmin: true }),
   }).catch(() => {});
+
+  // Donneur d'ordre sans email : lien de suivi a envoyer par WhatsApp (un clic, le lien ne peut pas s'ouvrir tout seul).
+  const banner = document.getElementById('new-ride-created');
+  banner.innerHTML = '';
+  if (ordererOpen && !payload.orderer_email && payload.orderer_phone) {
+    const a = document.createElement('a');
+    a.href = whatsappTrackingUrl(payload.orderer_phone, created.tracking_token);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = "Reservation creee. Envoyer le lien de suivi au donneur d'ordre sur WhatsApp";
+    banner.appendChild(a);
+  }
 
   document.getElementById('new-ride-client-firstname').value = '';
   document.getElementById('new-ride-client-name').value = '';
@@ -2521,6 +2534,15 @@ function toLocalDatetimeInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Lien WhatsApp (wa.me) vers un numero francais ou international, avec le lien de suivi dans le message.
+function whatsappTrackingUrl(phone, token) {
+  let digits = String(phone).replace(/[^\d+]/g, '').replace(/^\+/, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = `33${digits.slice(1)}`;
+  const text = `Bonjour, voici le lien de suivi de votre course Rennes VTC (position du chauffeur et etapes en direct) : ${location.origin}/suivi/${token}`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
 async function openRideModal(rideId) {
   const { data: ride } = await supabase.from('rides').select('*').eq('id', rideId).single();
   if (!ride) { alert('Reservation introuvable.'); return; }
@@ -2821,7 +2843,9 @@ async function renderRideClientTab() {
         <input id="rm-tracking-link" readonly style="flex:1;min-width:220px" value="${location.origin}/suivi/${ride.tracking_token}" onclick="this.select()" />
         <button class="secondary" id="rm-copy-tracking">Copier</button>
         <button class="secondary" id="rm-open-tracking">Ouvrir</button>
+        <button class="secondary" id="rm-whatsapp-tracking">Envoyer par WhatsApp</button>
       </div>
+      <div class="hint">Si le donneur d'ordre n'a pas d'email, envoyez-lui le lien sur WhatsApp (au telephone renseigne ci-dessus).</div>
     </div>
     <div class="rm-section">
       <div class="rm-title">Changer de client</div>
@@ -2842,6 +2866,11 @@ async function renderRideClientTab() {
   });
   document.getElementById('rm-copy-tracking').addEventListener('click', () => {
     navigator.clipboard.writeText(document.getElementById('rm-tracking-link').value);
+  });
+  document.getElementById('rm-whatsapp-tracking').addEventListener('click', () => {
+    const phone = document.getElementById('rm-orderer-phone').value.trim();
+    if (!phone) { alert("Renseignez d'abord le telephone du donneur d'ordre (puis Enregistrer)."); return; }
+    window.open(whatsappTrackingUrl(phone, ride.tracking_token), '_blank');
   });
   document.getElementById('rm-open-tracking').addEventListener('click', () => {
     window.open(document.getElementById('rm-tracking-link').value, '_blank');

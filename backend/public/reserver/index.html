@@ -236,8 +236,8 @@
               <input id="client-phone" placeholder="06 00 00 00 00" autocomplete="tel" inputmode="tel" />
             </div>
             <div>
-              <label for="client-email">Email <span class="opt">(confirmation)</span></label>
-              <input id="client-email" type="email" placeholder="vous@exemple.fr" autocomplete="email" />
+              <label for="client-email">Email</label>
+              <input id="client-email" type="email" placeholder="vous@exemple.fr" autocomplete="email" required />
             </div>
           </div>
           <div class="field">
@@ -466,6 +466,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de véhicule.'; return; }
   if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de départ et de destination dans la liste.'; return; }
   if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et téléphone sont requis.'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) { errorEl.textContent = 'Indiquez une adresse email valide : elle sert à vous envoyer la confirmation.'; return; }
   const durationHours = parseFloat(document.getElementById('duration').value);
   if (isMad() && !durationHours) { errorEl.textContent = 'Indiquez la durée de la mise à disposition.'; return; }
   if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }

@@ -32,6 +32,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
   const [durationHours, setDurationHours] = useState('3');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState(''); // facultatif ici, contrairement au client et au module web
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [stops, setStops] = useState([]);
@@ -175,6 +176,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         body: JSON.stringify({
           clientName,
           clientPhone,
+          clientEmail: clientEmail.trim() || null,
           pickup,
           dropoff,
           stopAddresses: stops.filter(Boolean).map((s) => s.address),
@@ -227,6 +229,9 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
 
       <Text style={styles.label}>Telephone du client</Text>
       <TextInput style={styles.input} value={clientPhone} onChangeText={setClientPhone} placeholder="0600000000" placeholderTextColor={theme.colors.textMuted} keyboardType="phone-pad" />
+
+      <Text style={styles.label}>Email du client (facultatif)</Text>
+      <TextInput style={styles.input} value={clientEmail} onChangeText={setClientEmail} placeholder="client@exemple.fr" placeholderTextColor={theme.colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
 
       <Text style={styles.label}>Depart</Text>
       <AddressAutocomplete placeholder="Adresse de depart" onSelect={setPickup} />
