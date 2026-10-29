@@ -496,8 +496,9 @@
                 <div class="form-grid">
                   <div class="field"><label for="new-ride-orderer-name">Donneur d'ordre</label><input id="new-ride-orderer-name" placeholder="Hotel, entreprise..." /></div>
                   <div class="field"><label for="new-ride-orderer-email">Email (recoit le suivi)</label><input id="new-ride-orderer-email" type="email" placeholder="reception@hotel.fr" /></div>
-                  <div class="field"><label for="new-ride-orderer-phone">Telephone</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
+                  <div class="field"><label for="new-ride-orderer-phone">Telephone (WhatsApp, avec l'indicatif hors France : +44...)</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
                 </div>
+                <label style="display:flex;align-items:center;margin-top:8px"><input type="checkbox" id="new-ride-orderer-wa" /> Envoyer le lien de suivi par WhatsApp a la creation (WhatsApp s'ouvre, message pret : il suffit d'appuyer sur Envoyer)</label>
               </div>
             </div>
 
@@ -986,6 +987,11 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     errorEl.textContent = "Indiquez l'email ou le telephone (WhatsApp) du donneur d'ordre pour lui envoyer le suivi.";
     return;
   }
+  const sendWa = ordererOpen && document.getElementById('new-ride-orderer-wa').checked;
+  if (sendWa && !document.getElementById('new-ride-orderer-phone').value.trim()) {
+    errorEl.textContent = "Indiquez le telephone du donneur d'ordre pour l'envoi WhatsApp.";
+    return;
+  }
   if (round_trip && (!return_date || !return_time)) {
     errorEl.textContent = 'Indiquez la date et l\'heure du retour.';
     return;
@@ -1024,8 +1030,11 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     status: driverId ? 'accepted' : 'pending',
     driver_id: driverId || null,
   };
+  // La fenetre WhatsApp s'ouvre ici, pendant le clic (sinon le navigateur la bloque), puis recoit son adresse une fois la reservation creee.
+  const waWin = sendWa ? window.open('about:blank', '_blank') : null;
   const { data: created, error } = await supabase.from('rides').insert(payload).select('id, tracking_token').single();
-  if (error) { errorEl.textContent = error.message; return; }
+  if (error) { if (waWin) waWin.close(); errorEl.textContent = error.message; return; }
+  if (waWin) waWin.location.href = whatsappTrackingUrl(payload.orderer_phone, created.tracking_token);
 
   // Confirmation au client : de la demande, ou directement de l'acceptation si un chauffeur est deja choisi.
   const { data: { session } } = await supabase.auth.getSession();
@@ -1038,7 +1047,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   // Donneur d'ordre sans email : lien de suivi a envoyer par WhatsApp (un clic, le lien ne peut pas s'ouvrir tout seul).
   const banner = document.getElementById('new-ride-created');
   banner.innerHTML = '';
-  if (ordererOpen && !payload.orderer_email && payload.orderer_phone) {
+  if (ordererOpen && !waWin && !payload.orderer_email && payload.orderer_phone) {
     const a = document.createElement('a');
     a.href = whatsappTrackingUrl(payload.orderer_phone, created.tracking_token);
     a.target = '_blank';
@@ -1067,6 +1076,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
   document.getElementById('new-ride-child-ages').value = '';
   ['name', 'email', 'phone'].forEach((f) => { document.getElementById('new-ride-orderer-' + f).value = ''; });
+  document.getElementById('new-ride-orderer-wa').checked = false;
   document.getElementById('new-ride-orderer-block').style.display = 'none';
   document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
   document.getElementById('new-ride-price').value = '';
