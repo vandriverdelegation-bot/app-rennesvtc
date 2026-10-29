@@ -59,10 +59,17 @@
   .car b { width: 12px; border-radius: 3px; background: #6B7280; display: block; }
   .car b:nth-child(1) { height: 7px; } .car b:nth-child(2) { height: 8px; background: #1F2937; } .car b:nth-child(3) { height: 5px; }
   @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+  .chat-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; margin: 10px 0; }
+  .msg { max-width: 82%; padding: 8px 12px; border-radius: 14px; background: var(--panel-2, #1B1C1E); align-self: flex-start; font-size: 15px; white-space: pre-wrap; word-break: break-word; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: var(--accent-text); }
+  .chat-form { display: flex; gap: 8px; }
+  .chat-form input { flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: 1px solid #33353A; background: transparent; color: inherit; font: inherit; }
+  .chat-form button { padding: 0 18px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-text); font-weight: 700; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
 <div class="wrap" id="root"><div class="center">Chargement du suivi...</div></div>
+<div class="wrap" id="chatwrap"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -71,6 +78,39 @@ const esc = (t) => { const d = document.createElement('div'); d.textContent = t 
 const fmtTime = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 
 let map = null, carMarker = null, lastKey = '';
+let chatOpen = false, chatKey = '';
+
+// Chat avec le chauffeur : hors de #root, qui est reconstruit a chaque changement (on ne perd pas la saisie).
+async function loadChat() {
+  const wrap = document.getElementById('chatwrap');
+  if (!chatOpen) { wrap.innerHTML = ''; chatKey = ''; return; }
+  try {
+    const res = await fetch('/public/track/' + encodeURIComponent(token) + '/messages', { cache: 'no-store' });
+    if (!res.ok) return;
+    const { messages } = await res.json();
+    if (!wrap.firstChild) {
+      wrap.innerHTML = '<section class="card"><h2>Message au chauffeur</h2><div class="chat-list" id="chat-list"></div><form class="chat-form" id="chat-form"><input id="chat-input" maxlength="1000" placeholder="Votre message..." autocomplete="off" /><button type="submit">Envoyer</button></form></section>';
+      document.getElementById('chat-form').addEventListener('submit', sendChat);
+    }
+    const key = JSON.stringify(messages.map((m) => m.id));
+    if (key === chatKey) return;
+    chatKey = key;
+    const list = document.getElementById('chat-list');
+    list.innerHTML = messages.length ? messages.map((m) => '<div class="msg ' + (m.role === 'donneur_ordre' ? 'me' : '') + '">' + esc(m.body) + '</div>').join('') : '<div class="map-note">Aucun message pour le moment.</div>';
+    list.scrollTop = list.scrollHeight;
+  } catch (e) { /* reseau instable : prochain tour */ }
+}
+
+async function sendChat(e) {
+  e.preventDefault();
+  const input = document.getElementById('chat-input');
+  const body = input.value.trim();
+  if (!body) return;
+  input.value = '';
+  const res = await fetch('/public/track/' + encodeURIComponent(token) + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) });
+  if (!res.ok) { input.value = body; alert((await res.json().catch(() => ({}))).error || 'Envoi impossible.'); return; }
+  loadChat();
+}
 
 function progress(r) {
   if (r.status === 'completed') return 4;
@@ -210,6 +250,8 @@ async function load() {
     const key = JSON.stringify({ ...data, driverPosition: !!data.driverPosition });
     if (key !== lastKey) { lastKey = key; render(data); }
     else if (data.driverPosition && carMarker) carMarker.setLatLng([data.driverPosition.lat, data.driverPosition.lng]);
+    chatOpen = !!data.driver && data.status === 'accepted';
+    await loadChat();
     return true;
   } catch (e) {
     return true; // reseau instable : on reessaie au prochain tour
@@ -218,8 +260,10 @@ async function load() {
 
 (async function loop() {
   const ok = await load();
-  if (ok) setTimeout(loop, 6000);
+  if (ok) setTimeout(loop, 4000);
 })();
+// Au retour sur l'onglet (telephone deverrouille, etc.), on rafraichit tout de suite.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
 </body>
 </html>

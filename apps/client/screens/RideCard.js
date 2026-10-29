@@ -3,6 +3,7 @@ import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import RouteSketch from './RouteSketch';
+import RideChat from './RideChat';
 import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
 
 const STATUS_LABELS = {
@@ -115,6 +116,7 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
           ) : null}
         </View>
       ) : null}
+      {accepted ? <RideChat session={session} rideId={ride.id} me="client" /> : null}
 
       {locked ? (
         <View style={styles.lockedBox}>

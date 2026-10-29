@@ -2566,6 +2566,7 @@ async function renderRideCourseTab() {
     driverLabel = driver?.email ?? 'Chauffeur inconnu';
   }
   const steps = ['not_started', 'en_route', 'on_site', 'completed'];
+  const { data: assignable } = await supabase.from('profiles').select('id, email, full_name, vehicle_categories').eq('role', 'chauffeur').not('vehicle_category', 'is', null).order('full_name', { ascending: true });
   const el = document.getElementById('ride-tab-course');
   document.getElementById('ride-modal-head').innerHTML = `
     ${statusBadge(ride.status)}
@@ -2584,6 +2585,14 @@ async function renderRideCourseTab() {
         <span class="chip">Chauffeur : ${escapeHtml(driverLabel)}</span>
         <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
       </div>
+      <div class="rm-row" style="margin-top:12px">
+        <select id="rm-driver-select">
+          <option value="">Choisir un chauffeur...</option>
+          ${(assignable ?? []).map((d) => `<option value="${d.id}" ${d.id === ride.driver_id ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)} (${(d.vehicle_categories ?? []).map((c) => VEHICLE_LABELS[c]).join(', ')})</option>`).join('')}
+        </select>
+        <button class="secondary" id="rm-assign">Assigner ce chauffeur</button>
+      </div>
+      <div class="hint">Attribue la course tout de suite, meme en dispatch automatique : le chauffeur et le client sont prevenus.</div>
     </div>
 
     <div class="rm-section">
@@ -2678,6 +2687,16 @@ async function renderRideCourseTab() {
   });
   document.getElementById('rm-save-category').addEventListener('click', async () => {
     await supabase.from('rides').update({ vehicle_category: document.getElementById('rm-category').value }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-assign').addEventListener('click', async () => {
+    const driverId = document.getElementById('rm-driver-select').value;
+    if (!driverId) { alert('Choisissez un chauffeur.'); return; }
+    if (ride.driver_id && ride.driver_id !== driverId && !confirm('Cette course a deja un chauffeur : la reassigner ?')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/admin/rides/${ride.id}/assign`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ driverId }) });
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Attribution impossible.'); return; }
     await refreshRideModal();
     refresh();
   });

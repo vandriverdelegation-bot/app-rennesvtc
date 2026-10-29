@@ -161,6 +161,90 @@ app.patch('/admin/chauffeurs/:id/category', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Chat d'une course : client / donneur d'ordre <-> chauffeur ----
+// Les messages ne sont lisibles et ecrits que via le serveur (table sans acces direct). Le chat est ouvert
+// des qu'un chauffeur est attribue ; l'ecriture s'arrete a la fin de la course.
+const CHAT_MAX = 1000;
+
+async function loadChat(rideId) {
+  const { data } = await supabaseAdmin.from('ride_messages').select('id, sender_role, body, created_at').eq('ride_id', rideId).order('created_at', { ascending: true }).limit(500);
+  return (data ?? []).map((m) => ({ id: m.id, role: m.sender_role, body: m.body, created_at: m.created_at }));
+}
+
+async function postChat(ride, role, senderId, rawBody) {
+  const body = String(rawBody ?? '').trim().slice(0, CHAT_MAX);
+  if (!body) return { error: 'Message vide', status: 400 };
+  if (!ride.driver_id || ride.status !== 'accepted') return { error: "Le chat est ferme : aucun chauffeur n'est engage sur cette course.", status: 400 };
+  const { error } = await supabaseAdmin.from('ride_messages').insert({ ride_id: ride.id, sender_role: role, sender_id: senderId, body });
+  if (error) return { error: error.message, status: 400 };
+  // Previent l'autre partie : le chauffeur pousse vers le client, le client ou le donneur d'ordre vers le chauffeur.
+  const toId = role === 'chauffeur' ? ride.client_id : ride.driver_id;
+  if (toId) {
+    const { data: to } = await supabaseAdmin.from('profiles').select('push_token').eq('id', toId).single();
+    await sendPush([to?.push_token], role === 'chauffeur' ? 'Message de votre chauffeur' : role === 'client' ? 'Message du client' : "Message du donneur d'ordre", body.slice(0, 120));
+  }
+  return { ok: true };
+}
+
+async function chatRide(req, res) {
+  const { data: ride } = await supabaseAdmin.from('rides').select('id, client_id, driver_id, status').eq('id', req.params.rideId).single();
+  const role = ride && (ride.driver_id === req.user.id ? 'chauffeur' : ride.client_id === req.user.id ? 'client' : null);
+  if (!role) { res.status(404).json({ error: 'Course introuvable' }); return {}; }
+  return { ride, role };
+}
+
+app.get('/rides/:rideId/messages', requireSupabaseUser, async (req, res) => {
+  const { ride } = await chatRide(req, res);
+  if (!ride) return;
+  res.json({ open: !!ride.driver_id && ride.status === 'accepted', messages: await loadChat(ride.id) });
+});
+
+app.post('/rides/:rideId/messages', requireSupabaseUser, async (req, res) => {
+  const { ride, role } = await chatRide(req, res);
+  if (!ride) return;
+  const result = await postChat(ride, role, req.user.id, req.body.body);
+  if (result.error) return res.status(result.status).json({ error: result.error });
+  res.status(201).json({ ok: true });
+});
+
+// Donneur d'ordre : meme chat, depuis son lien de suivi (le jeton fait office d'identifiant).
+async function chatRideByToken(req, res) {
+  const { data: ride } = await supabaseAdmin.from('rides').select('id, client_id, driver_id, status').eq('tracking_token', String(req.params.token).slice(0, 64)).maybeSingle();
+  if (!ride) res.status(404).json({ error: 'Suivi introuvable' });
+  return ride;
+}
+
+app.get('/public/track/:token/messages', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const ride = await chatRideByToken(req, res);
+  if (!ride) return;
+  res.json({ open: !!ride.driver_id && ride.status === 'accepted', messages: await loadChat(ride.id) });
+});
+
+app.post('/public/track/:token/messages', async (req, res) => {
+  const ride = await chatRideByToken(req, res);
+  if (!ride) return;
+  const result = await postChat(ride, 'donneur_ordre', null, req.body.body);
+  if (result.error) return res.status(result.status).json({ error: result.error });
+  res.status(201).json({ ok: true });
+});
+
+// Attribue directement une course a un chauffeur (meme en dispatch automatique) : elle passe en « acceptee »
+// et tout le monde est prevenu comme si le chauffeur l'avait acceptee lui-meme.
+app.post('/admin/rides/:id/assign', requireAdmin, async (req, res) => {
+  const { data: ride } = await supabaseAdmin.from('rides').select('id, status, pickup_address, dropoff_address').eq('id', req.params.id).single();
+  if (!ride) return res.status(404).json({ error: 'Reservation introuvable' });
+  if (['completed', 'cancelled'].includes(ride.status)) return res.status(400).json({ error: 'Cette course est terminee ou annulee.' });
+  const { data: driver } = await supabaseAdmin.from('profiles').select('id, push_token').eq('id', req.body.driverId).eq('role', 'chauffeur').single();
+  if (!driver) return res.status(400).json({ error: 'Chauffeur introuvable' });
+
+  const { error } = await supabaseAdmin.from('rides').update({ driver_id: driver.id, status: 'accepted', dispatched_to: null }).eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+  await sendPush([driver.push_token], 'Course attribuee', `${ride.pickup_address} -> ${ride.dropoff_address}`);
+  await announceAccepted(ride.id);
+  res.json({ ok: true });
+});
+
 // Supprime definitivement une reservation (demande explicite de l'admin, confirmee dans l'interface).
 app.delete('/admin/rides/:id', requireAdmin, async (req, res) => {
   const { error, count } = await supabaseAdmin.from('rides').delete({ count: 'exact' }).eq('id', req.params.id);
@@ -308,13 +392,17 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
 // Previent le client qu'un chauffeur a accepte sa course (push + email avec
 // les coordonnees du chauffeur et un rappel complet de la reservation).
 app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
-  const { rideId } = req.body;
+  await announceAccepted(req.body.rideId);
+  res.json({ ok: true });
+});
+
+async function announceAccepted(rideId) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
     .select('client_id, client_email, orderer_email, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
     .eq('id', rideId)
     .single();
-  if (!ride) return res.json({ ok: true });
+  if (!ride) return;
 
   // Les courses sans compte client (web, admin, telephone) n'ont personne a prevenir
   // mais le chauffeur doit quand meme recevoir son bon de commande plus bas.
@@ -355,8 +443,7 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
       [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }]
     );
   }
-  res.json({ ok: true });
-});
+}
 
 // Profil du chauffeur connecte, uniquement s'il a le droit de creer des reservations.
 async function requireRideCreator(req, res, next) {

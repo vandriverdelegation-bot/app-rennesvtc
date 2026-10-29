@@ -7,6 +7,7 @@ import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
 import RideCalendar, { dayKey } from './RideCalendar';
+import RideChat from './RideChat';
 import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
 
 // " · 3 ans" a afficher a cote du pictogramme siege enfant ("3, 7" -> " · 3, 7 ans").
@@ -453,6 +454,10 @@ export default function DriverHome({ session }) {
             ) : null}
           </Card>
         ) : null}
+
+        <Card>
+          <RideChat session={session} rideId={activeRide.id} me="chauffeur" />
+        </Card>
 
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
