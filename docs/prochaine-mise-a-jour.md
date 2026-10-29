@@ -8,6 +8,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - **Calendrier et heure** pour choisir la date/l'heure (`DateTimeFields.js`, JS pur, sans module natif).
 - Propriétaire : boutons **Confort / Affaires / Van** pour changer la gamme d'une course déjà acceptée.
 - Page principale : onglets **Courses disponibles** / **Mes réservations à venir** + petit calendrier (`RideCalendar.js`). Une course acceptée pour plus tard reste dans « à venir » ; elle s'ouvre seule si elle est commencée, immédiate ou dans moins de 1 h 30.
+- Étape « Sur place » : bouton **Prévenir le client par SMS** (ouvre l'appli SMS avec le message prêt, gratuit, un appui sur Envoyer).
 - Notifications : l'écran affiche la **vraie raison** de l'échec (la cause de l'échec actuel est inconnue : Firebase est bien dans l'APK).
 
 ## Appli client

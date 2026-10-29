@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -268,6 +268,12 @@ export default function DriverHome({ session }) {
     refresh();
   }
 
+  // Ouvre l'appli SMS du telephone avec le message pret : le chauffeur n'a qu'a appuyer sur Envoyer (gratuit, forfait du chauffeur).
+  function handleArrivalSms() {
+    const body = `Bonjour, votre chauffeur Rennes VTC est arrive au point de prise en charge : ${activeRide.pickup_address}. A tout de suite !`;
+    Linking.openURL(`sms:${clientInfo.phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(body)}`);
+  }
+
   // Apres "Je suis sur place" on guide vers la destination ; avant, vers le depart.
   function navTarget() {
     return activeRide.ride_step === 'on_site'
@@ -450,6 +456,7 @@ export default function DriverHome({ session }) {
 
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
+        {activeRide.ride_step === 'on_site' && clientInfo?.phone ? <Btn title="Prevenir le client par SMS" variant="secondary" onPress={handleArrivalSms} /> : null}
         {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
         <Btn title="Telecharger le bon de commande" variant="secondary" onPress={handleDownloadBonCommande} />
         {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
