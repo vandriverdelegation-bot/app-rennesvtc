@@ -39,7 +39,7 @@ function formatRideDateTime(scheduledAt) {
 
 export default function DriverHome({ session }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
-  const [permissions, setPermissions] = useState({ can_create_rides: false });
+  const [permissions, setPermissions] = useState({ can_create_rides: false, is_owner: false });
   const [onlineStatus, setOnlineStatus] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateRide, setShowCreateRide] = useState(false);
@@ -84,7 +84,7 @@ export default function DriverHome({ session }) {
       .single();
     setVehicleCategory(data?.vehicle_category ?? null);
     setCategories(data?.vehicle_categories ?? (data?.vehicle_category ? [data.vehicle_category] : []));
-    setPermissions({ can_create_rides: !!(data?.can_create_rides || data?.is_owner), can_edit_price: !!(data?.can_edit_price || data?.is_owner) });
+    setPermissions({ can_create_rides: !!(data?.can_create_rides || data?.is_owner), can_edit_price: !!(data?.can_edit_price || data?.is_owner), is_owner: !!data?.is_owner });
     setOnlineStatus(!!data?.online_status);
   }
 
@@ -292,6 +292,14 @@ export default function DriverHome({ session }) {
     refresh();
   }
 
+  // Le proprietaire peut corriger la gamme d'une course, meme deja acceptee.
+  async function handleChangeCategory(category) {
+    if (category === activeRide.vehicle_category) return;
+    const { error } = await supabase.from('rides').update({ vehicle_category: category }).eq('id', activeRide.id);
+    if (error) setErrorMsg(error.message);
+    else refresh();
+  }
+
   function handleDownloadBonCommande() {
     const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${activeRide.id}?token=${session.access_token}`;
     Linking.openURL(url);
@@ -365,8 +373,17 @@ export default function DriverHome({ session }) {
           <View style={styles.pillRow}>
             <Pill>{SERVICE_LABELS[activeRide.service_type]}</Pill>
             <Pill>{PAYMENT_LABELS[activeRide.payment_method]}</Pill>
-            {activeRide.vehicle_category ? <Pill>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Pill> : null}
+            {activeRide.vehicle_category && !permissions.is_owner ? <Pill>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Pill> : null}
           </View>
+          {permissions.is_owner ? (
+            <View style={styles.pillRow}>
+              {Object.entries(VEHICLE_LABELS).map(([value, label]) => (
+                <TouchableOpacity key={value} onPress={() => handleChangeCategory(value)}>
+                  <Pill highlight={activeRide.vehicle_category === value}>{label}</Pill>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
           <View style={styles.pillRow}>
             <Pill>👥 {activeRide.passenger_count ?? 1} passager(s)</Pill>
             <Pill>🧳 {activeRide.luggage_count ?? 0} bagage(s)</Pill>

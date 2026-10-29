@@ -2587,6 +2587,17 @@ async function renderRideCourseTab() {
     </div>
 
     <div class="rm-section">
+      <div class="rm-title">Gamme du vehicule</div>
+      <div class="rm-row">
+        <select id="rm-category">
+          ${CATEGORIES.map((c) => `<option value="${c}" ${ride.vehicle_category === c ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
+        </select>
+        <button class="secondary" id="rm-save-category">Enregistrer la gamme</button>
+      </div>
+      <div class="hint">Modifiable a tout moment, meme sur une reservation deja acceptee. Le chauffeur et le tarif ne changent pas.</div>
+    </div>
+
+    <div class="rm-section">
       <div class="rm-title">Adresses</div>
       <input id="rm-pickup" placeholder="Depart" autocomplete="off" value="${escapeHtml(ride.pickup_address ?? '')}" />
       <div class="suggestions" id="rm-pickup-suggestions" style="display:none"></div>
@@ -2656,6 +2667,11 @@ async function renderRideCourseTab() {
 
   document.getElementById('rm-save-status').addEventListener('click', async () => {
     await supabase.from('rides').update({ status: document.getElementById('rm-status').value }).eq('id', ride.id);
+    await refreshRideModal();
+    refresh();
+  });
+  document.getElementById('rm-save-category').addEventListener('click', async () => {
+    await supabase.from('rides').update({ vehicle_category: document.getElementById('rm-category').value }).eq('id', ride.id);
     await refreshRideModal();
     refresh();
   });
