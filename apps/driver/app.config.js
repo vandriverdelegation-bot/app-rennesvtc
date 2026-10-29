@@ -1,10 +1,17 @@
-// Ajoute la cle Google Maps du MapView Android depuis l'environnement de build (eas.json).
-module.exports = ({ config }) => ({
-  ...config,
-  android: {
-    ...config.android,
-    config: { googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } },
-    // Fichier Firebase (notifications Android) fourni au build par une variable de type fichier EAS ; absent en local.
-    googleServicesFile: process.env.GOOGLE_SERVICES_JSON,
-  },
-});
+// Cle Google Maps, fichier Firebase et plugins natifs, avec possibilite d'en retirer (variable STRIP) pour isoler un plantage.
+module.exports = ({ config }) => {
+  const strip = (process.env.STRIP || '').split(',');
+  const plugins = (config.plugins || []).filter((p) => {
+    const name = Array.isArray(p) ? p[0] : p;
+    return !(strip.includes('splash') && name === 'expo-splash-screen') && !(strip.includes('notif') && name === 'expo-notifications');
+  });
+  return {
+    ...config,
+    plugins,
+    android: {
+      ...config.android,
+      config: strip.includes('maps') ? undefined : { googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } },
+      googleServicesFile: strip.includes('firebase') ? undefined : process.env.GOOGLE_SERVICES_JSON,
+    },
+  };
+};

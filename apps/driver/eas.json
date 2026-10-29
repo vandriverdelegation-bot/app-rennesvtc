@@ -17,6 +17,26 @@
         "buildType": "app-bundle"
       },
       "environment": "production"
+    },
+    "diag-nu": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "environment": "preview",
+      "env": {
+        "STRIP": "splash,notif,firebase,maps"
+      }
+    },
+    "diag-carte": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "environment": "preview",
+      "env": {
+        "STRIP": "notif,firebase"
+      }
     }
   },
   "submit": {
