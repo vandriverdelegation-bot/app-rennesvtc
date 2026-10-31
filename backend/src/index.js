@@ -501,7 +501,7 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
   if (!b.clientName || !b.clientPhone || !b.pickup?.address || !b.dropoff?.address || b.price == null) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
-  if (!['carte_a_bord', 'especes'].includes(b.paymentMethod)) {
+  if (!['carte_a_bord', 'especes', 'compte'].includes(b.paymentMethod)) {
     return res.status(400).json({ error: 'Mode de reglement invalide' });
   }
   const mad = b.serviceType === 'mise_a_disposition';

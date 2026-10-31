@@ -24,6 +24,7 @@ function parseDateTime(dateStr, timeStr) {
 const PAYMENT_METHODS = [
   { value: 'carte_a_bord', label: 'CB a bord' },
   { value: 'especes', label: 'Especes' },
+  { value: 'compte', label: 'En compte' },
 ];
 
 export default function CreateRide({ session, vehicleCategory, categories = [], canEditPrice, onDone, onCancel }) {
