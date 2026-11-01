@@ -21,6 +21,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Notifications : même message d'erreur détaillé.
 
 ## Déjà en ligne (backend, pas besoin de build)
+- Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.
 - Admin : bouton **Assigner ce chauffeur** dans une réservation (même en dispatch auto) ; la page de suivi du donneur d'ordre se rafraîchit toutes les 4 s et propose le **chat** avec le chauffeur.
 - Migration `040_chat_courses.sql` à appliquer sur Supabase pour que le chat fonctionne.

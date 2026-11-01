@@ -38,6 +38,11 @@
   .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .logo { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; display: none; }
   #title { white-space: nowrap; font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: 0.01em; }
+  .langs { display: flex; gap: 6px; margin-left: auto; }
+  .lang { width: 36px; height: 26px; padding: 0; border: 2px solid var(--line-2); border-radius: 6px; overflow: hidden; background: none; cursor: pointer; opacity: .65; transition: opacity .15s, border-color .15s; }
+  .lang svg { display: block; width: 100%; height: 100%; }
+  .lang:hover { opacity: 1; }
+  .lang.selected { opacity: 1; border-color: var(--accent); }
   .help { color: var(--muted); font-size: 14px; text-decoration: none; display: none; white-space: nowrap; }
   .help b { color: var(--text); }
   .help:hover b { color: var(--accent); }
@@ -126,7 +131,8 @@
   @media (max-width: 520px) {
     .shell { padding: 16px 14px 60px; }
     .panel { padding: 18px; border-radius: 18px; }
-    .top { margin-bottom: 24px; }
+    .top { margin-bottom: 24px; flex-wrap: wrap; }
+    .langs { order: 3; width: 100%; margin-left: 0; }
     .q { display: none; }
     .vehicles { gap: 8px; }
     .vehicle .name { font-size: 15px; left: 10px; }
@@ -143,151 +149,177 @@
         <img id="logo" class="logo" alt="" />
         <span id="title">Rennes VTC</span>
       </div>
-      <a class="help" id="help-link" href="#"><span class="q">Une question ?</span> <b id="help-phone"></b></a>
+      <div class="langs" id="langs" role="group" aria-label="Langue"></div>
+      <a class="help" id="help-link" href="#"><span class="q" data-i18n="question">Une question ?</span> <b id="help-phone"></b></a>
     </header>
 
     <div class="intro">
-      <h1>Réservez votre<br /><em>chauffeur privé.</em></h1>
-      <p>Réservez en quelques minutes, sans compte ni application. Le prix est affiché avant de valider et vous recevez une confirmation par email.</p>
+      <h1 data-i18n-html="h1">Réservez votre<br /><em>chauffeur privé.</em></h1>
+      <p data-i18n="intro">Réservez en quelques minutes, sans compte ni application. Le prix est affiché avant de valider et vous recevez une confirmation par email.</p>
     </div>
 
     <div class="layout">
       <div class="steps">
 
         <section class="panel">
-          <div class="panel-head"><span class="num">1</span><h2>Votre service</h2></div>
+          <div class="panel-head"><span class="num">1</span><h2 data-i18n="s1_title">Votre service</h2></div>
           <div class="segmented" id="services">
-            <button type="button" class="seg selected" data-service="trajet_simple">Trajet simple</button>
-            <button type="button" class="seg" data-service="mise_a_disposition">Mise à disposition</button>
+            <button type="button" class="seg selected" data-service="trajet_simple" data-i18n="svc_simple">Trajet simple</button>
+            <button type="button" class="seg" data-service="mise_a_disposition" data-i18n="svc_mad">Mise à disposition</button>
           </div>
           <div class="field">
-            <span class="lbl">Gamme de véhicule</span>
+            <span class="lbl" data-i18n="lbl_vehicle">Gamme de véhicule</span>
             <div class="vehicles" id="gammes"></div>
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><span class="num">2</span><h2>Trajet et horaires</h2></div>
+          <div class="panel-head"><span class="num">2</span><h2 data-i18n="s2_title">Trajet et horaires</h2></div>
           <div class="field">
-            <label for="pickup-input">Départ</label>
-            <input id="pickup-input" placeholder="Adresse de prise en charge" autocomplete="off" />
+            <label for="pickup-input" data-i18n="pickup">Départ</label>
+            <input id="pickup-input" placeholder="Adresse de prise en charge" data-i18n-ph="pickup_ph" autocomplete="off" />
             <div class="suggestions" id="pickup-suggestions" style="display:none"></div>
           </div>
           <div class="field">
             <label for="dropoff-input" id="dropoff-label">Destination</label>
-            <input id="dropoff-input" placeholder="Adresse de destination" autocomplete="off" />
+            <input id="dropoff-input" placeholder="Adresse de destination" data-i18n-ph="dest_ph" autocomplete="off" />
             <div class="suggestions" id="dropoff-suggestions" style="display:none"></div>
           </div>
           <div class="field row">
             <div>
-              <label for="date">Date <span class="opt">(vide = dès que possible)</span></label>
+              <label for="date" data-i18n-html="date_html">Date <span class="opt">(vide = dès que possible)</span></label>
               <input id="date" type="date" />
             </div>
             <div>
-              <label for="time">Heure</label>
+              <label for="time" data-i18n="time">Heure</label>
               <input id="time" type="time" />
             </div>
           </div>
           <div class="field" id="duration-row" style="display:none">
-            <label for="duration">Durée de la mise à disposition (heures)</label>
+            <label for="duration" data-i18n="duration">Durée de la mise à disposition (heures)</label>
             <input id="duration" type="number" min="1" step="0.5" value="3" />
           </div>
           <label class="check" id="round-trip-row">
             <input type="checkbox" id="round-trip" />
-            <span>Aller-retour</span>
+            <span data-i18n="round_trip">Aller-retour</span>
           </label>
           <div class="field row" id="return-datetime-row" style="display:none">
             <div>
-              <label for="return-date">Date du retour</label>
+              <label for="return-date" data-i18n="return_date">Date du retour</label>
               <input id="return-date" type="date" />
             </div>
             <div>
-              <label for="return-time">Heure du retour</label>
+              <label for="return-time" data-i18n="return_time">Heure du retour</label>
               <input id="return-time" type="time" />
             </div>
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><span class="num">3</span><h2>Passagers et bagages</h2></div>
+          <div class="panel-head"><span class="num">3</span><h2 data-i18n="s3_title">Passagers et bagages</h2></div>
           <div class="row">
-            <div><label for="passengers">Passagers</label><input id="passengers" type="number" min="1" value="1" /></div>
-            <div><label for="luggage">Bagages</label><input id="luggage" type="number" min="0" value="0" /></div>
+            <div><label for="passengers" data-i18n="passengers">Passagers</label><input id="passengers" type="number" min="1" value="1" /></div>
+            <div><label for="luggage" data-i18n="luggage">Bagages</label><input id="luggage" type="number" min="0" value="0" /></div>
           </div>
           <div class="field row">
-            <div><label for="child-seats">Sièges auto</label><input id="child-seats" type="number" min="0" value="0" /></div>
-            <div><label for="booster-seats">Rehausseurs</label><input id="booster-seats" type="number" min="0" value="0" /></div>
+            <div><label for="child-seats" data-i18n="child_seats">Sièges auto</label><input id="child-seats" type="number" min="0" value="0" /></div>
+            <div><label for="booster-seats" data-i18n="boosters">Rehausseurs</label><input id="booster-seats" type="number" min="0" value="0" /></div>
           </div>
           <div class="field" id="child-ages-row" style="display:none">
-            <label for="child-ages">Âge de l'enfant <span class="opt">(ex : 3 ans, ou 3 et 7 ans)</span></label>
-            <input id="child-ages" placeholder="Âge(s) des enfants" />
+            <label for="child-ages" data-i18n-html="child_age_html">Âge de l'enfant <span class="opt">(ex : 3 ans, ou 3 et 7 ans)</span></label>
+            <input id="child-ages" placeholder="Âge(s) des enfants" data-i18n-ph="child_age_ph" />
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><span class="num">4</span><h2>Vos coordonnées</h2></div>
+          <div class="panel-head"><span class="num">4</span><h2 data-i18n="s4_title">Vos coordonnées</h2></div>
           <div class="field">
-            <label for="client-name">Nom et prenom</label>
-            <input id="client-name" placeholder="Votre nom" autocomplete="name" />
+            <label for="client-name" data-i18n="name">Nom et prénom</label>
+            <input id="client-name" placeholder="Votre nom" data-i18n-ph="name_ph" autocomplete="name" />
           </div>
           <div class="field row">
             <div>
-              <label for="client-phone">Téléphone</label>
+              <label for="client-phone" data-i18n="phone">Téléphone</label>
               <input id="client-phone" placeholder="06 00 00 00 00" autocomplete="tel" inputmode="tel" />
             </div>
             <div>
-              <label for="client-email">Email</label>
+              <label for="client-email" data-i18n="email">Email</label>
               <input id="client-email" type="email" placeholder="vous@exemple.fr" autocomplete="email" required />
             </div>
           </div>
           <div class="field">
-            <label for="payment-method">Mode de règlement</label>
+            <label for="payment-method" data-i18n="payment">Mode de règlement</label>
             <select id="payment-method">
-              <option value="carte_a_bord">Carte bancaire à bord</option>
-              <option value="especes">Espèces</option>
+              <option value="carte_a_bord" data-i18n="pay_card">Carte bancaire à bord</option>
+              <option value="especes" data-i18n="pay_cash">Espèces</option>
             </select>
           </div>
         </section>
       </div>
 
       <aside class="summary">
-        <h2>Votre course</h2>
+        <h2 data-i18n="sum_title">Votre course</h2>
         <ul class="sum-list">
-          <li><span>Service</span><span id="sum-service">Trajet simple</span></li>
-          <li><span>Véhicule</span><span id="sum-gamme">À choisir</span></li>
-          <li><span>Trajet</span><span id="sum-route">À renseigner</span></li>
-          <li><span>Quand</span><span id="sum-when">Dès que possible</span></li>
-          <li><span>Passagers</span><span id="sum-pax">1</span></li>
+          <li><span data-i18n="sum_service">Service</span><span id="sum-service">Trajet simple</span></li>
+          <li><span data-i18n="sum_vehicle">Véhicule</span><span id="sum-gamme">À choisir</span></li>
+          <li><span data-i18n="sum_route">Trajet</span><span id="sum-route">À renseigner</span></li>
+          <li><span data-i18n="sum_when">Quand</span><span id="sum-when">Dès que possible</span></li>
+          <li><span data-i18n="sum_pax">Passagers</span><span id="sum-pax">1</span></li>
         </ul>
         <div class="sum-price" id="price-display"></div>
         <label class="terms">
           <input type="checkbox" id="accept-terms" />
-          <span>J'accepte les <a href="/conditions/#cgv" target="_blank" rel="noopener">CGV</a> et <a href="/conditions/#cgu" target="_blank" rel="noopener">CGU</a></span>
+          <span data-i18n-html="terms_html">J'accepte les <a href="/conditions/#cgv" target="_blank" rel="noopener">CGV</a> et <a href="/conditions/#cgu" target="_blank" rel="noopener">CGU</a></span>
         </label>
         <p id="error" class="error"></p>
-        <button class="cta" id="submit-btn">Demander la course</button>
-        <p class="reassure">Un chauffeur vous est attribué rapidement et vous êtes prévenu par email.</p>
+        <button class="cta" id="submit-btn" data-i18n="cta">Demander la course</button>
+        <p class="reassure" data-i18n="reassure">Un chauffeur vous est attribué rapidement et vous êtes prévenu par email.</p>
       </aside>
     </div>
   </div>
 
   <div id="confirmation-view" style="display:none" class="confirmation">
     <div class="big-tick">&#10003;</div>
-    <h2>Demande envoyée</h2>
-    <p>Merci, votre demande a bien été reçue. Un chauffeur va vous être attribué prochainement.</p>
-    <p id="confirmation-email" style="display:none">Une confirmation vous est envoyée par email, puis une seconde dès qu'un chauffeur accepte votre course.</p>
+    <h2 data-i18n="done_title">Demande envoyée</h2>
+    <p data-i18n="done_text">Merci, votre demande a bien été reçue. Un chauffeur va vous être attribué prochainement.</p>
+    <p id="confirmation-email" style="display:none" data-i18n="done_email">Une confirmation vous est envoyée par email, puis une seconde dès qu'un chauffeur accepte votre course.</p>
   </div>
 </div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { I18N, LANGS, FLAGS } from './i18n.js';
 
 const SUPABASE_URL = 'https://igrhehamvaaturnyttgb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_xCcmAj1b15cneUlrM0dy0A_Gej2tAxK';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const CATEGORIES = ['confort', 'affaires', 'van'];
+
+// Langue : ?lang=xx, sinon le dernier choix, sinon celle du navigateur, sinon le français.
+const saved = (() => { try { return localStorage.getItem('lang'); } catch (e) { return null; } })();
+const wanted = new URLSearchParams(location.search).get('lang') || saved || (navigator.language || 'fr').slice(0, 2);
+let lang = LANGS.some((l) => l.code === wanted) ? wanted : 'fr';
+const t = (k) => I18N[lang]?.[k] ?? I18N.fr[k];
+const VEHICLE_LABELS = new Proxy({}, { get: (_, c) => t('veh_' + c) });
+let gammePhotos = {};
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t('page_title');
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.getElementById('dropoff-label').textContent = t(isMad() ? 'mission_end' : 'dest');
+  document.getElementById('langs').innerHTML = LANGS.map((l) => '<button type="button" class="lang ' + (l.code === lang ? 'selected' : '') + '" data-lang="' + l.code + '" title="' + l.name + '" aria-label="' + l.name + '" aria-pressed="' + (l.code === lang) + '">' + FLAGS[l.code] + '</button>').join('');
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+    lang = b.dataset.lang;
+    try { localStorage.setItem('lang', lang); } catch (e) { /* navigation privée : on garde le choix pour la visite */ }
+    applyLang();
+    updatePrice();
+  }));
+  renderGammes(gammePhotos);
+}
 
 let pickup = null; // { address, lat, lng }
 let dropoff = null;
@@ -304,7 +336,7 @@ document.querySelectorAll('[data-service]').forEach((el) => {
     document.getElementById('duration-row').style.display = isMad() ? 'block' : 'none';
     document.getElementById('round-trip-row').style.display = isMad() ? 'none' : 'flex';
     if (isMad()) { document.getElementById('round-trip').checked = false; document.getElementById('return-datetime-row').style.display = 'none'; }
-    document.getElementById('dropoff-label').textContent = isMad() ? 'Lieu de fin de mission' : 'Destination';
+    document.getElementById('dropoff-label').textContent = t(isMad() ? 'mission_end' : 'dest');
     updatePrice();
   });
 });
@@ -326,12 +358,10 @@ function renderGammes(photos) {
     });
   });
 }
-renderGammes({});
-document.getElementById('price-display').innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici dès que votre trajet et votre véhicule sont choisis.</p>';
 supabase.from('vehicles').select('vehicle_category, photo_url').eq('active', true).not('photo_url', 'is', null).order('created_at', { ascending: true }).then(({ data }) => {
   const photos = {};
   (data ?? []).forEach((v) => { if (!photos[v.vehicle_category]) photos[v.vehicle_category] = v.photo_url; });
-  if (Object.keys(photos).length) renderGammes(photos);
+  if (Object.keys(photos).length) { gammePhotos = photos; renderGammes(photos); }
 });
 
 supabase.from('app_settings').select('*').eq('id', true).single().then(({ data }) => {
@@ -414,15 +444,15 @@ function renderSummary() {
   const time = document.getElementById('time').value;
   const pax = parseInt(document.getElementById('passengers').value, 10) || 1;
   const bags = parseInt(document.getElementById('luggage').value, 10) || 0;
-  set('sum-service', isMad() ? 'Mise à disposition' : 'Trajet simple');
-  set('sum-gamme', vehicleCategory ? VEHICLE_LABELS[vehicleCategory] : 'À choisir');
+  set('sum-service', t(isMad() ? 'svc_mad' : 'svc_simple'));
+  set('sum-gamme', vehicleCategory ? VEHICLE_LABELS[vehicleCategory] : t('to_choose'));
   set('sum-route', isMad()
-    ? (pickup ? short(pickup) + ' (' + (document.getElementById('duration').value || '?') + ' h)' : 'À renseigner')
-    : (pickup && dropoff ? short(pickup) + ' \u2192 ' + short(dropoff) : 'À renseigner'));
+    ? (pickup ? short(pickup) + ' (' + (document.getElementById('duration').value || '?') + ' h)' : t('to_fill'))
+    : (pickup && dropoff ? short(pickup) + ' \u2192 ' + short(dropoff) : t('to_fill')));
   set('sum-when', date
-    ? new Date(date + 'T' + (time || '00:00')).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + (time ? ' à ' + time : '')
-    : 'Dès que possible');
-  set('sum-pax', pax + (pax > 1 ? ' passagers' : ' passager') + (bags ? ', ' + bags + (bags > 1 ? ' bagages' : ' bagage') : ''));
+    ? new Date(date + 'T' + (time || '00:00')).toLocaleDateString(LANGS.find((l) => l.code === lang).locale, { weekday: 'short', day: 'numeric', month: 'short' }) + (time ? ' ' + t('at') + ' ' + time : '')
+    : t('asap'));
+  set('sum-pax', pax + ' ' + t(pax > 1 ? 'passengers_n' : 'passenger') + (bags ? ', ' + bags + ' ' + t(bags > 1 ? 'bags' : 'bag') : ''));
 }
 renderSummary();
 
@@ -430,8 +460,8 @@ async function updatePrice() {
   renderSummary();
   const priceEl = document.getElementById('price-display');
   const duration = parseFloat(document.getElementById('duration').value);
-  if (!vehicleCategory || (isMad() ? !duration : !pickup || !dropoff)) { priceEl.innerHTML = '<p class="price-sub">Le prix s\u2019affiche ici dès que votre trajet et votre véhicule sont choisis.</p>'; price = null; return; }
-  priceEl.innerHTML = '<p class="price-sub">Calcul du prix...</p>';
+  if (!vehicleCategory || (isMad() ? !duration : !pickup || !dropoff)) { priceEl.innerHTML = '<p class="price-sub">' + t('price_hint') + '</p>'; price = null; return; }
+  priceEl.innerHTML = '<p class="price-sub">' + t('price_calc') + '</p>';
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
   const when = date && time ? new Date(`${date}T${time}`).toISOString() : null;
@@ -445,11 +475,14 @@ async function updatePrice() {
   if (result.error) { priceEl.innerHTML = `<p class="error">${result.error}</p>`; price = null; return; }
   price = result.price;
   priceEl.innerHTML = result.manual
-    ? '<p class="price" style="font-size:26px">Prix fixe par le chauffeur</p>'
-    : `<p class="price">${price} €</p><p class="price-sub">Tarif de la course</p>`;
+    ? '<p class="price" style="font-size:26px">' + t('price_manual') + '</p>'
+    : `<p class="price">${price} €</p><p class="price-sub">${t('price_label')}</p>`;
 }
 document.getElementById('date').addEventListener('change', updatePrice);
 document.getElementById('time').addEventListener('change', updatePrice);
+
+applyLang();
+updatePrice();
 
 document.getElementById('submit-btn').addEventListener('click', async () => {
   const errorEl = document.getElementById('error');
@@ -462,23 +495,23 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
 
-  if (!document.getElementById('accept-terms').checked) { errorEl.textContent = 'Veuillez accepter les CGV et CGU pour valider la réservation.'; return; }
-  if (!vehicleCategory) { errorEl.textContent = 'Choisissez une gamme de véhicule.'; return; }
-  if (!pickup || !dropoff) { errorEl.textContent = 'Choisissez une adresse de départ et de destination dans la liste.'; return; }
-  if (!clientName || !clientPhone) { errorEl.textContent = 'Nom et téléphone sont requis.'; return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) { errorEl.textContent = 'Indiquez une adresse email valide : elle sert à vous envoyer la confirmation.'; return; }
+  if (!document.getElementById('accept-terms').checked) { errorEl.textContent = t('err_terms'); return; }
+  if (!vehicleCategory) { errorEl.textContent = t('err_vehicle'); return; }
+  if (!pickup || !dropoff) { errorEl.textContent = t('err_addresses'); return; }
+  if (!clientName || !clientPhone) { errorEl.textContent = t('err_contact'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) { errorEl.textContent = t('err_email'); return; }
   const durationHours = parseFloat(document.getElementById('duration').value);
-  if (isMad() && !durationHours) { errorEl.textContent = 'Indiquez la durée de la mise à disposition.'; return; }
-  if (price === null) { errorEl.textContent = 'Le prix est en cours de calcul, patientez.'; return; }
+  if (isMad() && !durationHours) { errorEl.textContent = t('err_duration'); return; }
+  if (price === null) { errorEl.textContent = t('err_price_wait'); return; }
   const seats = seatsPayload();
-  if ((seats.childSeats > 0 || seats.boosterSeats > 0) && !seats.childAges) { errorEl.textContent = 'Indiquez l\u2019âge de l\u2019enfant.'; return; }
+  if ((seats.childSeats > 0 || seats.boosterSeats > 0) && !seats.childAges) { errorEl.textContent = t('err_child_age'); return; }
   const returnDate = document.getElementById('return-date').value;
   const returnTime = document.getElementById('return-time').value;
-  if (roundTrip && (!returnDate || !returnTime)) { errorEl.textContent = 'Indiquez la date et l’heure du retour.'; return; }
+  if (roundTrip && (!returnDate || !returnTime)) { errorEl.textContent = t('err_return'); return; }
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
-  btn.textContent = 'Envoi...';
+  btn.textContent = t('sending');
   const res = await fetch('/public/book', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -491,7 +524,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
   });
   const result = await res.json();
   btn.disabled = false;
-  btn.textContent = 'Demander la course';
+  btn.textContent = t('cta');
   if (result.error) { errorEl.textContent = result.error; return; }
 
   if (clientEmail) document.getElementById('confirmation-email').style.display = 'block';
