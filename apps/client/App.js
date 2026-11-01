@@ -164,7 +164,7 @@ function AppContent() {
           </TouchableOpacity>
         </View>
         {showMenu ? <ClientMenu session={session} onClose={() => setShowMenu(false)} /> : <ClientHome session={session} logoUrl={logoUrl} appName={appName} />}
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </SafeAreaView>
     );
   }
@@ -214,7 +214,7 @@ function AppContent() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </SafeAreaView>
   );
 }
@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
   },
   menuButtonText: { color: theme.colors.text, fontWeight: '700' },
   logoRow: { marginBottom: 24, alignItems: 'center' },
-  logo: { fontSize: 28, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 12, color: theme.colors.text },
+  logo: { fontFamily: theme.fonts.title, fontSize: 28, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
+  title: { fontFamily: theme.fonts.title, fontSize: 22, fontWeight: '800', marginBottom: 12, color: theme.colors.text },
   input: {
     width: '100%',
     borderWidth: 1,

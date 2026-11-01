@@ -230,7 +230,7 @@ export default function ClientMenu({ session, onClose }) {
 const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   content: { padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
+  title: { fontFamily: theme.fonts.title, fontSize: 24, fontWeight: '800', color: theme.colors.text },
   muted: { color: theme.colors.textMuted },
   error: { color: theme.colors.error },
   back: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },

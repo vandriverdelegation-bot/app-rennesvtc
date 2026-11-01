@@ -369,6 +369,7 @@ export default function DriverHome({ session }) {
   if (activeRide) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
     return (
+      <View style={styles.activeScreen}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>
         {selectedRef.current === activeRide.id && !['en_route', 'on_site'].includes(activeRide.ride_step) ? (
           <TouchableOpacity onPress={() => { selectedRef.current = null; refresh(); }}>
@@ -459,10 +460,6 @@ export default function DriverHome({ session }) {
           <RideChat session={session} rideId={activeRide.id} me="chauffeur" />
         </Card>
 
-        {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
-        {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
-        {activeRide.ride_step === 'on_site' && clientInfo?.phone ? <Btn title="Prevenir le client par SMS" variant="secondary" onPress={handleArrivalSms} /> : null}
-        {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
         <Btn title="Telecharger le bon de commande" variant="secondary" onPress={handleDownloadBonCommande} />
         {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
         {!releaseOpen ? (
@@ -480,6 +477,13 @@ export default function DriverHome({ session }) {
           </Card>
         )}
       </ScrollView>
+      <View style={styles.actionBar}>
+        {activeRide.ride_step === 'on_site' && clientInfo?.phone ? <Btn title="Prevenir le client par SMS" variant="secondary" onPress={handleArrivalSms} /> : null}
+        {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
+        {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
+        {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
+      </View>
+      </View>
     );
   }
 
@@ -588,6 +592,8 @@ const styles = StyleSheet.create({
   listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
   list: { width: '100%' },
+  activeScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
+  actionBar: { padding: 12, gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, backgroundColor: theme.colors.background },
   tabRow: { flexDirection: 'row', gap: 8 },
   tab: { flex: 1, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
   tabActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },

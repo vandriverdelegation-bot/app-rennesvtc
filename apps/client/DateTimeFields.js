@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   weekday: { color: theme.colors.textMuted, fontSize: 12, textAlignVertical: 'center', textAlign: 'center' },
   chip: { width: '13.5%', height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: theme.colors.inputBorder },
   dayText: { color: theme.colors.text, fontSize: 15 },
-  past: { color: '#4A4D52', opacity: 0.5 },
+  past: { color: theme.colors.textMuted, opacity: 0.45 },
   selected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   selectedText: { color: theme.colors.accentText, fontWeight: '700' },
   hint: { color: theme.colors.textMuted, textAlign: 'center', marginTop: 8, fontSize: 12 },

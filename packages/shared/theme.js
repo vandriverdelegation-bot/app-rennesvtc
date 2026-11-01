@@ -10,7 +10,9 @@ const theme = {
     error: '#FF5C5C',
     input: '#1B1C1E',
     inputBorder: '#33353A',
+    pill: '#232427',
   },
+  fonts: { title: undefined },
   radius: 12,
   spacing: 16,
 };

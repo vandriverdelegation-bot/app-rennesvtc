@@ -134,7 +134,7 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
 const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   when: { color: theme.colors.text, fontSize: 17, fontWeight: '700', marginTop: 2 },
-  price: { color: theme.colors.accent, fontSize: 22, fontWeight: '800' },
+  price: { fontFamily: theme.fonts.title, color: theme.colors.accent, fontSize: 22, fontWeight: '800' },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   driverBox: { gap: 4, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, paddingTop: 12 },
   driverName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },

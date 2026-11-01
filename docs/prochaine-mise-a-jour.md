@@ -2,6 +2,11 @@
 
 Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tout ce qui suit est **déjà dans le code (GitHub, branche main)** mais **pas dans les APK installés**.
 
+## Design (choisi le 01/11/2026)
+- **Appli chauffeur : Nuit verte** (noir et vert, identité actuelle affinée). **Appli client : Jour ivoire** (fond ivoire, cartes blanches, vert profond #1F5E3B, titres à empattement). Palette client dans `apps/client/applyTheme.js`.
+- Les deux : boutons plus grands (52 px mini), cartes légèrement posées, actions de la course fixées en bas de l'écran chauffeur (en route / arrivé / SMS / terminer).
+- Pas fait : barre de navigation du bas (Courses / À venir / Messages / Compte). Maquettes : `docs/propositions-design-apps.pdf`.
+
 ## Appli chauffeur
 - Saisie d'une **mise à disposition** (durée en heures, 3 par défaut, prix = tarif horaire de la gamme) en plus du trajet.
 - Le compte **propriétaire** voit toujours « Saisir une réservation » (plus besoin de la case « Créer »).
