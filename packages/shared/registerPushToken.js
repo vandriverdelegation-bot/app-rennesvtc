@@ -2,7 +2,8 @@
 // N'echoue jamais bruyamment : sans permission, sans projet EAS configure ou dans
 // Expo Go (qui n'embarque pas les modules de notifications), l'app continue de
 // fonctionner normalement, simplement sans notifications push.
-async function registerPushToken(supabase, userId) {
+// options.courseChannel : l'app chauffeur cree le canal « Nouvelles courses » (sonnerie speciale embarquee dans l'APK).
+async function registerPushToken(supabase, userId, options = {}) {
   try {
     // Expo Go n'embarque pas les modules natifs de notifications : on verifie leur
     // presence avant de charger expo-notifications, dont le simple chargement
@@ -14,6 +15,15 @@ async function registerPushToken(supabase, userId) {
     const Device = require('expo-device');
 
     if (!Device.isDevice) return 'Indisponible sur un simulateur.';
+    if (options.courseChannel && require('react-native').Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('courses', {
+        name: 'Nouvelles courses',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'course.wav',
+        vibrationPattern: [0, 400, 200, 400],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+    }
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (status !== 'granted') {
@@ -28,7 +38,8 @@ async function registerPushToken(supabase, userId) {
       return 'Projet EAS introuvable dans la configuration.';
     }
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+    const { error } = await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+    if (error) return 'Enregistrement du jeton refuse : ' + error.message;
   } catch (e) {
     console.log('registerPushToken: notifications push indisponibles -', e.message);
     return e.message; // renvoye pour etre affiche dans l'ecran Notifications

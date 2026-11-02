@@ -1,7 +1,8 @@
-async function sendPush(tokens, title, body) {
+// extra : { channelId: 'courses' } pour la sonnerie speciale des alertes chauffeur (canal cree par l'app chauffeur).
+async function sendPush(tokens, title, body, extra = {}) {
   const messages = tokens
     .filter(Boolean)
-    .map((to) => ({ to, title, body }));
+    .map((to) => ({ to, title, body, ...extra }));
   if (messages.length === 0) return;
 
   await fetch('https://exp.host/--/api/v2/push/send', {

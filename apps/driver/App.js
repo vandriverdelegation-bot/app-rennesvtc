@@ -59,7 +59,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (session) registerPushToken(supabase, session.user.id);
+    if (session) registerPushToken(supabase, session.user.id, { courseChannel: true });
   }, [session?.user.id]);
 
   async function handleLogin() {

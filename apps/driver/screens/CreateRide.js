@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
 import { theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,11 @@ function assignLabel(assignTo, colleagues) {
   if (assignTo === 'all') return 'Tous les chauffeurs de ma gamme (dispatch)';
   const c = colleagues.find((x) => x.id === assignTo);
   return c ? `${c.name} - ${c.vehicle_category}` : 'Choisir un chauffeur';
+}
+
+function displayPhone(p) {
+  const m = /^\+33(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(p || '');
+  return m ? `0${m[1]} ${m[2]} ${m[3]} ${m[4]} ${m[5]}` : p || '';
 }
 
 function parseDateTime(dateStr, timeStr) {
@@ -60,6 +65,30 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
   // Le tarif depend de la gamme du chauffeur qui prendra la course.
   const colleague = colleagues.find((c) => c.id === assignTo);
   const rideCategory = colleague ? (colleague.vehicle_categories ?? []).includes(ownCategory) ? ownCategory : colleague.vehicle_category : ownCategory;
+
+  // Saisie semi-automatique : quelques lettres du nom proposent les clients du fichier.
+  const [suggestions, setSuggestions] = useState([]);
+  const suggestTimer = useRef(null);
+  function handleNameChange(text) {
+    setClientName(text);
+    clearTimeout(suggestTimer.current);
+    if (text.trim().length < 2) return setSuggestions([]);
+    suggestTimer.current = setTimeout(() => {
+      fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/clients/search?q=${encodeURIComponent(text.trim())}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .then(setSuggestions)
+        .catch(() => {});
+    }, 250);
+  }
+  function pickClient(c) {
+    clearTimeout(suggestTimer.current);
+    setClientName(c.name);
+    setClientPhone(displayPhone(c.phone));
+    setClientEmail(c.email || '');
+    setSuggestions([]);
+  }
 
   useEffect(() => {
     fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/colleagues`, {
@@ -226,7 +255,13 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
       </View>
 
       <Text style={styles.label}>Nom du client</Text>
-      <TextInput style={styles.input} value={clientName} onChangeText={setClientName} placeholder="Nom du client" placeholderTextColor={theme.colors.textMuted} />
+      <TextInput style={styles.input} value={clientName} onChangeText={handleNameChange} placeholder="Nom du client (quelques lettres suffisent)" placeholderTextColor={theme.colors.textMuted} autoCorrect={false} />
+      {suggestions.map((c) => (
+        <TouchableOpacity key={c.id} style={styles.suggestRow} onPress={() => pickClient(c)}>
+          <Text style={styles.suggestName}>{c.name}{c.status === 'blacklist' ? ' (a ne pas servir)' : ''}</Text>
+          <Text style={styles.suggestDetail}>{[displayPhone(c.phone), c.email].filter(Boolean).join(' - ')}</Text>
+        </TouchableOpacity>
+      ))}
 
       <Text style={styles.label}>Telephone du client</Text>
       <TextInput style={styles.input} value={clientPhone} onChangeText={setClientPhone} placeholder="0600000000" placeholderTextColor={theme.colors.textMuted} keyboardType="phone-pad" />
@@ -405,6 +440,9 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
 }
 
 const styles = StyleSheet.create({
+  suggestRow: { backgroundColor: theme.colors.card, borderColor: theme.colors.accent, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
+  suggestName: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
+  suggestDetail: { color: theme.colors.textMuted, fontSize: 13, marginTop: 2 },
   container: { flex: 1, width: '100%', backgroundColor: theme.colors.background },
   content: { padding: 16, gap: 10 },
   title: { fontSize: 20, fontWeight: '700', color: theme.colors.text },

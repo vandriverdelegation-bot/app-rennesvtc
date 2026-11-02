@@ -214,7 +214,7 @@ function NotificationsView({ session, onBack }) {
   async function handleToggle(value) {
     setMessage('');
     if (value) {
-      const failure = await registerPushToken(supabase, session.user.id);
+      const failure = await registerPushToken(supabase, session.user.id, { courseChannel: true });
       const { data } = await supabase.from('profiles').select('push_token').eq('id', session.user.id).single();
       setEnabled(!!data?.push_token);
       if (!data?.push_token) {

@@ -247,6 +247,10 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
+.suggest-list { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18); max-height: 280px; overflow-y: auto; }
+.suggest-row { display: flex; flex-direction: column; padding: 8px 12px; cursor: pointer; font-size: 14px; color: #111; }
+.suggest-row span { font-size: 12px; color: #666; }
+.suggest-row:hover { background: #eef7e8; }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -919,6 +923,58 @@ document.getElementById('new-ride-service').addEventListener('change', (e) => {
     document.getElementById('new-ride-return-row').style.display = 'none';
   }
 });
+// Saisie semi-automatique : quelques lettres du nom (ou du telephone) proposent les clients du fichier ; un clic remplit les champs.
+function displayPhone(p) {
+  const m = /^\+33(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(p || '');
+  return m ? `0${m[1]} ${m[2]} ${m[3]} ${m[4]} ${m[5]}` : p || '';
+}
+function attachClientSuggest(input, onPick) {
+  const list = document.createElement('div');
+  list.className = 'suggest-list';
+  list.hidden = true;
+  input.parentElement.style.position = 'relative';
+  input.parentElement.appendChild(list);
+  input.setAttribute('autocomplete', 'off');
+  let timer, seq = 0;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { list.hidden = true; return; }
+    timer = setTimeout(async () => {
+      const mine = ++seq;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/clients/search?q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + session.access_token } }).catch(() => null);
+      if (!res || !res.ok || mine !== seq) return;
+      const found = await res.json();
+      list.innerHTML = '';
+      found.forEach((c) => {
+        const row = document.createElement('div');
+        row.className = 'suggest-row';
+        const name = document.createElement('strong');
+        name.textContent = c.name + (c.status === 'blacklist' ? ' (a ne pas servir)' : '');
+        const detail = document.createElement('span');
+        detail.textContent = [displayPhone(c.phone), c.email].filter(Boolean).join(' - ');
+        row.append(name, detail);
+        row.addEventListener('mousedown', (e) => { e.preventDefault(); list.hidden = true; onPick(c); });
+        list.appendChild(row);
+      });
+      list.hidden = !found.length;
+    }, 250);
+  });
+  input.addEventListener('blur', () => { list.hidden = true; });
+}
+attachClientSuggest(document.getElementById('new-ride-client-name'), (c) => {
+  document.getElementById('new-ride-client-firstname').value = '';
+  document.getElementById('new-ride-client-name').value = c.name;
+  document.getElementById('new-ride-client-phone').value = displayPhone(c.phone);
+  document.getElementById('new-ride-client-email').value = c.email || '';
+});
+attachClientSuggest(document.getElementById('new-ride-orderer-name'), (c) => {
+  document.getElementById('new-ride-orderer-name').value = c.name;
+  document.getElementById('new-ride-orderer-phone').value = displayPhone(c.phone);
+  document.getElementById('new-ride-orderer-email').value = c.email || '';
+});
+
 document.getElementById('new-ride-orderer-toggle').addEventListener('click', () => {
   const block = document.getElementById('new-ride-orderer-block');
   const open = block.style.display === 'none';
@@ -1033,6 +1089,13 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify({ rideId: created.id, fromAdmin: true }),
+  }).catch(() => {});
+
+  // Le client est retenu dans le fichier clients pour la prochaine saisie.
+  fetch('/clients/remember', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ name: client_name, phone: client_phone, email: client_email }),
   }).catch(() => {});
 
   // Donneur d'ordre sans email : lien de suivi a envoyer par WhatsApp (un clic, le lien ne peut pas s'ouvrir tout seul).

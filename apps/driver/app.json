@@ -44,7 +44,8 @@
       [
         "expo-notifications",
         {
-          "color": "#47C415"
+          "color": "#47C415",
+          "sounds": ["./assets/sounds/course.wav"]
         }
       ],
       [

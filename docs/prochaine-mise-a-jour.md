@@ -17,7 +17,9 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Saisie d'une réservation : champ **Email du client (facultatif)** ; s'il est renseigné et que le chauffeur prend la course, le client reçoit la confirmation.
 - Saisie d'une réservation : mode de règlement **En compte** disponible (en plus de CB à bord et Espèces) ; le serveur l'accepte déjà.
 - Étape « Sur place » : bouton **Prévenir le client par SMS** (ouvre l'appli SMS avec le message prêt, gratuit, un appui sur Envoyer).
-- Notifications : l'écran affiche la **vraie raison** de l'échec (la cause de l'échec actuel est inconnue : Firebase est bien dans l'APK).
+- Notifications : l'écran affiche la **vraie raison** de l'échec. Cause du blocage trouvée le 02/11 : migrations 012/017 avaient retiré le droit d'écrire push_token (corrigé par la migration 041, appliquée ; notifications OK).
+- **Sonnerie spéciale « Nouvelles courses »** : carillon `apps/driver/assets/sounds/course.wav`, canal Android `courses` (importance max) créé par l'app ; le serveur envoie `channelId: courses` pour les alertes chauffeur. Demande un build.
+- **Saisie semi-automatique du client** (nom ou téléphone, 2 lettres) dans « Saisir une réservation » : remplit téléphone et e-mail. Fichier clients : table `clients` (migration 042, 1 885 clients importés le 02/11 depuis la base nettoyée), mise à jour automatiquement à chaque saisie.
 
 ## Appli client
 - **Continuer avec Google** (schéma `rennesvtc-client://auth`) + demande du téléphone après une inscription Google.
@@ -33,6 +35,9 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Admin : gamme modifiable à tout moment, suppression d'une réservation (confirmation, définitive).
 - Fiche de mission (nouveau bon de commande, licence 035 21 03 79 02, n° de dossier = 8 premiers caractères de l'id).
 - Faille d'inscription corrigée (migration 039), SMTP Resend dans Supabase, Google activé dans Supabase.
+
+## Déjà en ligne (02/11) : fichier clients
+- Back-end admin : saisie semi-automatique sur « Nom » du client et « Donneur d'ordre » (route `GET /clients/search`, réservée admin / chauffeurs autorisés ; `POST /clients/remember`). Fichier source nettoyé : `docs/clients-nettoyes.xlsx` (ignoré par git, données personnelles).
 
 ## Quand le quota est remis (dimanche 01/11)
 ```

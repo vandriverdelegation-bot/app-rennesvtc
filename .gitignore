@@ -7,3 +7,4 @@ dist/
 # Fichiers Firebase (ne pas versionner)
 google-services.json
 *-firebase-adminsdk-*.json
+docs/clients-nettoyes.xlsx
