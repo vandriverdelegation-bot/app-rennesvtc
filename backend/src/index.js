@@ -851,11 +851,14 @@ app.get('/public/track/:token', async (req, res) => {
 
 async function getDistanceKmServer(origin, destination) {
   const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
-  if (!meters) throw new Error("Impossible de calculer l'itinéraire");
-  return meters / 1000;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const data = await fetch(url).then((r) => r.json()).catch(() => ({}));
+    const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
+    if (meters) return meters / 1000;
+    console.error('Directions API :', data.status, data.error_message || '');
+    await new Promise((r) => setTimeout(r, 600));
+  }
+  throw new Error("Impossible de calculer l'itinéraire, réessayez dans un instant.");
 }
 
 app.post('/public/places/autocomplete', async (req, res) => {

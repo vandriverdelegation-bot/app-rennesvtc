@@ -563,7 +563,7 @@
                     <option value="compte">En compte</option>
                   </select>
                 </div>
-                <div class="field"><label for="new-ride-price">Prix (€)</label><input id="new-ride-price" type="number" step="0.01" placeholder="0.00" /></div>
+                <div class="field"><label for="new-ride-price">Prix (€)</label><input id="new-ride-price" type="number" step="0.01" placeholder="0.00" /><small id="new-ride-price-hint" style="color:#666"></small></div>
                 <div class="field"><label for="new-ride-driver">Chauffeur</label>
                   <select id="new-ride-driver"><option value="">Laisser en attente (dispatch normal)</option></select>
                 </div>
@@ -910,8 +910,47 @@ function setupAdminAutocomplete(inputId, suggestionsId, onSelect) {
 
 let newRidePickup = null;
 let newRideDropoff = null;
-setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; });
-setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; });
+setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; updateNewRidePrice(); });
+setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; updateNewRidePrice(); });
+// Prix calcule automatiquement (memes tarifs que le module de reservation) des que les adresses sont choisies ;
+// un prix saisi a la main n'est jamais ecrase.
+let newRidePriceManual = false;
+let newRidePriceSeq = 0;
+async function updateNewRidePrice() {
+  const priceEl = document.getElementById('new-ride-price');
+  const hint = document.getElementById('new-ride-price-hint');
+  if (newRidePriceManual) return;
+  const mad = document.getElementById('new-ride-service').value === 'mise_a_disposition';
+  const category = document.getElementById('new-ride-category').value;
+  const duration = parseFloat(document.getElementById('new-ride-duration').value);
+  if (!category || (mad ? !duration : !newRidePickup || !newRideDropoff)) { priceEl.value = ''; hint.textContent = ''; return; }
+  const date = document.getElementById('new-ride-date').value;
+  const time = document.getElementById('new-ride-time').value;
+  const num = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+  const body = mad
+    ? { vehicle_category: category, service_type: 'mise_a_disposition', duration_hours: duration }
+    : { vehicle_category: category, pickup: newRidePickup, dropoff: newRideDropoff, when: date && time ? new Date(`${date}T${time}`).toISOString() : null,
+        passengerCount: Math.max(1, num('new-ride-passengers')), childSeats: num('new-ride-child-seats'), boosterSeats: num('new-ride-booster-seats') };
+  const mine = ++newRidePriceSeq;
+  hint.textContent = 'Calcul du prix...';
+  const result = await fetch('/public/estimate-price', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch(() => ({ error: 'Calcul impossible pour le moment : saisissez le prix.' }));
+  if (mine !== newRidePriceSeq || newRidePriceManual) return;
+  if (result.error || result.manual) {
+    priceEl.value = '';
+    hint.textContent = result.error || 'Tarif sur devis pour ce trajet : saisissez le prix.';
+    return;
+  }
+  priceEl.value = result.price;
+  hint.textContent = 'Prix calcule automatiquement (modifiable).';
+}
+document.getElementById('new-ride-price').addEventListener('input', (e) => {
+  newRidePriceManual = e.target.value !== '';
+  if (newRidePriceManual) document.getElementById('new-ride-price-hint').textContent = 'Prix saisi a la main.';
+  else updateNewRidePrice();
+});
+['new-ride-category', 'new-ride-service', 'new-ride-duration', 'new-ride-date', 'new-ride-time', 'new-ride-passengers', 'new-ride-child-seats', 'new-ride-booster-seats']
+  .forEach((id) => document.getElementById(id).addEventListener('change', updateNewRidePrice));
 // Mise a disposition : duree en heures, pas d'aller-retour, destination facultative (lieu de fin = depart par defaut).
 document.getElementById('new-ride-service').addEventListener('change', (e) => {
   const mad = e.target.value === 'mise_a_disposition';
@@ -1133,6 +1172,8 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-orderer-block').style.display = 'none';
   document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
   document.getElementById('new-ride-price').value = '';
+  document.getElementById('new-ride-price-hint').textContent = '';
+  newRidePriceManual = false;
   refresh();
 });
 

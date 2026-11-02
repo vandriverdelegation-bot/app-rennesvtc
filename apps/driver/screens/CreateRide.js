@@ -119,7 +119,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
       supabase.from('pricing_simple').select('*').eq('vehicle_category', rideCategory).single(),
       supabase.from('pricing_zones').select('*').eq('vehicle_category', rideCategory).eq('active', true),
     ]).then(async ([{ data: pricing }, { data: zones }]) => {
-      if (!pricing) return;
+      if (!pricing) return setPriceError(`Tarif introuvable pour la gamme ${rideCategory}.`);
       try {
         const km = await getDistanceKm(pickup, dropoff);
         const result = computeTrajetSimplePrice({
@@ -137,7 +137,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         setPrice(result.price);
         setPriceManual(result.manual);
       } catch (e) {
-        setPriceError("Impossible de calculer le prix pour cet itineraire.");
+        setPriceError(`Impossible de calculer le prix : ${e.message}`);
       }
     });
   }, [serviceType, durationHours, pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops, rideCategory]);

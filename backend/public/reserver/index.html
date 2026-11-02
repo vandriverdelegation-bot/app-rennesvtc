@@ -456,6 +456,7 @@ function renderSummary() {
 }
 renderSummary();
 
+let priceSeq = 0;
 async function updatePrice() {
   renderSummary();
   const priceEl = document.getElementById('price-display');
@@ -465,13 +466,14 @@ async function updatePrice() {
   const date = document.getElementById('date').value;
   const time = document.getElementById('time').value;
   const when = date && time ? new Date(`${date}T${time}`).toISOString() : null;
-  const res = await fetch('/public/estimate-price', {
+  const mine = ++priceSeq;
+  const result = await fetch('/public/estimate-price', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(isMad()
       ? { vehicle_category: vehicleCategory, service_type: 'mise_a_disposition', duration_hours: duration }
       : { vehicle_category: vehicleCategory, pickup, dropoff, when, ...seatsPayload() }),
-  });
-  const result = await res.json();
+  }).then((r) => r.json()).catch(() => ({ error: t('price_retry') }));
+  if (mine !== priceSeq) return;
   if (result.error) { priceEl.innerHTML = `<p class="error">${result.error}</p>`; price = null; return; }
   price = result.price;
   priceEl.innerHTML = result.manual
