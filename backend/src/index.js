@@ -667,7 +667,7 @@ app.post('/client/rides/:rideId/cancel', requireSupabaseUser, async (req, res) =
   const trajet = `${ride.pickup_address} -> ${ride.dropoff_address}`;
   if (ride.driver_id) {
     const { data: driver } = await supabaseAdmin.from('profiles').select('push_token').eq('id', ride.driver_id).single();
-    await sendPush([driver?.push_token], 'Course annulee par le client', trajet);
+    await sendPush([driver?.push_token], 'Course annulee par le client', trajet, { channelId: 'courses_v2' });
   }
   await sendAdminEmail('Reservation annulee par le client', `${trajet}\n${ride.scheduled_at ? `Prevue le ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : 'Course immediate'}`);
   res.json({ ok: true });
