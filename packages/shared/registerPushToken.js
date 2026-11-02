@@ -39,7 +39,7 @@ async function registerPushToken(supabase, userId, options = {}) {
       return 'Projet EAS introuvable dans la configuration.';
     }
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    const { error } = await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+    const { error } = await supabase.from('profiles').update({ push_token: token, push_channel: options.courseChannel ? 'courses_v2' : null }).eq('id', userId);
     if (error) return 'Enregistrement du jeton refuse : ' + error.message;
   } catch (e) {
     console.log('registerPushToken: notifications push indisponibles -', e.message);
