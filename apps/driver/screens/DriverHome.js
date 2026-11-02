@@ -271,7 +271,7 @@ export default function DriverHome({ session }) {
 
   // Ouvre l'appli SMS du telephone avec le message pret : le chauffeur n'a qu'a appuyer sur Envoyer (gratuit, forfait du chauffeur).
   function handleArrivalSms() {
-    const body = `Bonjour, votre chauffeur Rennes VTC est arrive au point de prise en charge : ${activeRide.pickup_address}. A tout de suite !`;
+    const body = 'Bonjour,\n\nVotre chauffeur est bien arrivé sur place et vous attend.\n\nN’hésitez pas à le contacter directement à ce numéro pour toute question ou tout besoin concernant votre réservation en cours.\n\nNous vous souhaitons un agréable trajet.\n\nL’équipe Rennes VTC';
     Linking.openURL(`sms:${clientInfo.phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(body)}`);
   }
 
