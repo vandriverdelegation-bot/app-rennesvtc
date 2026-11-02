@@ -1,6 +1,6 @@
 const { supabaseAdmin } = require('./supabaseAdmin');
 
-// extra.channelId : alerte chauffeur (sonnerie speciale). Chaque appareil a son propre canal (profiles.push_channel, enregistre
+// extra.channelId : alerte chauffeur (priorite haute pour reveiller un telephone en veille, expire apres 10 min) (sonnerie speciale). Chaque appareil a son propre canal (profiles.push_channel, enregistre
 // par l'app qui l'a cree) : un canal inconnu de l'appareil ferait disparaitre la notification, donc sans canal enregistre on n'en envoie pas.
 async function sendPush(tokens, title, body, extra = {}) {
   const list = [...new Set(tokens.filter(Boolean))];
@@ -11,7 +11,7 @@ async function sendPush(tokens, title, body, extra = {}) {
     const { data } = await supabaseAdmin.from('profiles').select('push_token, push_channel').in('push_token', list);
     channels = Object.fromEntries((data ?? []).map((p) => [p.push_token, p.push_channel]));
   }
-  const messages = list.map((to) => ({ to, title, body, ...(channels[to] ? { channelId: channels[to] } : {}) }));
+  const messages = list.map((to) => ({ to, title, body, ...(extra.channelId ? { priority: 'high', ttl: 600 } : {}), ...(channels[to] ? { channelId: channels[to] } : {}) }));
 
   const res = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
