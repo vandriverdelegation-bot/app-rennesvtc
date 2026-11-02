@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import RouteSketch from './RouteSketch';
 import { theme } from '@app-rennesvtc/shared';
 import { getRouteInfo } from '../lib/directions';
+import { Icon } from '../icons';
 
-// Carte miniature non interactive avec le trace du trajet, plus distance et duree.
+// Carte miniature non interactive : distance et duree a gauche, trace du trajet a droite.
 export default function RideMiniMap({ pickupLat, pickupLng, dropoffLat, dropoffLng }) {
   const [routeInfo, setRouteInfo] = useState(null);
   const [error, setError] = useState(false);
@@ -21,21 +22,33 @@ export default function RideMiniMap({ pickupLat, pickupLng, dropoffLat, dropoffL
   if (!pickupLat || !dropoffLat) return null;
 
   return (
-    <View>
-      <RouteSketch style={styles.map} points={[{ latitude: pickupLat, longitude: pickupLng }, { latitude: dropoffLat, longitude: dropoffLng }]} />
-      {routeInfo ? (
-        <Text style={styles.info}>{routeInfo.km} km · {routeInfo.durationMin} min</Text>
-      ) : error ? (
-        <Text style={styles.infoMuted}>Trajet indisponible</Text>
-      ) : (
-        <Text style={styles.infoMuted}>Calcul du trajet...</Text>
-      )}
+    <View style={styles.box}>
+      <View style={styles.info}>
+        <Icon name="route" color="g" size={30} />
+        {routeInfo ? (
+          <Text style={styles.text}>
+            <Text style={styles.km}>{routeInfo.km} km</Text>
+            <Text style={styles.min}> • {routeInfo.durationMin} min</Text>
+          </Text>
+        ) : (
+          <Text style={styles.muted}>{error ? 'Trajet indisponible' : 'Calcul du trajet...'}</Text>
+        )}
+      </View>
+      <RouteSketch
+        style={styles.map}
+        height={86}
+        points={[{ latitude: pickupLat, longitude: pickupLng }, { latitude: dropoffLat, longitude: dropoffLng }]}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  map: { marginTop: 8 },
-  info: { color: theme.colors.accent, fontWeight: '700', fontSize: 13, marginTop: 4 },
-  infoMuted: { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 },
+  box: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0d0b', borderWidth: 1, borderColor: '#1f2420', borderRadius: 22, paddingLeft: 16, paddingRight: 6, paddingVertical: 8, gap: 10 },
+  info: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  text: { fontSize: 17 },
+  km: { color: theme.colors.text, fontWeight: '600' },
+  min: { color: theme.colors.accent, fontWeight: '600' },
+  muted: { color: theme.colors.textMuted, fontSize: 13 },
+  map: { flex: 1, width: undefined, borderWidth: 0, backgroundColor: 'transparent' },
 });

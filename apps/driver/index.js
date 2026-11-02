@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import { ScrollView, Text } from 'react-native';
 import { registerRootComponent } from 'expo';
+import './applyTheme';
 
 // Affiche l'erreur a l'ecran au lieu de fermer l'app (diagnostic des plantages au demarrage en version installee).
 function ErrorScreen({ error }) {

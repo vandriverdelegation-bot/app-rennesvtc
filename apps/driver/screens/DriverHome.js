@@ -8,7 +8,8 @@ import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
 import RideCalendar, { dayKey } from './RideCalendar';
 import RideChat from './RideChat';
-import { Btn, Card, Pill, RouteBlock, SectionLabel } from '../ui';
+import { ActionRow, Btn, Card, LinkRow, Pill, RideHeader, RouteBlock, SectionLabel, TabPill } from '../ui';
+import { Icon } from '../icons';
 
 // " · 3 ans" a afficher a cote du pictogramme siege enfant ("3, 7" -> " · 3, 7 ans").
 const agesLabel = (ages) => {
@@ -529,13 +530,10 @@ export default function DriverHome({ session }) {
   return (
     <View style={styles.listScreen}>
       <View style={styles.tabRow}>
-        {[['available', `Courses disponibles (${pendingRides.length})`], ['upcoming', `Mes réservations à venir (${myRides.length})`]].map(([key, label]) => (
-          <TouchableOpacity key={key} style={[styles.tab, tab === key && styles.tabActive]} onPress={() => setTab(key)}>
-            <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
+        <TabPill icon="car" active={tab === 'available'} label={`Courses disponibles (${pendingRides.length})`} onPress={() => setTab('available')} />
+        <TabPill icon="calendar" active={tab === 'upcoming'} label={`Mes réservations à venir (${myRides.length})`} onPress={() => setTab('upcoming')} />
       </View>
-      {permissions.can_create_rides ? <Btn title="+ Saisir une reservation" onPress={() => setShowCreateRide(true)} /> : null}
+      {permissions.can_create_rides ? <ActionRow title="Saisir une réservation" onPress={() => setShowCreateRide(true)} /> : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       {tab === 'upcoming' ? (
         <ScrollView style={styles.list} contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
@@ -550,20 +548,14 @@ export default function DriverHome({ session }) {
               .filter((r) => !selectedDay || (r.scheduled_at && dayKey(new Date(r.scheduled_at)) === selectedDay))
               .map((item) => (
                 <Card key={item.id}>
-                  <View style={styles.rowBetween}>
-                    <View style={{ flex: 1 }}>
-                      <SectionLabel>Date et heure</SectionLabel>
-                      <Text style={styles.dateValue}>{formatRideDateTime(item.scheduled_at)}</Text>
-                    </View>
-                    <Text style={styles.bigPrice}>{item.price != null ? `${Number(item.price).toFixed(2)} €` : '-'}</Text>
-                  </View>
+                  <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
                   <View style={styles.pillRow}>
                     <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
-                    <Pill>👥 {item.passenger_count ?? 1}</Pill>
-                    <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
+                    <Pill icon="users">{item.passenger_count ?? 1}</Pill>
+                    <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                   </View>
                   <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
-                  <Btn title="Ouvrir la course" onPress={() => openRide(item.id)} />
+                  <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
                 </Card>
               ))
           )}
@@ -580,19 +572,13 @@ export default function DriverHome({ session }) {
           data={pendingRides}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Card>
-              <View style={styles.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <SectionLabel>Date et heure</SectionLabel>
-                  <Text style={styles.dateValue}>{formatRideDateTime(item.scheduled_at)}</Text>
-                </View>
-                <Text style={styles.bigPrice}>{item.price != null ? `${Number(item.price).toFixed(2)} €` : '-'}</Text>
-              </View>
+            <Card glow>
+              <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
               <View style={styles.pillRow}>
-                <Pill>👥 {item.passenger_count ?? 1}</Pill>
-                <Pill>🧳 {item.luggage_count ?? 0}</Pill>
+                <Pill icon="users">{item.passenger_count ?? 1}</Pill>
+                <Pill icon="luggage">{item.luggage_count ?? 0}</Pill>
                 {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege{agesLabel(item.child_ages)}</Pill> : null}
-                <Pill>{PAYMENT_LABELS[item.payment_method]}</Pill>
+                <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
               </View>
               <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
               {item.client_note ? <ClientNote text={item.client_note} /> : null}
@@ -602,7 +588,7 @@ export default function DriverHome({ session }) {
                 dropoffLat={item.dropoff_lat}
                 dropoffLng={item.dropoff_lng}
               />
-              <Btn title="Accepter la course" onPress={() => handleAccept(item.id)} />
+              <Btn variant="accept" chevron title="Accepter la course" onPress={() => handleAccept(item.id)} />
               {permissions.is_owner ? (
                 forwardFor === item.id ? (
                   <View style={{ gap: 8 }}>
@@ -617,8 +603,8 @@ export default function DriverHome({ session }) {
                   </View>
                 ) : (
                   <>
-                    <Btn title="Dispatcher" variant="secondary" onPress={() => openForward(item.id)} />
-                    <Btn title="Refuser la course" variant="secondary" onPress={() => handleDecline(item.id)} />
+                    <Btn title="Dispatcher" variant="secondary" icon="ban" chevron onPress={() => openForward(item.id)} />
+                    <Btn title="Refuser la course" variant="secondary" icon="xcircle" chevron onPress={() => handleDecline(item.id)} />
                   </>
                 )
               ) : null}
@@ -626,9 +612,7 @@ export default function DriverHome({ session }) {
           )}
         />
       )}
-      <TouchableOpacity onPress={() => setShowSettings(true)}>
-        <Text style={styles.link}>Changer ma gamme de vehicule</Text>
-      </TouchableOpacity>
+      <LinkRow icon="car" title="Changer ma gamme de véhicule" onPress={() => setShowSettings(true)} />
     </View>
   );
 }
@@ -652,7 +636,7 @@ const styles = StyleSheet.create({
   list: { width: '100%' },
   activeScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   actionBar: { padding: 12, gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, backgroundColor: theme.colors.background },
-  tabRow: { flexDirection: 'row', gap: 8 },
+  tabRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
   tab: { flex: 1, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
   tabActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   tabText: { color: theme.colors.textMuted, fontWeight: '600', fontSize: 13, textAlign: 'center' },
@@ -661,8 +645,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  bigPrice: { color: theme.colors.accent, fontSize: 26, fontWeight: '800' },
-  dateValue: { color: theme.colors.text, fontSize: 17, fontWeight: '700', marginTop: 2 },
+  bigPrice: { color: theme.colors.accent, fontSize: 28, fontWeight: '800' },
+  dateValue: { color: theme.colors.text, fontSize: 22, fontWeight: '700', marginTop: 2 },
+  dateLabel: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  rideHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  priceBadge: { borderWidth: 1.5, borderColor: '#2f8f12', backgroundColor: '#0d2308', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 16 },
   clientName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
   mutedSmall: { color: theme.colors.textMuted, fontSize: 13 },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },

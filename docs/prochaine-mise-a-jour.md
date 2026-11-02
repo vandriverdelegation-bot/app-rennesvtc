@@ -8,6 +8,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Pas fait : barre de navigation du bas (Courses / À venir / Messages / Compte). Maquettes : `docs/propositions-design-apps.pdf`.
 
 ## Appli chauffeur
+- **Design 02/11 (fourni par Jim, image de référence)** : en-tête avec logo + château et bouton menu rond vert, onglets en pastilles, « Saisir une réservation » en ligne d'action, carte de course à contour vert lumineux (date, prix en badge, pastilles avec pictogrammes, trajet, distance), boutons arrondis (Accepter, Dispatcher, Refuser). Pictogrammes en PNG (`assets/ui`), composants dans `ui.js`, couleurs dans `applyTheme.js`.
 - Saisie d'une **mise à disposition** (durée en heures, 3 par défaut, prix = tarif horaire de la gamme) en plus du trajet.
 - Le compte **propriétaire** voit toujours « Saisir une réservation » (plus besoin de la case « Créer »).
 - **Calendrier et heure** pour choisir la date/l'heure (`DateTimeFields.js`, JS pur, sans module natif).

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +13,7 @@ import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/share
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
+import { HEADER_IMAGE, Icon } from './icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
@@ -102,9 +104,9 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.sessionContainer}>
         <View style={styles.header}>
-          <Text style={styles.headerLogo}>{appName} Driver</Text>
-          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)}>
-            <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Reglages'}</Text>
+          <Image source={HEADER_IMAGE} style={styles.headerImage} resizeMode="cover" />
+          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)} accessibilityLabel={showMenu ? 'Fermer le menu' : 'Ouvrir le menu'}>
+            <Icon name={showMenu ? 'close' : 'menu'} color="w" size={30} />
           </TouchableOpacity>
         </View>
         {showMenu ? <DriverMenu session={session} onClose={() => setShowMenu(false)} /> : <DriverHome session={session} />}
@@ -165,20 +167,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.cardBorder,
+    paddingLeft: 12,
+    paddingRight: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  headerLogo: { fontSize: 18, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
+  headerImage: { flex: 1, aspectRatio: 760 / 166, borderRadius: 4 },
   menuButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.radius,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    marginLeft: 8,
+    borderWidth: 3,
+    borderColor: theme.colors.accent,
+    backgroundColor: 'rgba(71,196,21,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  menuButtonText: { color: theme.colors.text, fontWeight: '700' },
   logo: { fontSize: 24, fontWeight: '800', color: theme.colors.text, letterSpacing: 1, marginBottom: 24 },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 4, color: theme.colors.text },
   input: {
