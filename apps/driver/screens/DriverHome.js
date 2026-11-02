@@ -17,7 +17,8 @@ const agesLabel = (ages) => {
   return ' · ' + (/ans|an|mois/i.test(t) ? t : t + ' ans');
 };
 
-const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', completed: 'Terminee' };
+const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee' };
+const IN_PROGRESS_STEPS = ['en_route', 'on_site', 'on_board', 'dropped'];
 
 const PAYMENT_LABELS = {
   carte_a_bord: 'CB a bord',
@@ -76,7 +77,7 @@ export default function DriverHome({ session }) {
     // Course en cours : celle commencee, sinon la prochaine si elle est imminente (ou immediate), sinon celle ouverte depuis « Mes reservations ».
     const soon = Date.now() + 90 * 60000;
     const active =
-      list.find((r) => ['en_route', 'on_site'].includes(r.ride_step)) ??
+      list.find((r) => IN_PROGRESS_STEPS.includes(r.ride_step)) ??
       list.find((r) => !r.scheduled_at || new Date(r.scheduled_at).getTime() <= soon) ??
       list.find((r) => r.id === selectedRef.current) ??
       null;
@@ -155,7 +156,7 @@ export default function DriverHome({ session }) {
       );
     }
 
-    if (activeRide && ['en_route', 'on_site'].includes(activeRide.ride_step)) {
+    if (activeRide && ['en_route', 'on_site', 'on_board'].includes(activeRide.ride_step)) {
       startTracking();
     }
     return () => {
@@ -313,7 +314,7 @@ export default function DriverHome({ session }) {
 
   // Apres "Je suis sur place" on guide vers la destination ; avant, vers le depart.
   function navTarget() {
-    return activeRide.ride_step === 'on_site'
+    return ['on_site', 'on_board'].includes(activeRide.ride_step)
       ? { lat: activeRide.dropoff_lat, lng: activeRide.dropoff_lng, label: 'la destination' }
       : { lat: activeRide.pickup_lat, lng: activeRide.pickup_lng, label: 'le depart' };
   }
@@ -407,7 +408,7 @@ export default function DriverHome({ session }) {
     return (
       <View style={styles.activeScreen}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>
-        {selectedRef.current === activeRide.id && !['en_route', 'on_site'].includes(activeRide.ride_step) ? (
+        {selectedRef.current === activeRide.id && !IN_PROGRESS_STEPS.includes(activeRide.ride_step) ? (
           <TouchableOpacity onPress={() => { selectedRef.current = null; refresh(); }}>
             <Text style={styles.link}>← Mes réservations à venir</Text>
           </TouchableOpacity>
@@ -517,7 +518,9 @@ export default function DriverHome({ session }) {
         {activeRide.ride_step === 'on_site' && clientInfo?.phone ? <Btn title="Prevenir le client par SMS" variant="secondary" onPress={handleArrivalSms} /> : null}
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
-        {activeRide.ride_step === 'on_site' && <Btn title="Terminer la course" onPress={handleComplete} />}
+        {activeRide.ride_step === 'on_site' && <Btn title="Passager a bord" onPress={() => handleAdvanceStep('on_board')} />}
+        {activeRide.ride_step === 'on_board' && <Btn title="Passager depose" onPress={() => handleAdvanceStep('dropped')} />}
+        {activeRide.ride_step === 'dropped' && <Btn title="Terminer la course" onPress={handleComplete} />}
       </View>
       </View>
     );

@@ -113,7 +113,9 @@ async function sendChat(e) {
 }
 
 function progress(r) {
-  if (r.status === 'completed') return 4;
+  if (r.status === 'completed') return 6;
+  if (r.ride_step === 'dropped') return 5;
+  if (r.ride_step === 'on_board') return 4;
   if (r.ride_step === 'on_site') return 3;
   if (r.ride_step === 'en_route') return 2;
   if (r.status === 'accepted') return 1;
@@ -123,6 +125,8 @@ function progress(r) {
 function headline(r, mad) {
   if (r.status === 'cancelled') return ['Course annulee', ''];
   if (r.status === 'completed') return [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'];
+  if (r.ride_step === 'dropped') return ['Passager depose', 'Il a ete depose a destination.'];
+  if (r.ride_step === 'on_board') return ['Passager a bord', 'La course est en cours. Suivez sa position en direct ci-dessous.'];
   if (r.ride_step === 'on_site') return mad ? ['Mission en cours', 'Le chauffeur est a votre disposition.'] : ['Le chauffeur est arrive', 'Il vous attend au point de prise en charge.'];
   if (r.ride_step === 'en_route') return ['Le chauffeur est en route', 'Suivez sa position en direct ci-dessous.'];
   if (r.status === 'accepted') return ['Chauffeur attribue', 'Il se mettra en route a l\'heure prevue. Cette page se met a jour toute seule.'];
@@ -144,6 +148,8 @@ function render(r) {
     ['Chauffeur attribue', times.accepted],
     ['Chauffeur en route', times.en_route],
     [mad ? 'Mission en cours' : 'Chauffeur sur place', times.on_site],
+    ['Passager a bord', times.on_board],
+    ['Passager depose', times.dropped],
     [mad ? 'Mission terminee' : 'Course terminee', times.completed],
   ];
   const when = r.scheduled_at ? fmtTime(r.scheduled_at) : 'Des que possible';

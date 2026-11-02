@@ -51,6 +51,8 @@ function trackingTexts(step, mad) {
     on_site: mad
       ? ['La mission commence', 'Le chauffeur est sur place : la mise a disposition debute.']
       : ['Le chauffeur est arrive', 'Il est sur place, au point de prise en charge.'],
+    on_board: ['Passager a bord', 'Le passager est a bord : la course est en cours. Suivez-la en direct avec le lien ci-dessous.'],
+    dropped: ['Passager depose', 'Le passager a ete depose a destination.'],
     completed: [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'],
   }[step];
 }
@@ -830,6 +832,8 @@ async function isDriverOrAdmin(userId, ride) {
 const STEP_PUSH = {
   en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],
   on_site: ['Votre chauffeur est arrive', 'Il vous attend au point de prise en charge.'],
+  on_board: ['Bon trajet', 'Vous etes a bord : votre course est en cours.'],
+  dropped: ['Vous etes arrive', 'Vous avez ete depose a destination.'],
   completed: ['Course terminee', 'Merci de votre confiance, a bientot avec Rennes VTC.'],
 };
 app.post('/notify/step', requireSupabaseUser, async (req, res) => {
@@ -912,7 +916,7 @@ app.get('/public/track/:token', async (req, res) => {
   if (!ride) return res.status(404).json({ error: 'Suivi introuvable' });
 
   // La position n'est donnee qu'une fois le chauffeur en route (elle est aussi effacee en base avant).
-  const live = ride.status === 'accepted' && ['en_route', 'on_site'].includes(ride.ride_step) && ride.driver_lat != null;
+  const live = ride.status === 'accepted' && ['en_route', 'on_site', 'on_board'].includes(ride.ride_step) && ride.driver_lat != null;
   let driver = null;
   if (ride.driver_id && ['accepted', 'completed'].includes(ride.status)) {
     const [{ data: profile }, vehicle] = await Promise.all([

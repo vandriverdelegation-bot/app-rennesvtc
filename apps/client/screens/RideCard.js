@@ -25,7 +25,7 @@ function MiniMap({ ride }) {
     { latitude: ride.pickup_lat, longitude: ride.pickup_lng },
     { latitude: ride.dropoff_lat, longitude: ride.dropoff_lng },
   ];
-  if (['en_route', 'on_site'].includes(ride.ride_step) && ride.driver_lat && ride.driver_lng) points.push({ latitude: ride.driver_lat, longitude: ride.driver_lng });
+  if (['en_route', 'on_site', 'on_board'].includes(ride.ride_step) && ride.driver_lat && ride.driver_lng) points.push({ latitude: ride.driver_lat, longitude: ride.driver_lng });
   return <RouteSketch points={points} height={150} />;
 }
 
