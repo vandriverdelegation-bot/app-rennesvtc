@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
@@ -101,6 +102,32 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
     trackingUrl: audience === 'orderer' && ride.tracking_token ? `${BASE_URL}/suivi/${ride.tracking_token}` : null,
   });
   await sendEmail(to, subject, text, undefined, html);
+}
+
+// Lien signe vers le bon de commande : s'ouvre depuis l'e-mail sans connexion, valable uniquement pour ce chauffeur et cette course.
+function bonSignature(rideId, driverId) {
+  return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev').update(`${rideId}:${driverId}`).digest('hex').slice(0, 40);
+}
+function bonUrl(rideId, driverId) {
+  return `${BASE_URL}/public/bon-commande/${rideId}?d=${driverId}&sig=${bonSignature(rideId, driverId)}`;
+}
+
+// E-mail au chauffeur qui vient d'accepter une course : meme design, avec le bon de commande a la place du suivi (PDF aussi en piece jointe).
+async function sendDriverRideMail({ bonData, pdf }) {
+  const { ride, driver } = bonData;
+  if (!driver?.email) return;
+  const bags = ride.luggage_count || 0;
+  const { html, text } = buildRideMail({
+    kind: 'driver_accepted',
+    ride: {
+      gamme: ride.vehicle_category, passenger: ride.client_name, whenText: frenchWhen(ride.scheduled_at), pickup: ride.pickup_address, dropoff: ride.dropoff_address,
+      mad: ride.service_type === 'mise_a_disposition', durationHours: ride.duration_hours, ref: String(ride.id).slice(0, 8).toUpperCase(),
+      showPrice: true, price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '', clientPhone: ride.client_phone,
+      paxText: `${ride.passenger_count || 1} passager${(ride.passenger_count || 1) > 1 ? 's' : ''}${bags ? ` · ${bags} bagage${bags > 1 ? 's' : ''}` : ''}`,
+    },
+    bonUrl: bonUrl(ride.id, ride.driver_id),
+  });
+  await sendEmail(driver.email, 'Bon de commande - course acceptee', text, [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }], html);
 }
 
 async function sendTrackingEmail(rideId, step) {
@@ -447,12 +474,7 @@ async function announceAccepted(rideId) {
   const bonData = await fetchBonCommandeData(rideId);
   if (bonData?.driver?.email) {
     const pdf = await buildBonCommandePdf(bonData);
-    await sendEmail(
-      bonData.driver.email,
-      'Bon de commande - course acceptee',
-      'Bonjour,\n\nVeuillez trouver ci-joint le bon de commande de la course que vous venez d\'accepter.\n\nRennes VTC',
-      [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }]
-    );
+    await sendDriverRideMail({ bonData, pdf });
   }
 }
 
@@ -625,6 +647,14 @@ app.post('/admin/mail-test', requireAdmin, async (req, res) => {
     ["[TEST] Donneur d'ordre - chauffeur affecté (Classe E)", 'accepted', 'orderer', 'affaires', 'Mercedes Classe E', 'GC-467-TM'],
     ["[TEST] Donneur d'ordre - passager à bord (Van)", 'on_board', 'orderer', 'van', 'Mercedes Classe V', 'GH-114-PG'],
   ];
+  const { data: real } = await supabaseAdmin.from('rides').select('id, driver_id').not('driver_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (real) {
+    const { html, text } = buildRideMail({
+      kind: 'driver_accepted', ride: { ...base, gamme: 'affaires', showPrice: true, clientPhone: '06 12 34 56 78', paxText: '2 passagers · 1 bagage' },
+      bonUrl: bonUrl(real.id, real.driver_id),
+    });
+    await sendEmail(to, '[TEST] Chauffeur - course confirmée (bon de commande)', text, undefined, html);
+  }
   for (const [subject, kind, audience, gamme, vehicleName, plate] of samples) {
     const { html, text } = buildRideMail({
       kind,
@@ -634,7 +664,7 @@ app.post('/admin/mail-test', requireAdmin, async (req, res) => {
     });
     await sendEmail(to, subject, text, undefined, html);
   }
-  res.json({ ok: true, sent: samples.length });
+  res.json({ ok: true, sent: samples.length + (real ? 1 : 0) });
 });
 
 app.post('/admin/rides/:id/stop-alert', requireAdmin, async (req, res) => {
@@ -826,6 +856,20 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
   const pdf = await buildBonCommandePdf(bonData);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="bon-commande.pdf"');
+  res.send(pdf);
+});
+
+// Bon de commande ouvert depuis l'e-mail du chauffeur (lien signe, sans connexion).
+app.get('/public/bon-commande/:rideId', async (req, res) => {
+  const d = String(req.query.d || '');
+  const sig = String(req.query.sig || '');
+  const ok = d && sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(bonSignature(req.params.rideId, d)));
+  if (!ok) return res.status(403).send('Lien invalide');
+  const bonData = await fetchBonCommandeData(req.params.rideId);
+  if (!bonData || bonData.ride.driver_id !== d) return res.status(404).send('Course introuvable');
+  const pdf = await buildBonCommandePdf(bonData);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="bon-commande.pdf"');
   res.send(pdf);
 });
 
