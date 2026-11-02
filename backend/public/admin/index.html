@@ -2710,7 +2710,9 @@ async function renderRideCourseTab() {
       <div class="rm-row" style="margin-top:12px">
         <span class="chip">Chauffeur : ${escapeHtml(driverLabel)}</span>
         <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
+        <button class="secondary" id="rm-stop-alert">Arreter les rappels</button>
       </div>
+      <div class="hint">« Dispatcher a nouveau » renvoie la sonnerie aux chauffeurs toutes les minutes (1 h au maximum) jusqu'a ce que la course soit acceptee.</div>
       <div class="rm-row" style="margin-top:12px">
         <select id="rm-driver-select">
           <option value="">Choisir un chauffeur...</option>
@@ -2829,8 +2831,19 @@ async function renderRideCourseTab() {
   document.getElementById('rm-redispatch').addEventListener('click', async () => {
     if (!confirm('Renvoyer cette course dans le dispatch (le chauffeur actuel la perd) ?')) return;
     await supabase.from('rides').update({ status: 'dispatched', driver_id: null, dispatched_to: null }).eq('id', ride.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    fetch('/notify/dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ rideId: ride.id, repeat: true }),
+    }).catch(() => {});
     await refreshRideModal();
     refresh();
+  });
+  document.getElementById('rm-stop-alert').addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch(`/admin/rides/${ride.id}/stop-alert`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
+    alert('Les rappels sont arretes.');
   });
   document.getElementById('rm-save-addresses').addEventListener('click', async () => {
     const pickup_address = document.getElementById('rm-pickup').value.trim();

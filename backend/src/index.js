@@ -370,20 +370,23 @@ app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
 
 // Previent le ou les chauffeurs concernes qu'une course leur a ete dispatchee.
 app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
-  const { rideId } = req.body;
+  const { rideId, repeat } = req.body;
+  if (repeat) {
+    // Relance chaque minute : reservee a l'admin ; les refus precedents sont oublies.
+    const { data: me } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', req.user.id).single();
+    if (me?.role === 'admin' || me?.is_owner) {
+      await supabaseAdmin.from('rides').update({ alert_until: new Date(Date.now() + RELANCE_MINUTES * 60000).toISOString(), declined_by: [] }).eq('id', rideId).eq('status', 'dispatched');
+    }
+  }
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('pickup_address, dropoff_address, vehicle_category, dispatched_to')
+    .select('pickup_address, dropoff_address, vehicle_category, dispatched_to, declined_by')
     .eq('id', rideId)
     .single();
   if (!ride) return res.json({ ok: true });
 
-  let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur');
-  query = ride.dispatched_to ? query.eq('id', ride.dispatched_to) : query.contains('vehicle_categories', [ride.vehicle_category]);
-  const { data: drivers } = await query;
-
   await sendPush(
-    (drivers ?? []).map((d) => d.push_token),
+    await dispatchTokens(ride),
     'Nouvelle course disponible',
     `${ride.pickup_address} -> ${ride.dropoff_address}`,
     { channelId: 'courses_v2' }
@@ -581,6 +584,84 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
     await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   }
   res.status(201).json({ ok: true, id: ride.id, status: ride.status });
+});
+
+// Chauffeurs a prevenir pour une course en dispatch (ceux qui l'ont refusee en sont exclus).
+async function dispatchTokens(ride, excludeId) {
+  let q = supabaseAdmin.from('profiles').select('id, push_token').eq('role', 'chauffeur');
+  q = ride.dispatched_to ? q.eq('id', ride.dispatched_to) : q.contains('vehicle_categories', [ride.vehicle_category]);
+  const { data } = await q;
+  return (data ?? []).filter((d) => d.id !== excludeId && !(ride.declined_by ?? []).includes(d.id)).map((d) => d.push_token);
+}
+
+const RELANCE_MINUTES = 60; // les rappels s'arretent d'eux-memes apres cette duree
+
+// Rappel chaque minute des courses dont l'admin a demande la relance, jusqu'a acceptation (ou fin du delai).
+async function repeatDispatchAlerts() {
+  const { data: rides } = await supabaseAdmin
+    .from('rides')
+    .select('id, pickup_address, dropoff_address, vehicle_category, dispatched_to, declined_by')
+    .eq('status', 'dispatched')
+    .gt('alert_until', new Date().toISOString());
+  for (const ride of rides ?? []) {
+    await sendPush(await dispatchTokens(ride), 'Course toujours disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
+  }
+}
+
+app.post('/admin/rides/:id/stop-alert', requireAdmin, async (req, res) => {
+  await supabaseAdmin.from('rides').update({ alert_until: null }).eq('id', req.params.id);
+  res.json({ ok: true });
+});
+
+async function loadDispatchedRide(id) {
+  const { data } = await supabaseAdmin
+    .from('rides')
+    .select('id, status, pickup_address, dropoff_address, vehicle_category, dispatched_to, declined_by')
+    .eq('id', id)
+    .eq('status', 'dispatched')
+    .single();
+  return data;
+}
+
+// Un chauffeur refuse une course en dispatch : elle disparait de sa liste et il n'est plus relance.
+// Si plus personne ne peut la prendre (ou si elle lui etait destinee), elle revient a l'admin.
+app.post('/driver/rides/:rideId/decline', requireDriver, async (req, res) => {
+  const ride = await loadDispatchedRide(req.params.rideId);
+  if (!ride) return res.status(404).json({ error: 'Course introuvable ou deja prise' });
+  const declined = [...new Set([...(ride.declined_by ?? []), req.user.id])];
+  let update = { declined_by: declined };
+  const { data: eligible } = await supabaseAdmin.from('profiles').select('id').eq('role', 'chauffeur').contains('vehicle_categories', [ride.vehicle_category]);
+  const noOneLeft = !(eligible ?? []).some((d) => !declined.includes(d.id));
+  const backToAdmin = !!ride.dispatched_to || noOneLeft;
+  if (backToAdmin) update = { status: 'pending', dispatched_to: null, alert_until: null, declined_by: [] };
+  await supabaseAdmin.from('rides').update(update).eq('id', ride.id);
+  if (backToAdmin) {
+    await sendAdminEmail('Course refusee par les chauffeurs', `${ride.pickup_address} -> ${ride.dropoff_address}\nElle est de retour dans les nouvelles demandes : a dispatcher de nouveau.`);
+  }
+  res.json({ ok: true, backToAdmin });
+});
+
+// Un chauffeur proprietaire passe une course en dispatch a un collegue (ou a toute la gamme, sauf lui).
+app.post('/driver/rides/:rideId/forward', requireDriver, async (req, res) => {
+  const { data: me } = await supabaseAdmin.from('profiles').select('is_owner').eq('id', req.user.id).single();
+  if (!me?.is_owner) return res.status(403).json({ error: 'Reserve au proprietaire' });
+  const ride = await loadDispatchedRide(req.params.rideId);
+  if (!ride) return res.status(404).json({ error: 'Course introuvable ou deja prise' });
+  const { assignTo } = req.body;
+  let category = ride.vehicle_category;
+  let dispatchedTo = null;
+  if (assignTo && assignTo !== 'all') {
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, vehicle_category, vehicle_categories').eq('id', assignTo).eq('role', 'chauffeur').single();
+    if (!target?.vehicle_category || target.id === req.user.id) return res.status(400).json({ error: 'Chauffeur invalide' });
+    category = (target.vehicle_categories ?? []).includes(ride.vehicle_category) ? ride.vehicle_category : target.vehicle_category;
+    dispatchedTo = target.id;
+  }
+  const declined = [...new Set([...(ride.declined_by ?? []), req.user.id])];
+  const { error } = await supabaseAdmin.from('rides').update({ dispatched_to: dispatchedTo, vehicle_category: category, declined_by: declined }).eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+  const tokens = await dispatchTokens({ ...ride, dispatched_to: dispatchedTo, vehicle_category: category, declined_by: declined }, req.user.id);
+  await sendPush(tokens, 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
+  res.json({ ok: true });
 });
 
 // Un chauffeur se desiste d'une course acceptee : elle repart en dispatch, soit
@@ -1007,6 +1088,7 @@ async function autoDispatchPending() {
   }
 }
 setInterval(() => autoDispatchPending().catch((e) => console.error('auto-dispatch', e)), 30000);
+setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
 
 app.listen(PORT, () => {
   console.log(`Backend demarre sur http://localhost:${PORT}`);

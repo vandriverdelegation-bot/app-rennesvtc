@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { theme, whatsappUrl } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -85,10 +85,11 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, declined_by')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
-      setPendingRides(pending ?? []);
+      // Les courses que j'ai refusees ne reviennent plus dans ma liste.
+      setPendingRides((pending ?? []).filter((r) => !(r.declined_by ?? []).includes(session.user.id)));
     }
   }
 
@@ -213,6 +214,41 @@ export default function DriverHome({ session }) {
     setReleasing(false);
     setReleaseOpen(false);
     refresh();
+  }
+
+  // Course en dispatch : la passer a un collegue (« Dispatcher ») ou la refuser.
+  const [forwardFor, setForwardFor] = useState(null);
+
+  async function openForward(rideId) {
+    setForwardFor(rideId);
+    setReleaseTarget('all');
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/colleagues`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+      if (res.ok) setColleagues((await res.json()).filter((c) => !c.isMe));
+    } catch (e) {}
+  }
+
+  async function postRideAction(rideId, action, body) {
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/rides/${rideId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(body ?? {}),
+      });
+      if (!res.ok) setErrorMsg((await res.json().catch(() => ({}))).error ?? 'Erreur du serveur');
+    } catch (e) {
+      setErrorMsg('Connexion au serveur impossible.');
+    }
+    setForwardFor(null);
+    refresh();
+  }
+
+  function handleDecline(rideId) {
+    Alert.alert('Refuser cette course ?', 'Elle disparaitra de votre liste et vous ne serez plus relance.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Refuser', style: 'destructive', onPress: () => postRideAction(rideId, 'decline') },
+    ]);
   }
 
   async function handleAccept(rideId) {
@@ -564,6 +600,25 @@ export default function DriverHome({ session }) {
                 dropoffLng={item.dropoff_lng}
               />
               <Btn title="Accepter la course" onPress={() => handleAccept(item.id)} />
+              {permissions.is_owner ? (
+                forwardFor === item.id ? (
+                  <View style={{ gap: 8 }}>
+                    <SectionLabel>Dispatcher la course a</SectionLabel>
+                    {[{ id: 'all', label: 'Tous les chauffeurs de la gamme (sauf moi)' }, ...colleagues.map((c) => ({ id: c.id, label: `${c.name} - ${VEHICLE_LABELS[c.vehicle_category] ?? c.vehicle_category}${c.online ? ' (en ligne)' : ''}` }))].map((opt) => (
+                      <TouchableOpacity key={opt.id} style={[styles.releaseOption, releaseTarget === opt.id && styles.releaseOptionSelected]} onPress={() => setReleaseTarget(opt.id)}>
+                        <Text style={releaseTarget === opt.id ? styles.releaseTextSelected : styles.releaseText}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <Btn title="Confirmer le dispatch" onPress={() => postRideAction(item.id, 'forward', { assignTo: releaseTarget })} />
+                    <Btn title="Annuler" variant="secondary" onPress={() => setForwardFor(null)} />
+                  </View>
+                ) : (
+                  <>
+                    <Btn title="Dispatcher" variant="secondary" onPress={() => openForward(item.id)} />
+                    <Btn title="Refuser la course" variant="secondary" onPress={() => handleDecline(item.id)} />
+                  </>
+                )
+              ) : null}
             </Card>
           )}
         />
