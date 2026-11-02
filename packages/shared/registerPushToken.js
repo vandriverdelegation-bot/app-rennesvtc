@@ -16,10 +16,11 @@ async function registerPushToken(supabase, userId, options = {}) {
 
     if (!Device.isDevice) return 'Indisponible sur un simulateur.';
     if (options.courseChannel && require('react-native').Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('courses', {
+      await Notifications.deleteNotificationChannelAsync('courses');
+      await Notifications.setNotificationChannelAsync('courses_v2', {
         name: 'Nouvelles courses',
         importance: Notifications.AndroidImportance.MAX,
-        sound: 'course.wav',
+        sound: 'nouvelle_course.aac',
         vibrationPattern: [0, 400, 200, 400],
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });

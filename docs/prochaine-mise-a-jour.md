@@ -18,7 +18,7 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Saisie d'une réservation : mode de règlement **En compte** disponible (en plus de CB à bord et Espèces) ; le serveur l'accepte déjà.
 - Étape « Sur place » : bouton **Prévenir le client par SMS** (ouvre l’appli SMS avec le message prêt, gratuit, un appui sur Envoyer ; texte validé le 02/11 : « Votre chauffeur est bien arrivé sur place et vous attend… »).
 - Notifications : l'écran affiche la **vraie raison** de l'échec. Cause du blocage trouvée le 02/11 : migrations 012/017 avaient retiré le droit d'écrire push_token (corrigé par la migration 041, appliquée ; notifications OK).
-- **Sonnerie spéciale « Nouvelles courses »** : carillon `apps/driver/assets/sounds/course.wav`, canal Android `courses` (importance max) créé par l'app ; le serveur envoie `channelId: courses` pour les alertes chauffeur. Demande un build.
+- **Sonnerie spéciale « Nouvelles courses »** : sonnerie fournie par Jim (`apps/driver/assets/sounds/nouvelle_course.aac`, 4,3 s), canal Android `courses_v2` (importance max) créé par l'app ; le serveur envoie `channelId: courses_v2` pour les alertes chauffeur. Demande un build.
 - **Saisie semi-automatique du client** (nom ou téléphone, 2 lettres) dans « Saisir une réservation » : remplit téléphone et e-mail. Fichier clients : table `clients` (migration 042, 1 885 clients importés le 02/11 depuis la base nettoyée), mise à jour automatiquement à chaque saisie.
 
 ## Appli client

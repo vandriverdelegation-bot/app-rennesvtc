@@ -25,7 +25,7 @@ async function pickVehicle(driverId, category) {
 // Notification push aux proprietaires (chauffeurs marques "proprietaire") : nouvelle demande, devis...
 async function notifyOwners(title, body) {
   const { data } = await supabaseAdmin.from('profiles').select('push_token').eq('is_owner', true).not('push_token', 'is', null);
-  await sendPush((data ?? []).map((d) => d.push_token), title, body, { channelId: 'courses' });
+  await sendPush((data ?? []).map((d) => d.push_token), title, body, { channelId: 'courses_v2' });
 }
 
 function formatRideRecap(ride) {
@@ -241,7 +241,7 @@ app.post('/admin/rides/:id/assign', requireAdmin, async (req, res) => {
 
   const { error } = await supabaseAdmin.from('rides').update({ driver_id: driver.id, status: 'accepted', dispatched_to: null }).eq('id', ride.id);
   if (error) return res.status(400).json({ error: error.message });
-  await sendPush([driver.push_token], 'Course attribuee', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses' });
+  await sendPush([driver.push_token], 'Course attribuee', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   await announceAccepted(ride.id);
   res.json({ ok: true });
 });
@@ -386,7 +386,7 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
     (drivers ?? []).map((d) => d.push_token),
     'Nouvelle course disponible',
     `${ride.pickup_address} -> ${ride.dropoff_address}`,
-    { channelId: 'courses' }
+    { channelId: 'courses_v2' }
   );
   res.json({ ok: true });
 });
@@ -578,7 +578,7 @@ app.post('/driver/rides', requireRideCreator, async (req, res) => {
     let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
     query = assignment.dispatched_to ? query.eq('id', assignment.dispatched_to) : query.contains('vehicle_categories', [category]);
     const { data: targets } = await query;
-    await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses' });
+    await sendPush((targets ?? []).map((t) => t.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   }
   res.status(201).json({ ok: true, id: ride.id, status: ride.status });
 });
@@ -624,7 +624,7 @@ app.post('/driver/rides/:rideId/release', requireDriver, async (req, res) => {
   let query = supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').neq('id', req.user.id);
   query = dispatchedTo ? query.eq('id', dispatchedTo) : query.contains('vehicle_categories', [category]);
   const { data: targets } = await query;
-  await sendPush((targets ?? []).map((t) => t.push_token), 'Course remise en dispatch', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses' });
+  await sendPush((targets ?? []).map((t) => t.push_token), 'Course remise en dispatch', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   await sendAdminEmail('Course remise en dispatch par un chauffeur', `${ride.pickup_address} -> ${ride.dropoff_address}\nLe chauffeur s'est desiste${dispatchedTo ? ' en faveur d\'un collegue' : ' : course dispatchee a tous les chauffeurs de la gamme'}.`);
   res.json({ ok: true });
 });
@@ -1002,7 +1002,7 @@ async function autoDispatchPending() {
     const { data: updated } = await supabaseAdmin.from('rides').update({ status: 'dispatched', dispatched_to: null }).eq('id', ride.id).eq('status', 'pending').select('id');
     if (!updated?.length) continue;
     const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').eq('role', 'chauffeur').contains('vehicle_categories', [ride.vehicle_category]);
-    await sendPush((drivers ?? []).map((d) => d.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses' });
+    await sendPush((drivers ?? []).map((d) => d.push_token), 'Nouvelle course disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
     await sendAdminEmail('Course dispatchee automatiquement', `${ride.pickup_address} -> ${ride.dropoff_address}\nDispatch automatique vers tous les chauffeurs de la gamme ${ride.vehicle_category}.`);
   }
 }

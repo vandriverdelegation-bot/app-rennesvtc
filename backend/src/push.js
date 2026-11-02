@@ -1,4 +1,4 @@
-// extra : { channelId: 'courses' } pour la sonnerie speciale des alertes chauffeur (canal cree par l'app chauffeur).
+// extra : { channelId: 'courses_v2' } pour la sonnerie speciale des alertes chauffeur (canal cree par l'app chauffeur).
 async function sendPush(tokens, title, body, extra = {}) {
   const messages = tokens
     .filter(Boolean)
