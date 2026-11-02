@@ -13,7 +13,7 @@ async function logEmail(to, subject, status, detail) {
   }
 }
 
-async function sendEmail(to, subject, text, attachments) {
+async function sendEmail(to, subject, text, attachments, html) {
   if (!process.env.RESEND_API_KEY) {
     console.log('RESEND_API_KEY non configure, email non envoye:', subject);
     await logEmail(to, subject, 'no_key', 'RESEND_API_KEY non configure');
@@ -31,6 +31,7 @@ async function sendEmail(to, subject, text, attachments) {
         to,
         subject,
         text,
+        ...(html ? { html } : {}),
         ...(attachments ? { attachments } : {}),
       }),
     });

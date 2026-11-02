@@ -10,6 +10,7 @@ const { buildBonCommandePdf } = require('./bonCommande');
 const { registerDriverOnboarding } = require('./driverOnboarding');
 const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
+const { buildRideMail } = require('./mailTemplate');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -57,38 +58,57 @@ function trackingTexts(step, mad) {
   }[step];
 }
 
-async function sendTrackingEmail(rideId, step) {
+// Date en francais, fuseau de Rennes : « Mercredi 18 novembre 2026 à 15h22 ».
+function frenchWhen(iso) {
+  if (!iso) return 'Dès que possible';
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  const t = Object.fromEntries(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((p) => [p.type, p.value]));
+  return `${day.charAt(0).toUpperCase()}${day.slice(1)} à ${t.hour}h${t.minute}`;
+}
+
+// E-mail de course au format Rennes VTC (HTML + texte). audience 'client' : avec le prix, sans lien de suivi ;
+// audience 'orderer' (donneur d'ordre) : avec le lien de suivi en direct, sans le prix.
+async function sendRideMail({ rideId, to, subject, kind, audience }) {
+  if (!to) return;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('tracking_token, orderer_email, client_name, pickup_address, dropoff_address, service_type, scheduled_at, duration_hours, driver_id, vehicle_category')
+    .select('id, client_id, client_name, scheduled_at, pickup_address, dropoff_address, vehicle_category, price, payment_method, service_type, duration_hours, tracking_token, driver_id')
     .eq('id', rideId)
     .single();
-  if (!ride?.orderer_email) return;
-  const mad = ride.service_type === 'mise_a_disposition';
-  const texts = trackingTexts(step, mad);
-  if (!texts) return;
-
-  let driverInfo = '';
-  if (ride.driver_id) {
-    const [{ data: driver }, vehicle] = await Promise.all([
-      supabaseAdmin.from('profiles').select('full_name, email').eq('id', ride.driver_id).single(),
+  if (!ride) return;
+  let passenger = ride.client_name;
+  if (!passenger && ride.client_id) {
+    const { data: p } = await supabaseAdmin.from('profiles').select('full_name').eq('id', ride.client_id).single();
+    passenger = p?.full_name;
+  }
+  let driver = null;
+  if (ride.driver_id && kind !== 'received') {
+    const [{ data: profile }, vehicle] = await Promise.all([
+      supabaseAdmin.from('profiles').select('full_name').eq('id', ride.driver_id).single(),
       pickVehicle(ride.driver_id, ride.vehicle_category),
     ]);
-    const firstName = (driver?.full_name || '').split(' ')[0] || 'Votre chauffeur';
-    driverInfo = `Chauffeur : ${firstName}${vehicle ? ` - ${[vehicle.display_name, vehicle.color, vehicle.plate].filter(Boolean).join(', ')}` : ''}\n`;
+    driver = { firstName: (profile?.full_name || '').split(' ')[0] || null, vehicleName: vehicle?.display_name || null, plate: vehicle?.plate || null };
   }
-  const lines = [
-    ride.client_name ? `Passager : ${ride.client_name}` : null,
-    mad ? `Mise a disposition${ride.duration_hours ? ` (${ride.duration_hours} h)` : ''}` : null,
-    `Depart : ${ride.pickup_address}`,
-    `Destination : ${ride.dropoff_address}`,
-    ride.scheduled_at ? `Date et heure : ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : null,
-  ].filter(Boolean).join('\n');
-  await sendEmail(
-    ride.orderer_email,
-    `${texts[0]} - ${ride.pickup_address}`,
-    `Bonjour,\n\n${texts[1]}\n\n${lines}\n${driverInfo}\nSuivi de la mission en direct : ${BASE_URL}/suivi/${ride.tracking_token}\n\nRennes VTC`
-  );
+  const { html, text } = buildRideMail({
+    kind,
+    ride: {
+      gamme: ride.vehicle_category, passenger, whenText: frenchWhen(ride.scheduled_at), pickup: ride.pickup_address, dropoff: ride.dropoff_address,
+      mad: ride.service_type === 'mise_a_disposition', durationHours: ride.duration_hours, ref: String(ride.id).slice(0, 8).toUpperCase(),
+      showPrice: audience === 'client', price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '',
+    },
+    driver,
+    trackingUrl: audience === 'orderer' && ride.tracking_token ? `${BASE_URL}/suivi/${ride.tracking_token}` : null,
+  });
+  await sendEmail(to, subject, text, undefined, html);
+}
+
+async function sendTrackingEmail(rideId, step) {
+  const { data: ride } = await supabaseAdmin.from('rides').select('orderer_email, pickup_address, service_type').eq('id', rideId).single();
+  if (!ride?.orderer_email) return;
+  const texts = trackingTexts(step, ride.service_type === 'mise_a_disposition');
+  if (!texts) return;
+  await sendRideMail({ rideId, to: ride.orderer_email, subject: `${texts[0]} - ${ride.pickup_address}`, kind: step, audience: 'orderer' });
 }
 
 const app = express();
@@ -361,11 +381,7 @@ app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
     : { data: null };
   const to = client?.email || ride.client_email;
   if (to) {
-    await sendEmail(
-      to,
-      'Votre demande de course a bien ete recue',
-      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
-    );
+    await sendRideMail({ rideId, to, subject: 'Votre demande de course a bien ete recue', kind: 'received', audience: 'client' });
   }
   res.json({ ok: true });
 });
@@ -422,19 +438,7 @@ async function announceAccepted(rideId) {
   // Le donneur d'ordre recoit deja son propre email d'attribution (suivi) : pas de doublon a la meme adresse.
   const clientTo = client?.email || ride.client_email;
   if (clientTo && clientTo.toLowerCase() !== (ride.orderer_email ?? '').toLowerCase()) {
-    const { data: driver } = await supabaseAdmin
-      .from('profiles')
-      .select('email, phone, full_name')
-      .eq('id', ride.driver_id)
-      .single();
-    const driverInfo = driver
-      ? `Chauffeur : ${driver.full_name || driver.email}${driver.phone ? `\nTelephone du chauffeur : ${driver.phone}` : ''}`
-      : '';
-    await sendEmail(
-      clientTo,
-      'Un chauffeur a accepte votre course',
-      `Bonjour,\n\nUn chauffeur a accepte votre course.\n\n${driverInfo}\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
-    );
+    await sendRideMail({ rideId, to: clientTo, subject: 'Un chauffeur a accepte votre course', kind: 'accepted', audience: 'client' });
   }
 
   await sendTrackingEmail(rideId, 'accepted');
@@ -609,6 +613,29 @@ async function repeatDispatchAlerts() {
     await sendPush(await dispatchTokens(ride), 'Course toujours disponible', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   }
 }
+
+// Envoie des exemples des e-mails de course (client et donneur d'ordre) a une adresse, pour verifier leur rendu.
+app.post('/admin/mail-test', requireAdmin, async (req, res) => {
+  const to = String(req.body.to || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return res.status(400).json({ error: 'Adresse invalide' });
+  const base = { passenger: 'Test Test', whenText: 'Mercredi 18 novembre 2026 à 15h22', pickup: '19 Place de la Gare, 35000 Rennes', dropoff: 'Aéroport de Rennes, Saint-Jacques-de-la-Lande', ref: '947DA825', paymentLabel: 'Carte bancaire à bord', price: 90 };
+  const samples = [
+    ['[TEST] Client - demande reçue', 'received', 'client', 'affaires', null, null],
+    ['[TEST] Client - chauffeur affecté (Camry)', 'accepted', 'client', 'confort', 'Toyota Camry Lounge', 'GC-467-TM'],
+    ["[TEST] Donneur d'ordre - chauffeur affecté (Classe E)", 'accepted', 'orderer', 'affaires', 'Mercedes Classe E', 'GC-467-TM'],
+    ["[TEST] Donneur d'ordre - passager à bord (Van)", 'on_board', 'orderer', 'van', 'Mercedes Classe V', 'GH-114-PG'],
+  ];
+  for (const [subject, kind, audience, gamme, vehicleName, plate] of samples) {
+    const { html, text } = buildRideMail({
+      kind,
+      ride: { ...base, gamme, showPrice: audience === 'client' },
+      driver: vehicleName ? { firstName: 'Jimmy', vehicleName, plate } : null,
+      trackingUrl: audience === 'orderer' ? `${BASE_URL}/suivi/exemple` : null,
+    });
+    await sendEmail(to, subject, text, undefined, html);
+  }
+  res.json({ ok: true, sent: samples.length });
+});
 
 app.post('/admin/rides/:id/stop-alert', requireAdmin, async (req, res) => {
   await supabaseAdmin.from('rides').update({ alert_until: null }).eq('id', req.params.id);
@@ -1056,11 +1083,7 @@ app.post('/public/book', async (req, res) => {
     `${formatRideRecap(ride)}\n${isMad ? `Mise a disposition : ${parseFloat(durationHours)} h\n` : ''}Client : ${clientName} (${clientPhone})\n\nConnectez-vous a l'espace admin pour dispatcher cette course.`
   );
   if (clientEmail) {
-    await sendEmail(
-      clientEmail,
-      'Votre demande de course a bien ete recue',
-      `Bonjour,\n\nVotre demande de course a bien ete recue. Un chauffeur va vous etre attribue prochainement.\n\n${formatRideRecap(ride)}\n\nMerci de votre confiance.\nRennes VTC`
-    );
+    await sendRideMail({ rideId: ride.id, to: clientEmail, subject: 'Votre demande de course a bien ete recue', kind: 'received', audience: 'client' });
   }
   res.json({ ok: true, id: ride.id });
 });
