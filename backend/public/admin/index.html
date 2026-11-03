@@ -832,14 +832,20 @@ async function handleLogin() {
   }
 }
 
+// Supabase relance cet evenement a chaque retour sur l'onglet et chaque renouvellement du jeton : l'interface ne doit
+// etre preparee qu'une fois par session, sinon les formulaires (gamme, chauffeur...) reviennent a leur valeur initiale.
+let initializedFor = null;
 supabase.auth.onAuthStateChange(async (_event, session) => {
   if (!session) {
+    initializedFor = null;
     loginScreen.style.display = 'block';
     appScreen.style.display = 'none';
     return;
   }
+  if (initializedFor === session.user.id) return;
   const { data: profile } = await supabase.from('profiles').select('role, is_owner').eq('id', session.user.id).single();
   if (profile?.role !== 'admin' && !profile?.is_owner) return; // handleLogin affiche deja l'erreur et deconnecte
+  initializedFor = session.user.id;
   loginScreen.style.display = 'none';
   appScreen.style.display = 'block';
   refresh();
@@ -1028,8 +1034,10 @@ async function populateNewRideDrivers() {
   const category = document.getElementById('new-ride-category').value;
   const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur').contains('vehicle_categories', [category]);
   const select = document.getElementById('new-ride-driver');
+  const chosen = select.value;
   select.innerHTML = '<option value="">Laisser en attente (dispatch normal)</option>' +
     (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.email)}</option>`).join('');
+  if ([...select.options].some((o) => o.value === chosen)) select.value = chosen; // le chauffeur choisi reste selectionne s'il a toujours la gamme
 }
 document.getElementById('new-ride-category').addEventListener('change', populateNewRideDrivers);
 
