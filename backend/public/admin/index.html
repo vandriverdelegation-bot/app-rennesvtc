@@ -293,6 +293,7 @@
       </nav>
       <div class="sidebar-foot">
         <button class="secondary" id="logout-btn">Se deconnecter</button>
+        <small class="hint" style="display:block;margin-top:8px">Version : liens de suivi copiables, vehicules modifiables</small>
       </div>
     </aside>
 
@@ -2800,7 +2801,9 @@ async function renderRideCourseTab() {
   document.getElementById('ride-modal-head').innerHTML = `
     ${statusBadge(ride.status)}
     <h3 id="ride-modal-heading" class="modal-route">${escapeHtml(ride.pickup_address ?? '')} &rarr; ${escapeHtml(ride.dropoff_address ?? '')}</h3>
+    ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
   `;
+  document.getElementById('rm-head-copy-tracking')?.addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
   el.innerHTML = `
     <div class="rm-section">
       <div class="rm-title">Statut et chauffeur</div>
