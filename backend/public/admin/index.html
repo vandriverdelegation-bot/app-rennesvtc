@@ -1178,15 +1178,22 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     body: JSON.stringify({ name: client_name, phone: client_phone, email: client_email }),
   }).catch(() => {});
 
-  // Donneur d'ordre sans email : lien de suivi a envoyer par WhatsApp (un clic, le lien ne peut pas s'ouvrir tout seul).
+  // Lien de suivi : a copier (toujours) et, pour un donneur d'ordre sans email, a envoyer par WhatsApp (un clic, le lien ne peut pas s'ouvrir tout seul).
   const banner = document.getElementById('new-ride-created');
-  banner.innerHTML = '';
+  banner.innerHTML = '<span>Reservation creee. </span>';
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'secondary';
+  copyBtn.textContent = 'Copier le lien de suivi';
+  copyBtn.addEventListener('click', () => copyTrackingLink(created.tracking_token, copyBtn));
+  banner.appendChild(copyBtn);
   if (ordererOpen && !payload.orderer_email && payload.orderer_phone) {
     const a = document.createElement('a');
     a.href = whatsappTrackingUrl(payload.orderer_phone, created.tracking_token);
     a.target = '_blank';
     a.rel = 'noopener';
-    a.textContent = "Reservation creee. Envoyer le lien de suivi au donneur d'ordre sur WhatsApp";
+    a.style.marginLeft = '12px';
+    a.textContent = "Envoyer le lien au donneur d'ordre sur WhatsApp";
     banner.appendChild(a);
   }
 
@@ -1270,19 +1277,19 @@ async function renderVehicles() {
       <tbody>
         ${vehicles.map((v) => `
           <tr>
-            <td>${escapeHtml(v.display_name)}${v.photo_url ? `<br/><img src="${escapeHtml(v.photo_url)}" style="width:80px;border-radius:6px;margin-top:4px" />` : ''}</td>
+            <td><input data-vf="name" value="${escapeHtml(v.display_name)}" style="min-width:130px" />${v.photo_url ? `<br/><img src="${escapeHtml(v.photo_url)}" style="width:80px;border-radius:6px;margin-top:4px" />` : ''}<br/><input data-vf="photo" type="file" accept="image/*" style="max-width:150px;margin-top:4px" title="Changer la photo" /></td>
             <td>
               <select data-vehicle-category="${v.id}">
                 ${CATEGORIES.map((c) => `<option value="${c}" ${c === v.vehicle_category ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
               </select>
             </td>
             <td><select data-vehicle-driver="${v.id}">${driverOptions(drivers, vehicles, v.driver_id)}</select></td>
-            <td>${escapeHtml(v.plate ?? '-')}</td>
-            <td>${escapeHtml(v.color ?? '-')}</td>
-            <td>${v.seats}</td>
-            <td>${(v.options ?? []).map(escapeHtml).join(', ') || '-'}</td>
+            <td><input data-vf="plate" value="${escapeHtml(v.plate ?? '')}" style="width:110px" /></td>
+            <td><input data-vf="color" value="${escapeHtml(v.color ?? '')}" style="width:90px" /></td>
+            <td><input data-vf="seats" type="number" min="1" max="9" value="${v.seats ?? 4}" style="width:60px" /></td>
+            <td><input data-vf="options" value="${escapeHtml((v.options ?? []).join(', '))}" placeholder="separees par des virgules" style="min-width:140px" /></td>
             <td><input type="checkbox" data-vehicle-active="${v.id}" ${v.active ? 'checked' : ''} /></td>
-            <td><button class="secondary" data-delete-vehicle="${v.id}">Supprimer</button></td>
+            <td><button class="secondary" data-save-vehicle="${v.id}">Enregistrer</button> <button class="secondary" data-delete-vehicle="${v.id}">Supprimer</button></td>
           </tr>
         `).join('')}
       </tbody>
@@ -1312,6 +1319,33 @@ async function renderVehicles() {
       await syncDriverCategory(select.value, v.vehicle_category, 'add');
       renderVehicles();
       renderChauffeurs();
+    });
+  });
+  // Modification d'un vehicule : nom, plaque, couleur, places, options et photo (la gamme et le chauffeur se changent directement dans leurs listes).
+  container.querySelectorAll('[data-save-vehicle]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      const field = (f) => row.querySelector(`[data-vf="${f}"]`);
+      const display_name = field('name').value.trim();
+      if (!display_name) { alert('Le nom du vehicule est requis.'); return; }
+      const patch = {
+        display_name,
+        plate: field('plate').value.trim().toUpperCase() || null,
+        color: field('color').value.trim() || null,
+        seats: Math.min(Math.max(parseInt(field('seats').value, 10) || 4, 1), 9),
+        options: field('options').value.split(',').map((o) => o.trim()).filter(Boolean),
+      };
+      const photo = field('photo').files[0];
+      if (photo) {
+        const path = `${Date.now()}-${photo.name}`;
+        const { error: uploadError } = await supabase.storage.from('vehicle-photos').upload(path, photo);
+        if (uploadError) { alert(uploadError.message); return; }
+        patch.photo_url = supabase.storage.from('vehicle-photos').getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = await supabase.from('vehicles').update(patch).eq('id', btn.dataset.saveVehicle);
+      if (error) { alert(error.message); return; }
+      btn.textContent = 'Enregistre ✓';
+      setTimeout(() => { renderVehicles(); renderChauffeurs(); }, 700);
     });
   });
   container.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
@@ -2176,7 +2210,7 @@ const RIDE_STEP_LABELS = {
 async function renderActive() {
   const { data: rides } = await supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at, tracking_token')
     .in('status', ['dispatched', 'accepted'])
     .order('created_at', { ascending: true });
 
@@ -2205,12 +2239,16 @@ async function renderActive() {
       ${routeHtml(ride)}
       <div class="ride-actions">
         <button class="secondary" data-view-ride="${ride.id}">Voir la fiche</button>
+        ${ride.tracking_token ? `<button class="secondary" data-copy-tracking="${ride.tracking_token}">Copier le lien de suivi</button>` : ''}
       </div>
     </article>
   `).join('');
 
   container.querySelectorAll('[data-view-ride]').forEach((btn) => {
     btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
+  });
+  container.querySelectorAll('[data-copy-tracking]').forEach((btn) => {
+    btn.addEventListener('click', () => copyTrackingLink(btn.dataset.copyTracking, btn));
   });
 }
 
@@ -2682,6 +2720,26 @@ function toLocalDatetimeInput(iso) {
 }
 
 // Lien WhatsApp (wa.me) vers un numero francais ou international, avec le lien de suivi dans le message.
+// Copie le lien de suivi d'une course (a coller dans un message) et le confirme sur le bouton.
+async function copyTrackingLink(token, btn) {
+  const url = `${location.origin}/suivi/${token}`;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (e) {
+    const t = document.createElement('input');
+    t.value = url;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand('copy');
+    t.remove();
+  }
+  if (btn) {
+    const old = btn.textContent;
+    btn.textContent = 'Lien copie ✓';
+    setTimeout(() => { btn.textContent = old; }, 1800);
+  }
+}
+
 function whatsappTrackingUrl(phone, token) {
   let digits = String(phone).replace(/[^\d+]/g, '').replace(/^\+/, '');
   if (digits.startsWith('00')) digits = digits.slice(2);
@@ -3052,9 +3110,7 @@ async function renderRideClientTab() {
     }).eq('id', ride.id);
     await refreshRideModal();
   });
-  document.getElementById('rm-copy-tracking').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('rm-tracking-link').value);
-  });
+  document.getElementById('rm-copy-tracking').addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
   document.getElementById('rm-whatsapp-tracking').addEventListener('click', () => {
     const phone = document.getElementById('rm-orderer-phone').value.trim();
     if (!phone) { alert("Renseignez d'abord le telephone du donneur d'ordre (puis Enregistrer)."); return; }
