@@ -153,8 +153,8 @@ function NotificationsView({ session, onBack }) {
   );
 }
 
-export default function ClientMenu({ session, onClose }) {
-  const [view, setView] = useState('menu');
+export default function ClientMenu({ session, onClose, initialView = 'menu' }) {
+  const [view, setView] = useState(initialView);
   const [profile, setProfile] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -229,8 +229,8 @@ export default function ClientMenu({ session, onClose }) {
 
 const styles = StyleSheet.create({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: 16, gap: 12 },
-  title: { fontFamily: theme.fonts.title, fontSize: 24, fontWeight: '800', color: theme.colors.text },
+  content: { padding: 16, gap: 12, paddingBottom: 110 },
+  title: { fontFamily: theme.fonts.title, fontSize: 24, color: theme.colors.text },
   muted: { color: theme.colors.textMuted },
   error: { color: theme.colors.error },
   back: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },

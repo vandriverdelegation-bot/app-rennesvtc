@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
+import { autocompleteAddress, getPlaceLocation } from '../lib/places';
 import AddressAutocomplete from './AddressAutocomplete';
-import RideCard from './RideCard';
-import { Btn, Card } from '../ui';
+import HomeView from './HomeView';
 import { DateField, TimeField } from '../DateTimeFields';
 
 const STATUS_LABELS = {
@@ -18,6 +19,10 @@ const PAYMENT_METHODS = [
   { value: 'carte_a_bord', label: 'CB a bord', icon: '💳' },
   { value: 'especes', label: 'Especes', icon: '💶' },
 ];
+
+const HOME_KEY = 'home_address';
+// Destinations des raccourcis de l'accueil ; « Domicile » est memorise par le client.
+const SHORTCUT_QUERIES = { airport: 'Aéroport Rennes Bretagne', station: 'Gare de Rennes' };
 
 function parseDateTime(dateStr, timeStr) {
   if (!dateStr || !timeStr) return null;
@@ -79,7 +84,7 @@ function SectionCard({ title, children }) {
   );
 }
 
-export default function ClientHome({ session, logoUrl, appName }) {
+export default function ClientHome({ session, appName, onViewChange, onOpenAccount, onOpenNotifications, focus }) {
   const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
   const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
@@ -105,12 +110,14 @@ export default function ClientHome({ session, logoUrl, appName }) {
   const [rideDate, setRideDate] = useState('');
   const [rideTime, setRideTime] = useState('');
   const [history, setHistory] = useState([]); // courses terminees ou annulees
-  const [showHistory, setShowHistory] = useState(false);
   const [price, setPrice] = useState(null);
   const [priceManual, setPriceManual] = useState(false);
   const [priceError, setPriceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [prefillKey, setPrefillKey] = useState(0); // change a chaque pre-remplissage pour recreer les champs d'adresse
+  const [homeMode, setHomeMode] = useState(false); // premier clic sur « Domicile » : la destination choisie sera memorisee
 
   async function fetchRides() {
     const { data } = await supabase
@@ -128,7 +135,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
   async function fetchHistory() {
     const { data } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, price, scheduled_at, created_at')
+      .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, price, scheduled_at, created_at')
       .eq('client_id', session.user.id)
       .in('status', ['completed', 'cancelled'])
       .order('created_at', { ascending: false })
@@ -146,6 +153,40 @@ export default function ClientHome({ session, logoUrl, appName }) {
     const interval = setInterval(fetchRides, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    supabase.from('profiles').select('full_name').eq('id', session.user.id).single().then(({ data }) => setFullName(data?.full_name ?? ''));
+  }, []);
+
+  useEffect(() => {
+    onViewChange?.(view);
+  }, [view]);
+
+  function openBooking({ pickup: p = null, dropoff: d = null, home = false } = {}) {
+    setPickup(p);
+    setDropoff(d);
+    setHomeMode(home);
+    setPrefillKey((k) => k + 1);
+    setView('book');
+  }
+
+  async function handleShortcut(key) {
+    if (key === 'home') {
+      const saved = await AsyncStorage.getItem(HOME_KEY).catch(() => null);
+      return saved ? openBooking({ dropoff: JSON.parse(saved) }) : openBooking({ home: true });
+    }
+    try {
+      const [first] = await autocompleteAddress(SHORTCUT_QUERIES[key]);
+      openBooking({ dropoff: first ? await getPlaceLocation(first.placeId) : null });
+    } catch (e) {
+      openBooking();
+    }
+  }
+
+  function handleDropoff(loc) {
+    setDropoff(loc);
+    if (homeMode) AsyncStorage.setItem(HOME_KEY, JSON.stringify(loc)).catch(() => {});
+  }
 
   // Bouton Retour d'Android : du formulaire de commande vers mes reservations.
   useEffect(() => {
@@ -397,46 +438,23 @@ export default function ClientHome({ session, logoUrl, appName }) {
   }
 
   if (view === 'home') {
+    const name = fullName || session.user.user_metadata?.full_name || '';
+    const words = name.trim().split(/s+/).filter(Boolean);
     return (
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.homeContent}>
-        {logoUrl ? (
-          <Image source={{ uri: logoUrl }} style={styles.homeLogo} resizeMode="contain" />
-        ) : (
-          <Text style={styles.homeLogoText}>{appName}</Text>
-        )}
-        <Btn title="+ Commander une course" onPress={() => setView('book')} />
-        <Text style={styles.title}>Mes reservations</Text>
-        {rides.length === 0 ? (
-          <Card>
-            <Text style={styles.homeEmptyTitle}>Aucune reservation en cours</Text>
-            <Text style={styles.paymentLabel}>Commandez votre prochaine course en quelques secondes.</Text>
-          </Card>
-        ) : (
-          rides.map((r) => <RideCard key={r.id} ride={r} session={session} onChanged={fetchRides} />)
-        )}
-        {history.length > 0 ? (
-          <>
-            <TouchableOpacity style={styles.historyToggle} onPress={() => setShowHistory((v) => !v)}>
-              <Text style={styles.title}>Historique</Text>
-              <Text style={styles.backLink}>{showHistory ? 'Masquer' : `Afficher (${history.length})`}</Text>
-            </TouchableOpacity>
-            {showHistory
-              ? history.map((h) => (
-                  <Card key={h.id}>
-                    <View style={styles.historyRow}>
-                      <Text style={styles.mutedText}>
-                        {new Date(h.scheduled_at ?? h.created_at).toLocaleDateString('fr-FR')} · {h.status === 'completed' ? 'Terminee' : 'Annulee'}
-                      </Text>
-                      <Text style={styles.historyPrice}>{h.price != null ? `${Number(h.price).toFixed(2)} €` : ''}</Text>
-                    </View>
-                    <Text style={styles.historyAddress}>{h.pickup_address}</Text>
-                    <Text style={styles.mutedText}>vers {h.dropoff_address}</Text>
-                  </Card>
-                ))
-              : null}
-          </>
-        ) : null}
-      </ScrollView>
+      <HomeView
+        session={session}
+        appName={appName}
+        firstName={words[0] ?? ''}
+        initials={(words.length ? words.slice(0, 2).map((w) => w[0]).join('') : (session.user.email ?? '?')[0]).toUpperCase()}
+        rides={rides}
+        history={history}
+        onBook={openBooking}
+        onShortcut={handleShortcut}
+        onChanged={fetchRides}
+        onOpenAccount={onOpenAccount}
+        onOpenNotifications={onOpenNotifications}
+        focus={focus}
+      />
     );
   }
 
@@ -452,7 +470,7 @@ export default function ClientHome({ session, logoUrl, appName }) {
       <Text style={styles.title}>Commander une course</Text>
 
       <SectionCard title="Trajet">
-        <AddressAutocomplete placeholder="Adresse de depart" onSelect={setPickup} />
+        <AddressAutocomplete key={`p${prefillKey}`} value={pickup?.address} placeholder="Adresse de depart" onSelect={setPickup} />
         {stops.map((stop, i) => (
           <View key={i} style={styles.stopRow}>
             <View style={{ flex: 1 }}>
@@ -470,7 +488,8 @@ export default function ClientHome({ session, logoUrl, appName }) {
           <Text style={styles.link}>+ Ajouter un point d'arret</Text>
         </TouchableOpacity>
         <View style={{ height: 8 }} />
-        <AddressAutocomplete placeholder="Destination" onSelect={setDropoff} />
+        <AddressAutocomplete key={`d${prefillKey}`} value={dropoff?.address} placeholder="Destination" onSelect={handleDropoff} />
+        {homeMode ? <Text style={styles.mutedText}>Cette adresse sera mémorisée comme votre domicile.</Text> : null}
         <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
           <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
             {roundTrip ? <Text style={styles.checkboxMark}>✓</Text> : null}
@@ -651,20 +670,12 @@ export default function ClientHome({ session, logoUrl, appName }) {
 
 const styles = StyleSheet.create({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
-  homeLogo: { width: '100%', height: 110, marginBottom: 4 },
-  homeLogoText: { fontFamily: theme.fonts.title, color: theme.colors.text, fontSize: 28, fontWeight: '800', textAlign: 'center', letterSpacing: 1 },
-  historyToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  historyPrice: { color: theme.colors.accent, fontWeight: '800' },
-  historyAddress: { color: theme.colors.text, fontWeight: '600' },
-  homeContent: { padding: 16, gap: 14, paddingBottom: 32 },
-  homeEmptyTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '700' },
   backLink: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
   scrollView: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { width: '100%', alignItems: 'center', gap: 14, padding: 20, backgroundColor: theme.colors.background },
   map: { width: '100%', flex: 1 },
   statusBar: { width: '100%', padding: 18, backgroundColor: theme.colors.card },
-  title: { fontFamily: theme.fonts.title, fontSize: 24, fontWeight: '800', marginBottom: 4, color: theme.colors.text, alignSelf: 'flex-start' },
+  title: { fontFamily: theme.fonts.title, fontSize: 24, marginBottom: 4, color: theme.colors.text, alignSelf: 'flex-start' },
   status: { fontSize: 16, textAlign: 'center', color: theme.colors.text, fontWeight: '600' },
   paymentLabel: { fontSize: 13, color: theme.colors.textMuted, textAlign: 'center', marginTop: 4 },
   driverBlock: { marginTop: 14, alignItems: 'center', gap: 4 },
@@ -768,7 +779,7 @@ const styles = StyleSheet.create({
     padding: 10,
     color: theme.colors.text,
   },
-  priceEstimate: { fontFamily: theme.fonts.title, fontSize: 20, fontWeight: '800', color: theme.colors.accent, marginTop: 4 },
+  priceEstimate: { fontFamily: theme.fonts.title, fontSize: 20, color: theme.colors.accent, marginTop: 4 },
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   removeStop: { color: theme.colors.error, fontSize: 16, paddingHorizontal: 6 },
   link: { color: theme.colors.accent, marginTop: 8 },

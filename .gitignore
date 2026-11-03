@@ -8,3 +8,6 @@ dist/
 google-services.json
 *-firebase-adminsdk-*.json
 docs/clients-nettoyes.xlsx
+
+# Identifiants de demonstration Google Play
+docs/google-play/comptes-demo.txt

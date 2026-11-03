@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Linking, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
 import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import ClientHome from './screens/ClientHome';
 import ClientMenu from './screens/ClientMenu';
+import BottomNav from './screens/BottomNav';
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
 function renderAppName(appName) {
@@ -30,7 +32,17 @@ export default function App() {
   );
 }
 
+// Polices du design : Outfit (titres) et Inter (texte).
+const FONT_FILES = {
+  Outfit_600SemiBold: require('./assets/fonts/Outfit_600SemiBold.ttf'),
+  Outfit_700Bold: require('./assets/fonts/Outfit_700Bold.ttf'),
+  Inter_400Regular: require('./assets/fonts/Inter_400Regular.ttf'),
+  Inter_500Medium: require('./assets/fonts/Inter_500Medium.ttf'),
+  Inter_600SemiBold: require('./assets/fonts/Inter_600SemiBold.ttf'),
+};
+
 function AppContent() {
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [appName, setAppName] = useState('RENNES VTC');
@@ -42,7 +54,10 @@ function AppContent() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [tab, setTab] = useState('home'); // home | account
+  const [menuView, setMenuView] = useState('menu');
+  const [focus, setFocus] = useState(null); // zone de l'accueil a afficher (barre du bas)
+  const [booking, setBooking] = useState(false); // formulaire de commande ouvert : pas de barre du bas
   const [needPhone, setNeedPhone] = useState(false);
 
   useEffect(() => {
@@ -130,7 +145,18 @@ function AppContent() {
     if (error) setErrorMsg(error.message);
   }
 
-  if (checkingSession) {
+  function openAccount(view = 'menu') {
+    setMenuView(view);
+    setTab('account');
+  }
+
+  function navigate(key) {
+    if (key === 'account') return openAccount();
+    setTab('home');
+    setFocus({ to: key === 'bookings' ? 'bookings' : 'top', n: Date.now() });
+  }
+
+  if (checkingSession || (!fontsLoaded && !fontError)) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator color={theme.colors.accent} />
@@ -157,14 +183,13 @@ function AppContent() {
   if (session) {
     return (
       <SafeAreaView style={styles.sessionContainer}>
-        <View style={styles.header}>
-          <Text style={styles.headerLogo}>{appName}</Text>
-          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)}>
-            <Text style={styles.menuButtonText}>{showMenu ? 'Fermer' : 'Mon compte'}</Text>
-          </TouchableOpacity>
-        </View>
-        {showMenu ? <ClientMenu session={session} onClose={() => setShowMenu(false)} /> : <ClientHome session={session} logoUrl={logoUrl} appName={appName} />}
-        <StatusBar style="dark" />
+        {tab === 'account' ? (
+          <ClientMenu session={session} initialView={menuView} onClose={() => setTab('home')} />
+        ) : (
+          <ClientHome session={session} appName={appName} onViewChange={(v) => setBooking(v === 'book')} onOpenAccount={() => openAccount('account')} onOpenNotifications={() => openAccount('notifications')} focus={focus} />
+        )}
+        {tab === 'account' || !booking ? <BottomNav active={tab === 'account' ? 'account' : focus?.to === 'bookings' ? 'bookings' : 'home'} onPress={navigate} /> : null}
+        <StatusBar style="light" />
       </SafeAreaView>
     );
   }
@@ -179,7 +204,7 @@ function AppContent() {
           <Text style={styles.title}>{mode === 'login' ? 'Connexion' : 'Creer un compte'}</Text>
           {mode === 'signup' ? (
             <>
-              <TextInput style={styles.input} placeholder="Nom et prenom" placeholderTextColor={theme.colors.textMuted} value={fullName} onChangeText={setFullName} />
+              <TextInput style={styles.input} placeholder="Prénom et nom" placeholderTextColor={theme.colors.textMuted} value={fullName} onChangeText={setFullName} />
               <TextInput style={styles.input} placeholder="Telephone" placeholderTextColor={theme.colors.textMuted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
             </>
           ) : null}
@@ -214,7 +239,7 @@ function AppContent() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </SafeAreaView>
   );
 }
@@ -236,28 +261,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     alignItems: 'center',
   },
-  header: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.cardBorder,
-  },
-  headerLogo: { fontSize: 18, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
-  menuButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.radius,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  menuButtonText: { color: theme.colors.text, fontWeight: '700' },
   logoRow: { marginBottom: 24, alignItems: 'center' },
-  logo: { fontFamily: theme.fonts.title, fontSize: 28, fontWeight: '800', color: theme.colors.text, letterSpacing: 1 },
-  title: { fontFamily: theme.fonts.title, fontSize: 22, fontWeight: '800', marginBottom: 12, color: theme.colors.text },
+  logo: { fontFamily: theme.fonts.title, fontSize: 28, color: theme.colors.text, letterSpacing: 1 },
+  title: { fontFamily: theme.fonts.title, fontSize: 22, marginBottom: 12, color: theme.colors.text },
   input: {
     width: '100%',
     borderWidth: 1,

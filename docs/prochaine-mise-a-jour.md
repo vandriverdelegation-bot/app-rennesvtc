@@ -3,9 +3,10 @@
 Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tout ce qui suit est **déjà dans le code (GitHub, branche main)** mais **pas dans les APK installés**.
 
 ## Design (choisi le 01/11/2026)
-- **Appli chauffeur : Nuit verte** (noir et vert, identité actuelle affinée). **Appli client : Jour ivoire** (fond ivoire, cartes blanches, vert profond #1F5E3B, titres à empattement). Palette client dans `apps/client/applyTheme.js`.
-- Les deux : boutons plus grands (52 px mini), cartes légèrement posées, actions de la course fixées en bas de l'écran chauffeur (en route / arrivé / SMS / terminer).
-- Pas fait : barre de navigation du bas (Courses / À venir / Messages / Compte). Maquettes : `docs/propositions-design-apps.pdf`.
+- **Appli chauffeur : Nuit verte** (noir et vert, identité actuelle affinée). Palette dans `apps/driver/applyTheme.js`.
+- **Appli client : refaite le 03/11 d'après la maquette de Jim** (`Accueil client-html.zip`) : noir chaud #0B0C0B, vert #5BD42A, titres Outfit, texte Inter. Remplace « Jour ivoire ». Détail dans la section Appli client.
+- Chauffeur : boutons plus grands (52 px mini), actions de la course fixées en bas de l'écran (en route / arrivé / SMS / terminer).
+- Pas fait côté chauffeur : barre de navigation du bas. Maquettes : `docs/propositions-design-apps.pdf`.
 
 ## Appli chauffeur
 - **Design 02/11 (fourni par Jim, image de référence)** : en-tête avec logo + château et bouton menu rond vert, onglets en pastilles, « Saisir une réservation » en ligne d'action, carte de course à contour vert lumineux (date, prix en badge, pastilles avec pictogrammes, trajet, distance), boutons arrondis (Accepter, Dispatcher, Refuser). Pictogrammes en PNG (`assets/ui`), composants dans `ui.js`, couleurs dans `applyTheme.js`.
@@ -23,6 +24,13 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - **Saisie semi-automatique du client** (nom ou téléphone, 2 lettres) dans « Saisir une réservation » : remplit téléphone et e-mail. Fichier clients : table `clients` (migration 042, 1 885 clients importés le 02/11 depuis la base nettoyée), mise à jour automatiquement à chaque saisie.
 
 ## Appli client
+- **Nouvelle présentation (03/11, maquette fournie par Jim)** :
+  - Accueil : en-tête (logo étoile, cloche → notifications, initiales → mes informations), « Bonjour {prénom}, Où allez-vous aujourd'hui ? », gros bouton « Commander une course », raccourcis **Aéroport / Gare / Domicile** (destination pré-remplie ; Domicile mémorisé la première fois), onglets **À venir / Passées**, carte « Une question ? » (WhatsApp), barre de navigation flottante Accueil / Réservations / Compte.
+  - Carte de réservation : statut, « Dans X jours », date et heure en grand, prix, mini-plan stylisé, itinéraire, pastilles gamme / passagers / bagages, boutons Appeler, WhatsApp et « ⋯ » (annuler, bloqué à moins de 24 h). Chat toujours présent sur une course acceptée.
+  - Passées : « Recommander ce trajet » pré-remplit le formulaire. Formulaire, compte et connexion passent au thème sombre.
+  - Écarts voulus avec la maquette : pas de bouton « Modifier » (n'existe pas côté client) ni « Facture » (pas de fonction facture) ; pas de pastille verte sur la cloche.
+  - Code : `screens/HomeView.js`, `BottomNav.js`, `RideCard.js`, `RouteSketch.js`, `ui.js`, `icons.js`, `lib/format.js`, `applyTheme.js` ; pictogrammes PNG dans `assets/ui`, polices dans `assets/fonts` (chargées par `expo-font`, ajouté à `package.json`, JS seul). Captures : `docs/client_*.png`.
+  - Pas encore testé sur téléphone : raccourcis Aéroport / Gare (Google Places), « Recommander ce trajet », rendu des polices. Voir sur Expo Go (port 8082) avant le build.
 - **Continuer avec Google** (schéma `rennesvtc-client://auth`) + demande du téléphone après une inscription Google.
 - Calendrier et heure pour la date de course et le retour.
 - **Chat** avec son chauffeur sur une course acceptée (`RideChat.js`).
@@ -46,6 +54,7 @@ cd apps/client && NODE_OPTIONS=--use-system-ca npx.cmd --yes eas-cli build --pla
 cd apps/driver && NODE_OPTIONS=--use-system-ca npx.cmd --yes eas-cli build --platform android --profile preview --non-interactive --no-wait
 ```
 Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react-native-maps` (plantage au lancement).
+**Consigne de Jim (03/11) : ne plus envoyer de builds au fil de l'eau.** Ses retouches de design se valident dans Expo Go (PC et téléphone sur le même Wi-Fi, `npx.cmd expo start --lan`, avec `NODE_OPTIONS=--use-system-ca` sinon le serveur plante sur le certificat) ; un seul build final pour les deux apps, quand il l'aura décidé. Expo Go ne permet pas de tester les notifications ni la sonnerie.
 
 ## À tester sur le téléphone après installation
 1. Chauffeur : saisir une mise à disposition ; calendrier + heure ; onglet « à venir » avec 2-3 réservations futures ; changer la gamme d'une course.

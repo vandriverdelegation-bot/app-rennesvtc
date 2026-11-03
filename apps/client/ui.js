@@ -3,6 +3,9 @@ import { theme } from '@app-rennesvtc/shared';
 
 const c = theme.colors;
 
+// Polices du design : Outfit pour les titres, Inter pour le texte (chargees dans App.js).
+export const FONT = { title: 'Outfit_600SemiBold', bold: 'Outfit_700Bold', body: 'Inter_400Regular', medium: 'Inter_500Medium', semi: 'Inter_600SemiBold' };
+
 export function Card({ children, style }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
@@ -11,7 +14,7 @@ export function SectionLabel({ children }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
-// Pastille d'information ; "highlight" la met en avant (siege enfant par exemple).
+// Pastille d'information ; "highlight" la met en avant.
 export function Pill({ children, highlight }) {
   return (
     <View style={[styles.pill, highlight && styles.pillHighlight]}>
@@ -20,20 +23,28 @@ export function Pill({ children, highlight }) {
   );
 }
 
-// Depart et destination relies par un trait, facon fil d'itineraire.
+// Depart (rond vert) et arrivee (carre clair) relies par un pointille, facon fil d'itineraire.
 export function RouteBlock({ pickup, dropoff }) {
   return (
     <View style={styles.route}>
       <View style={styles.routeRail}>
-        <View style={[styles.dot, { backgroundColor: c.accent }]} />
-        <View style={styles.line} />
-        <View style={[styles.dot, { backgroundColor: '#FF5C5C' }]} />
+        <View style={styles.dotStart} />
+        <View style={styles.dashes}>
+          {Array.from({ length: 24 }, (_, i) => (
+            <View key={i} style={styles.dash} />
+          ))}
+        </View>
+        <View style={styles.dotEnd} />
       </View>
       <View style={styles.routeTexts}>
-        <Text style={styles.routeLabel}>DEPART</Text>
-        <Text style={styles.routeAddress}>{pickup}</Text>
-        <Text style={[styles.routeLabel, { marginTop: 14 }]}>DESTINATION</Text>
-        <Text style={styles.routeAddress}>{dropoff}</Text>
+        <View>
+          <Text style={styles.routeLabel}>DÉPART</Text>
+          <Text style={styles.routeAddress}>{pickup}</Text>
+        </View>
+        <View>
+          <Text style={styles.routeLabel}>ARRIVÉE</Text>
+          <Text style={styles.routeAddress}>{dropoff}</Text>
+        </View>
       </View>
     </View>
   );
@@ -58,30 +69,27 @@ const styles = StyleSheet.create({
     backgroundColor: c.card,
     borderWidth: 1,
     borderColor: c.cardBorder,
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 16,
     gap: 12,
-    shadowColor: '#17211B',
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
   },
-  sectionLabel: { color: c.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  sectionLabel: { color: c.textMuted, fontSize: 11, fontFamily: FONT.semi, letterSpacing: 1.3, textTransform: 'uppercase' },
   pill: { borderWidth: 1, borderColor: c.inputBorder, backgroundColor: c.pill, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
   pillHighlight: { backgroundColor: c.accent, borderColor: c.accent },
-  pillText: { color: c.text, fontSize: 13, fontWeight: '600' },
-  pillTextHighlight: { color: c.accentText, fontWeight: '800' },
-  route: { flexDirection: 'row', gap: 12 },
-  routeRail: { alignItems: 'center', paddingTop: 4, paddingBottom: 6 },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  line: { flex: 1, width: 2, backgroundColor: c.inputBorder, marginVertical: 4 },
-  routeTexts: { flex: 1 },
-  routeLabel: { color: c.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  routeAddress: { color: c.text, fontSize: 15, fontWeight: '600', marginTop: 2 },
+  pillText: { color: c.text, fontSize: 13, fontFamily: FONT.semi },
+  pillTextHighlight: { color: c.accentText },
+  route: { flexDirection: 'row', gap: 14 },
+  routeRail: { width: 10, marginTop: 5 },
+  dotStart: { position: 'absolute', top: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent },
+  dotEnd: { position: 'absolute', bottom: 0, width: 10, height: 10, borderRadius: 3, backgroundColor: c.text },
+  dashes: { position: 'absolute', top: 16, bottom: 16, left: 4, width: 2, overflow: 'hidden', gap: 4 }, // hors flux : seul le texte fixe la hauteur
+  dash: { width: 2, height: 4, backgroundColor: '#3A3F3A' },
+  routeTexts: { flex: 1, gap: 18 },
+  routeLabel: { color: c.textMuted, fontSize: 11, fontFamily: FONT.medium, letterSpacing: 1.3, marginBottom: 3 },
+  routeAddress: { color: c.text, fontSize: 15, fontFamily: FONT.medium, lineHeight: 21 },
   btn: { borderRadius: 14, minHeight: 52, paddingVertical: 15, justifyContent: 'center', alignItems: 'center', alignSelf: 'stretch' },
   btnPrimary: { backgroundColor: c.accent },
   btnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.inputBorder },
   btnWhatsapp: { backgroundColor: '#25D366' },
-  btnText: { fontWeight: '800', fontSize: 16 },
+  btnText: { fontFamily: FONT.title, fontSize: 16 },
 });
