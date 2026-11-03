@@ -6,8 +6,8 @@ const GREEN = '#47C415';
 function carPhoto(vehicleName, gamme) {
   const n = String(vehicleName || '');
   if (/camry/i.test(n)) return 'camry';
-  if (/classes*e|e-class/i.test(n)) return 'classe-e';
-  if (/classes*v|van|vito|v-class/i.test(n)) return 'van';
+  if (/classe\s*e\b|e-class/i.test(n)) return 'classe-e';
+  if (/classe\s*v\b|\bvan\b|vito|v-class/i.test(n)) return 'van';
   return { confort: 'camry', affaires: 'classe-e', van: 'van' }[gamme] || 'classe-e';
 }
 
