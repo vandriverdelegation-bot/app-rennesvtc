@@ -20,6 +20,7 @@ const KINDS = {
   on_board: { title: ['Passager', 'à bord'], intro: 'Le passager est à bord : la course est en cours.' },
   dropped: { title: ['Passager', 'déposé'], intro: 'Le passager a été déposé à destination.' },
   driver_accepted: { title: ['Course', 'confirmée'], intro: 'Vous avez accepté cette course. Retrouvez ci-dessous ses détails et votre bon de commande.' },
+  no_show: { title: ['Passager', 'absent'], intro: 'Le chauffeur a attendu sur place : la course est clôturée pour non-présentation du passager.' },
   completed: { title: ['Course', 'terminée'], intro: 'Votre course est terminée. Merci de votre confiance.' },
 };
 

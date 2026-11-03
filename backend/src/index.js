@@ -66,6 +66,7 @@ function trackingTexts(step, mad) {
       : ['Le chauffeur est arrive', 'Il est sur place, au point de prise en charge.'],
     on_board: ['Passager a bord', 'Le passager est a bord : la course est en cours. Suivez-la en direct avec le lien ci-dessous.'],
     dropped: ['Passager depose', 'Le passager a ete depose a destination.'],
+    no_show: ['Passager absent', 'Le chauffeur a attendu sur place : la course est cloturee pour non-presentation du passager.'],
     completed: [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'],
   }[step];
 }
@@ -952,6 +953,7 @@ const STEP_PUSH = {
   on_site: ['Votre chauffeur est arrive', 'Il vous attend au point de prise en charge.'],
   on_board: ['Bon trajet', 'Vous etes a bord : votre course est en cours.'],
   dropped: ['Vous etes arrive', 'Vous avez ete depose a destination.'],
+  no_show: ['Course cloturee', 'Votre chauffeur vous a attendu sur place sans vous rencontrer : la course est cloturee pour non-presentation.'],
   completed: ['Course terminee', 'Merci de votre confiance, a bientot avec Rennes VTC.'],
 };
 app.post('/notify/step', requireSupabaseUser, async (req, res) => {
@@ -1207,6 +1209,29 @@ async function autoDispatchPending() {
   }
 }
 setInterval(() => autoDispatchPending().catch((e) => console.error('auto-dispatch', e)), 30000);
+// Rappel au chauffeur (et aux chauffeurs supplementaires) quand sa course acceptee commence dans moins d'1 h. Une seule fois par course.
+async function remindUpcomingRides() {
+  const now = new Date();
+  const { data: rides } = await supabaseAdmin
+    .from('rides')
+    .select('id, driver_id, extra_driver_ids, scheduled_at, pickup_address, dropoff_address, client_name')
+    .eq('status', 'accepted')
+    .in('ride_step', ['not_started'])
+    .is('reminder_sent_at', null)
+    .gt('scheduled_at', now.toISOString())
+    .lte('scheduled_at', new Date(now.getTime() + 3600000).toISOString());
+  for (const ride of rides ?? []) {
+    // Le marquage conditionnel evite un double rappel si deux cycles se chevauchent.
+    const { data: marked } = await supabaseAdmin.from('rides').update({ reminder_sent_at: now.toISOString() }).eq('id', ride.id).is('reminder_sent_at', null).select('id');
+    if (!marked?.length) continue;
+    const ids = [ride.driver_id, ...(ride.extra_driver_ids ?? [])].filter(Boolean);
+    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').in('id', ids);
+    const minutes = Math.max(1, Math.round((new Date(ride.scheduled_at) - now) / 60000));
+    const heure = new Date(ride.scheduled_at).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+    await sendPush((drivers ?? []).map((d) => d.push_token), `Rappel : course dans ${minutes} min (${heure})`, `${ride.client_name ? ride.client_name + ' - ' : ''}${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
+  }
+}
+setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
 setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
 
 app.listen(PORT, () => {

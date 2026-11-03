@@ -17,10 +17,11 @@ async function registerPushToken(supabase, userId, options = {}) {
     if (!Device.isDevice) return 'Indisponible sur un simulateur.';
     if (options.courseChannel && require('react-native').Platform.OS === 'android') {
       await Notifications.deleteNotificationChannelAsync('courses');
-      await Notifications.setNotificationChannelAsync('courses_v2', {
+      await Notifications.deleteNotificationChannelAsync('courses_v2');
+      await Notifications.setNotificationChannelAsync('courses_v3', {
         name: 'Nouvelles courses',
         importance: Notifications.AndroidImportance.MAX,
-        sound: 'nouvelle_course.aac',
+        sound: 'nouvelle_course.wav',
         vibrationPattern: [0, 400, 200, 400],
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
@@ -39,7 +40,7 @@ async function registerPushToken(supabase, userId, options = {}) {
       return 'Projet EAS introuvable dans la configuration.';
     }
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    const { error } = await supabase.from('profiles').update({ push_token: token, push_channel: options.courseChannel ? 'courses_v2' : null }).eq('id', userId);
+    const { error } = await supabase.from('profiles').update({ push_token: token, push_channel: options.courseChannel ? 'courses_v3' : null }).eq('id', userId);
     if (error) return 'Enregistrement du jeton refuse : ' + error.message;
   } catch (e) {
     console.log('registerPushToken: notifications push indisponibles -', e.message);

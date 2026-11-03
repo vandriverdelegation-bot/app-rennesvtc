@@ -124,6 +124,7 @@ function progress(r) {
 
 function headline(r, mad) {
   if (r.status === 'cancelled') return ['Course annulee', ''];
+  if (r.ride_step === 'no_show') return ['Passager absent', 'Le chauffeur a attendu sur place : la course est cloturee pour non-presentation.'];
   if (r.status === 'completed') return [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'];
   if (r.ride_step === 'dropped') return ['Passager depose', 'Il a ete depose a destination.'];
   if (r.ride_step === 'on_board') return ['Passager a bord', 'La course est en cours. Suivez sa position en direct ci-dessous.'];

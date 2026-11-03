@@ -18,7 +18,7 @@ const agesLabel = (ages) => {
   return ' · ' + (/ans|an|mois/i.test(t) ? t : t + ' ans');
 };
 
-const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee' };
+const STEP_LABELS = { not_started: 'A venir', en_route: 'En route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee', no_show: 'Non presentation' };
 const IN_PROGRESS_STEPS = ['en_route', 'on_site', 'on_board', 'dropped'];
 
 const PAYMENT_LABELS = {
@@ -305,6 +305,26 @@ export default function DriverHome({ session }) {
     refresh();
   }
 
+  // Passager absent a l'arrivee : la course est cloturee pour non-presentation (le client et le donneur d'ordre sont prevenus).
+  function handleNoShow() {
+    Alert.alert('Passager absent ?', 'La course sera cloturee pour non-presentation et le client en sera informe.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Cloturer (no show)',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('rides').update({ status: 'completed', ride_step: 'no_show' }).eq('id', activeRide.id).eq('driver_id', session.user.id);
+          if (error) {
+            setErrorMsg(error.message);
+            return;
+          }
+          notifyStep(activeRide.id, 'no_show');
+          refresh();
+        },
+      },
+    ]);
+  }
+
   async function handleAdvanceStep(nextStep) {
     await supabase
       .from('rides')
@@ -528,6 +548,7 @@ export default function DriverHome({ session }) {
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
         {activeRide.ride_step === 'on_site' && <Btn title="Passager a bord" onPress={() => handleAdvanceStep('on_board')} />}
+        {activeRide.ride_step === 'on_site' && <Btn title="Passager absent (no show)" variant="secondary" onPress={handleNoShow} />}
         {activeRide.ride_step === 'on_board' && <Btn title="Passager depose" onPress={() => handleAdvanceStep('dropped')} />}
         {activeRide.ride_step === 'dropped' && <Btn title="Terminer la course" onPress={handleComplete} />}
       </View>

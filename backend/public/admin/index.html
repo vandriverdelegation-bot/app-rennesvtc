@@ -2205,7 +2205,7 @@ async function dispatchRide(rideId, driverId) {
 }
 
 const RIDE_STEP_LABELS = {
-  not_started: 'Pas commencee', en_route: 'Chauffeur en route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee',
+  not_started: 'Pas commencee', en_route: 'Chauffeur en route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee', no_show: 'Non presentation',
 };
 
 async function renderActive() {
@@ -2793,7 +2793,7 @@ async function renderRideCourseTab() {
     const { data: driver } = await supabase.from('profiles').select('email').eq('id', ride.driver_id).single();
     driverLabel = driver?.email ?? 'Chauffeur inconnu';
   }
-  const steps = ['not_started', 'en_route', 'on_site', 'on_board', 'dropped', 'completed'];
+  const steps = ['not_started', 'en_route', 'on_site', 'on_board', 'dropped', 'completed', 'no_show'];
   const { data: assignable } = await supabase.from('profiles').select('id, email, full_name, vehicle_categories').eq('role', 'chauffeur').not('vehicle_category', 'is', null).order('full_name', { ascending: true });
   const extraIds = ride.extra_driver_ids ?? [];
   const nameOfDriver = (id) => { const d = (assignable ?? []).find((x) => x.id === id); return d?.full_name || d?.email || 'Chauffeur inconnu'; };
