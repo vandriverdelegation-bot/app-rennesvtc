@@ -185,10 +185,12 @@ app.post('/admin/chauffeurs', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: error.message });
   }
 
-  await supabaseAdmin
+  // Le role est ecrit explicitement : le trigger de creation (migration 039) donne « client » a ce stade, app_metadata n'etant pas encore pose.
+  const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .update({ vehicle_category, vehicle_categories: [vehicle_category], driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price, full_name: full_name?.trim() || null, phone: phone?.trim() || null })
+    .update({ role: 'chauffeur', vehicle_category, vehicle_categories: [vehicle_category], driver_role, can_create_rides: !!can_create_rides, can_edit_price: !!can_edit_price, full_name: full_name?.trim() || null, phone: phone?.trim() || null })
     .eq('id', data.user.id);
+  if (profileError) return res.status(500).json({ error: `Compte cree mais profil chauffeur non enregistre : ${profileError.message}` });
 
   res.status(201).json({ id: data.user.id, email: data.user.email });
 });

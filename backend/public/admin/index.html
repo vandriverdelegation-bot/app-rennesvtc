@@ -491,7 +491,7 @@
                 <div class="field"><label for="new-ride-client-firstname">Prenom</label><input id="new-ride-client-firstname" placeholder="Prenom" /></div>
                 <div class="field"><label for="new-ride-client-name">Nom</label><input id="new-ride-client-name" placeholder="Nom" /></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
-                <div class="field"><label for="new-ride-client-email">Email (recoit la confirmation)</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
+                <div class="field"><label for="new-ride-client-email">Email (facultatif, recoit la confirmation)</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
               <button type="button" class="secondary" id="new-ride-orderer-toggle" style="margin-top:14px">+ Suivi au donneur d'ordre</button>
@@ -529,7 +529,7 @@
                   <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
                   <div class="suggestions" id="new-ride-dropoff-suggestions" style="display:none"></div>
                 </div>
-                <div class="field wide"><label for="new-ride-stops">Points d'arret (separes par ;)</label><input id="new-ride-stops" placeholder="Facultatif" /></div>
+                <div class="field wide"><label>Points d'arret (autant que necessaire)</label><div id="new-ride-stops"></div><button type="button" class="secondary" id="new-ride-add-stop">+ Ajouter un point d'arret</button></div>
                 <div class="field inline" id="new-ride-round-trip-field"><label><input type="checkbox" id="new-ride-round-trip" /> Aller-retour</label></div>
                 <div class="field wide" id="new-ride-return-row" style="display:none">
                   <label>Date et heure du retour</label>
@@ -916,6 +916,18 @@ function setupAdminAutocomplete(inputId, suggestionsId, onSelect) {
 
 let newRidePickup = null;
 let newRideDropoff = null;
+// Points d'arret : autant de lignes que necessaire, chacune avec la saisie d'adresse assistee (seul le texte est conserve).
+let newRideStopCount = 0;
+document.getElementById('new-ride-add-stop').addEventListener('click', () => {
+  const n = ++newRideStopCount;
+  const row = document.createElement('div');
+  row.className = 'field';
+  row.innerHTML = `<div class="row"><input class="new-ride-stop" id="new-ride-stop-${n}" placeholder="Point d'arret" autocomplete="off" /><button type="button" class="secondary" aria-label="Retirer ce point d'arret">&times;</button></div><div class="suggestions" id="new-ride-stop-${n}-suggestions" style="display:none"></div>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  document.getElementById('new-ride-stops').appendChild(row);
+  setupAdminAutocomplete(`new-ride-stop-${n}`, `new-ride-stop-${n}-suggestions`, () => {});
+  row.querySelector('input').focus();
+});
 setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; updateNewRidePrice(); });
 setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; updateNewRidePrice(); });
 // Prix calcule automatiquement (memes tarifs que le module de reservation) des que les adresses sont choisies ;
@@ -1053,7 +1065,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const payment_method = document.getElementById('new-ride-payment').value;
   const price = parseFloat(document.getElementById('new-ride-price').value);
   const driverId = document.getElementById('new-ride-driver').value;
-  const stop_addresses = document.getElementById('new-ride-stops').value.split(';').map((s) => s.trim()).filter(Boolean);
+  const stop_addresses = [...document.querySelectorAll('.new-ride-stop')].map((i) => i.value.trim()).filter(Boolean);
   const passenger_count = Math.max(1, parseInt(document.getElementById('new-ride-passengers').value, 10) || 1);
   const luggage_count = Math.max(0, parseInt(document.getElementById('new-ride-luggage').value, 10) || 0);
   const child_seats = Math.max(0, parseInt(document.getElementById('new-ride-child-seats').value, 10) || 0);
@@ -1073,8 +1085,8 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     errorEl.textContent = 'Nom, telephone, adresses (choisies dans la liste) et prix sont requis.';
     return;
   }
-  if (!client_email || !client_email.includes('@')) {
-    errorEl.textContent = "L'email du client est requis : il recoit la confirmation de la reservation.";
+  if (client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client_email)) {
+    errorEl.textContent = "L'email du client n'est pas valide (laissez le champ vide s'il n'en a pas).";
     return;
   }
   if ((child_seats > 0 || booster_seats > 0) && !child_ages) {
@@ -1098,7 +1110,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     client_id: null,
     client_name,
     client_phone,
-    client_email,
+    client_email: client_email || null,
     passenger_count,
     luggage_count,
     child_seats,
@@ -1167,7 +1179,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   newRidePickup = null;
   newRideDropoff = null;
   document.getElementById('new-ride-dropoff').value = '';
-  document.getElementById('new-ride-stops').value = '';
+  document.getElementById('new-ride-stops').innerHTML = '';
   document.getElementById('new-ride-round-trip').checked = false;
   document.getElementById('new-ride-return-row').style.display = 'none';
   document.getElementById('new-ride-return-date').value = '';
