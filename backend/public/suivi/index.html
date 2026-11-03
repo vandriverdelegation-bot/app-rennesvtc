@@ -154,7 +154,6 @@ function render(r) {
   ];
   const when = r.scheduled_at ? fmtTime(r.scheduled_at) : 'Des que possible';
   const driver = r.driver;
-  const v = driver?.vehicle;
   const live = !!r.driverPosition;
   const stopsHtml = (r.stop_addresses || []).map((s) => `<div class="stop"><i class="mid"></i><div><small>Arret</small>${esc(s)}</div></div>`).join('');
 
@@ -190,13 +189,13 @@ function render(r) {
 
     ${driver ? `
     <section class="card">
-      <h2>Votre chauffeur</h2>
-      <div class="driver">
-        <div class="avatar">${esc((driver.firstName || 'C')[0].toUpperCase())}</div>
-        <div><strong>${esc(driver.firstName || 'Chauffeur')}</strong>
-          ${v ? `<div class="muted">${esc([v.display_name, v.color].filter(Boolean).join(' - '))}${v.plate ? ` - <b>${esc(v.plate)}</b>` : ''}</div>` : ''}
+      <h2>${(r.extraDrivers || []).length ? 'Vos chauffeurs' : 'Votre chauffeur'}</h2>
+      ${[driver, ...(r.extraDrivers || [])].map((d) => `<div class="driver" style="margin-bottom:10px">
+        <div class="avatar">${esc((d.firstName || 'C')[0].toUpperCase())}</div>
+        <div><strong>${esc(d.firstName || 'Chauffeur')}</strong>
+          ${d.vehicle ? `<div class="muted">${esc([d.vehicle.display_name, d.vehicle.color].filter(Boolean).join(' - '))}${d.vehicle.plate ? ` - <b>${esc(d.vehicle.plate)}</b>` : ''}</div>` : ''}
         </div>
-      </div>
+      </div>`).join('')}
     </section>` : ''}
 
     <section class="card">

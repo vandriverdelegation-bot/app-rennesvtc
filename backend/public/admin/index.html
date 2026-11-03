@@ -490,6 +490,7 @@
               <div class="form-grid">
                 <div class="field"><label for="new-ride-client-firstname">Prenom</label><input id="new-ride-client-firstname" placeholder="Prenom" /></div>
                 <div class="field"><label for="new-ride-client-name">Nom</label><input id="new-ride-client-name" placeholder="Nom" /></div>
+                <div class="field"><label for="new-ride-client-company">Societe (client professionnel : nom et prenom alors facultatifs)</label><input id="new-ride-client-company" placeholder="Nom de la societe" /></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
                 <div class="field"><label for="new-ride-client-email">Email (facultatif, recoit la confirmation)</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
@@ -567,6 +568,7 @@
                 <div class="field"><label for="new-ride-driver">Chauffeur</label>
                   <select id="new-ride-driver"><option value="">Laisser en attente (dispatch normal)</option></select>
                 </div>
+                <div class="field wide"><label>Chauffeurs supplementaires (plusieurs chauffeurs sur la meme mission)</label><div id="new-ride-extra-drivers"></div><button type="button" class="secondary" id="new-ride-add-extra-driver">+ Ajouter un chauffeur</button></div>
                 <div class="field wide"><label for="new-ride-tags">Tags (separes par ,)</label><input id="new-ride-tags" placeholder="Facultatif" /></div>
               </div>
             </div>
@@ -1053,10 +1055,23 @@ async function populateNewRideDrivers() {
 }
 document.getElementById('new-ride-category').addEventListener('change', populateNewRideDrivers);
 
+// Chauffeurs supplementaires d'une mission : tous les chauffeurs, quelle que soit leur gamme.
+document.getElementById('new-ride-add-extra-driver').addEventListener('click', async () => {
+  const { data: drivers } = await supabase.from('profiles').select('id, email, full_name').eq('role', 'chauffeur').order('full_name', { ascending: true });
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<select class="new-ride-extra-driver"><option value="">Choisir un chauffeur...</option>${(drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.full_name || d.email)}</option>`).join('')}</select><button type="button" class="secondary" aria-label="Retirer ce chauffeur">&times;</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  document.getElementById('new-ride-extra-drivers').appendChild(row);
+});
+
 document.getElementById('add-ride').addEventListener('click', async () => {
   const errorEl = document.getElementById('new-ride-error');
   errorEl.textContent = '';
-  const client_name = [document.getElementById('new-ride-client-firstname').value.trim(), document.getElementById('new-ride-client-name').value.trim()].filter(Boolean).join(' ');
+  const personName = [document.getElementById('new-ride-client-firstname').value.trim(), document.getElementById('new-ride-client-name').value.trim()].filter(Boolean).join(' ');
+  const company = document.getElementById('new-ride-client-company').value.trim();
+  // Client professionnel : la societe sert de nom ; avec un contact nomme, « Prenom Nom (Societe) ».
+  const client_name = personName && company ? `${personName} (${company})` : personName || company;
   const client_phone = document.getElementById('new-ride-client-phone').value.trim();
   const client_email = document.getElementById('new-ride-client-email').value.trim();
   const vehicle_category = document.getElementById('new-ride-category').value;
@@ -1082,7 +1097,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
 
   const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
   if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
-    errorEl.textContent = 'Nom, telephone, adresses (choisies dans la liste) et prix sont requis.';
+    errorEl.textContent = 'Nom (ou societe), telephone, adresses (choisies dans la liste) et prix sont requis.';
     return;
   }
   if (client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client_email)) {
@@ -1144,6 +1159,12 @@ document.getElementById('add-ride').addEventListener('click', async () => {
 
   // Confirmation au client : de la demande, ou directement de l'acceptation si un chauffeur est deja choisi.
   const { data: { session } } = await supabase.auth.getSession();
+  // Chauffeurs supplementaires : enregistres avant la confirmation, qui les previent avec le chauffeur principal.
+  const extraDriverIds = [...document.querySelectorAll('.new-ride-extra-driver')].map((s) => s.value).filter(Boolean);
+  if (extraDriverIds.length) {
+    const r = await fetch(`/admin/rides/${created.id}/extra-drivers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ driverIds: extraDriverIds, deferNotify: true }) });
+    if (!r.ok) alert('Reservation creee, mais les chauffeurs supplementaires n\'ont pas pu etre ajoutes : ' + ((await r.json().catch(() => ({}))).error || 'erreur'));
+  }
   fetch(driverId ? '/notify/accepted' : '/notify/new-ride', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -1171,6 +1192,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
 
   document.getElementById('new-ride-client-firstname').value = '';
   document.getElementById('new-ride-client-name').value = '';
+  document.getElementById('new-ride-client-company').value = '';
   document.getElementById('new-ride-client-phone').value = '';
   document.getElementById('new-ride-client-email').value = '';
   document.getElementById('new-ride-pickup').value = '';
@@ -1180,6 +1202,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   newRideDropoff = null;
   document.getElementById('new-ride-dropoff').value = '';
   document.getElementById('new-ride-stops').innerHTML = '';
+  document.getElementById('new-ride-extra-drivers').innerHTML = '';
   document.getElementById('new-ride-round-trip').checked = false;
   document.getElementById('new-ride-return-row').style.display = 'none';
   document.getElementById('new-ride-return-date').value = '';
@@ -2713,6 +2736,8 @@ async function renderRideCourseTab() {
   }
   const steps = ['not_started', 'en_route', 'on_site', 'on_board', 'dropped', 'completed'];
   const { data: assignable } = await supabase.from('profiles').select('id, email, full_name, vehicle_categories').eq('role', 'chauffeur').not('vehicle_category', 'is', null).order('full_name', { ascending: true });
+  const extraIds = ride.extra_driver_ids ?? [];
+  const nameOfDriver = (id) => { const d = (assignable ?? []).find((x) => x.id === id); return d?.full_name || d?.email || 'Chauffeur inconnu'; };
   const el = document.getElementById('ride-tab-course');
   document.getElementById('ride-modal-head').innerHTML = `
     ${statusBadge(ride.status)}
@@ -2741,6 +2766,18 @@ async function renderRideCourseTab() {
         <button class="secondary" id="rm-assign">Assigner ce chauffeur</button>
       </div>
       <div class="hint">Attribue la course tout de suite, meme en dispatch automatique : le chauffeur et le client sont prevenus.</div>
+      <div class="rm-row" style="margin-top:12px">
+        <span class="chip">Chauffeurs supplementaires :</span>
+        ${extraIds.length ? extraIds.map((id) => `<span class="chip">${escapeHtml(nameOfDriver(id))} <button type="button" class="secondary" data-rm-extra-remove="${id}" aria-label="Retirer ce chauffeur" style="padding:0 6px">&times;</button></span>`).join('') : '<span class="hint">aucun</span>'}
+      </div>
+      <div class="rm-row" style="margin-top:8px">
+        <select id="rm-extra-select">
+          <option value="">Ajouter un chauffeur a la mission...</option>
+          ${(assignable ?? []).filter((d) => d.id !== ride.driver_id && !extraIds.includes(d.id)).map((d) => `<option value="${d.id}">${escapeHtml(d.full_name || d.email)}</option>`).join('')}
+        </select>
+        <button class="secondary" id="rm-extra-add">Ajouter</button>
+      </div>
+      <div class="hint">Plusieurs chauffeurs sur la meme mission : le chauffeur principal gere les etapes ; les autres sont prevenus et recoivent le bon de commande.</div>
     </div>
 
     <div class="rm-section">
@@ -2848,6 +2885,20 @@ async function renderRideCourseTab() {
     await refreshRideModal();
     refresh();
   });
+  // Chauffeurs supplementaires : la liste complete est renvoyee au serveur, qui previent les nouveaux.
+  async function saveExtraDrivers(driverIds) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/admin/rides/${ride.id}/extra-drivers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ driverIds }) });
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Enregistrement impossible.'); return; }
+    await refreshRideModal();
+    refresh();
+  }
+  document.getElementById('rm-extra-add').addEventListener('click', () => {
+    const id = document.getElementById('rm-extra-select').value;
+    if (!id) { alert('Choisissez un chauffeur.'); return; }
+    saveExtraDrivers([...extraIds, id]);
+  });
+  document.querySelectorAll('[data-rm-extra-remove]').forEach((b) => b.addEventListener('click', () => saveExtraDrivers(extraIds.filter((i) => i !== b.dataset.rmExtraRemove))));
   document.getElementById('rm-redispatch').addEventListener('click', async () => {
     if (!confirm('Renvoyer cette course dans le dispatch (le chauffeur actuel la perd) ?')) return;
     await supabase.from('rides').update({ status: 'dispatched', driver_id: null, dispatched_to: null }).eq('id', ride.id);

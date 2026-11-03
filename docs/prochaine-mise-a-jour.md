@@ -23,6 +23,8 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - **Sonnerie spéciale « Nouvelles courses »** : sonnerie fournie par Jim (`apps/driver/assets/sounds/nouvelle_course.aac`, 4,3 s), canal Android `courses_v2` (importance max) créé par l'app ; le serveur envoie `channelId: courses_v2` pour les alertes chauffeur. Demande un build.
 - **Saisie semi-automatique du client** (nom ou téléphone, 2 lettres) dans « Saisir une réservation » : remplit téléphone et e-mail. Fichier clients : table `clients` (migration 042, 1 885 clients importés le 02/11 depuis la base nettoyée), mise à jour automatiquement à chaque saisie.
 
+- **Mission partagée (03/11)** : un chauffeur supplémentaire voit la mission dans « Mes réservations à venir » (lecture seule, bouton Bon de commande). Le chauffeur principal gère les étapes. Côté back-office c'est déjà actif (migration 046).
+
 ## Appli client
 - **Nouvelle présentation (03/11, maquette fournie par Jim)** :
   - Accueil : en-tête (logo étoile, cloche → notifications, initiales → mes informations), « Bonjour {prénom}, Où allez-vous aujourd'hui ? », gros bouton « Commander une course », raccourcis **Aéroport / Gare / Domicile** (destination pré-remplie ; Domicile mémorisé la première fois), onglets **À venir / Passées**, carte « Une question ? » (WhatsApp), barre de navigation flottante Accueil / Réservations / Compte.

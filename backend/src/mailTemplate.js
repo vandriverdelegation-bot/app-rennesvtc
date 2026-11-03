@@ -34,7 +34,7 @@ const ico = (base, name, w, h, mode = 'block', extra = '') => {
 
 // ride : { gamme: 'confort'|'affaires'|'van', passenger, whenText, pickup, dropoff, price?, paymentLabel?, ref?, mad?, durationHours? }
 // driver : { firstName, vehicleName, plate }   trackingUrl : lien de suivi (facultatif)
-function buildRideMail({ kind, ride, driver, trackingUrl, bonUrl, base = BASE_URL }) {
+function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bonUrl, base = BASE_URL }) {
   const k = KINDS[kind] ?? KINDS.received;
   const gamme = ['confort', 'affaires', 'van'].includes(ride.gamme) ? ride.gamme : 'affaires';
   const mad = !!ride.mad;
@@ -68,6 +68,11 @@ function buildRideMail({ kind, ride, driver, trackingUrl, bonUrl, base = BASE_UR
       </td>
       <td width="220" align="right" valign="middle" class="hide-m" style="padding:0">${img(base, `car_${photoKey}.jpg`, 210, 110, 'Votre véhicule')}</td>
     </tr><tr><td colspan="2" class="show-m" style="display:none;mso-hide:all;max-height:0;overflow:hidden;font-size:0;line-height:0;padding:0" align="center">${img(base, `car_${photoKey}.jpg`, 210, 110, 'Votre véhicule', 'width:100%;max-width:320px;height:auto;margin:0 auto')}</td></tr></table></td></tr>` : '';
+
+  // Mission a plusieurs chauffeurs : les autres chauffeurs, sous la carte du chauffeur principal.
+  const extraLabel = (e) => `${e.firstName || 'Chauffeur'}${e.vehicleName ? ` - ${e.vehicleName}` : ''}${e.plate ? ` (${e.plate})` : ''}`;
+  const extraRow = driver && extraDrivers.length ? `
+    <tr><td style="padding:0 20px 18px;font-family:${FONT};font-size:15px;color:#2e332f;line-height:1.5"><strong style="color:#0c0d0d">${extraDrivers.length > 1 ? 'Chauffeurs supplémentaires' : 'Chauffeur supplémentaire'} :</strong><br>${extraDrivers.map((e) => esc(extraLabel(e))).join('<br>')}</td></tr>` : '';
 
   // Carte d'action : suivi en direct (donneur d'ordre) ou bon de commande (chauffeur).
   const actionCard = (icon, iw, ih, title, body, label, url, showUrl) => `
@@ -114,7 +119,7 @@ function buildRideMail({ kind, ride, driver, trackingUrl, bonUrl, base = BASE_UR
       <td style="border-bottom:2px solid ${GREEN};font-size:0;line-height:0">&nbsp;</td></tr></table></td></tr>
     ${rows}${infoRow}
   </table></td></tr>
-  ${driverCard}
+  ${driverCard}${extraRow}
   ${tracking}${bon}
   <tr><td bgcolor="#0b0c0d" style="${LIGHT('#0b0c0d')}padding:22px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     <td width="66" valign="middle" class="fcol">${ico(base, 'i_headset.png', 50, 50)}</td>
@@ -135,6 +140,7 @@ function buildRideMail({ kind, ride, driver, trackingUrl, bonUrl, base = BASE_UR
     ride.dropoff ? `Destination : ${ride.dropoff}` : null,
     ride.showPrice ? `Tarif : ${ride.price == null ? 'à confirmer' : ride.price + ' €'}` : null,
     driver ? `Chauffeur : ${driver.firstName}${driver.vehicleName ? ` - ${driver.vehicleName}` : ''}${driver.plate ? ` (${driver.plate})` : ''}` : null,
+    driver && extraDrivers.length ? `Chauffeur${extraDrivers.length > 1 ? 's' : ''} supplémentaire${extraDrivers.length > 1 ? 's' : ''} : ${extraDrivers.map(extraLabel).join(' ; ')}` : null,
     trackingUrl ? `\nSuivi en direct : ${trackingUrl}` : null,
     bonUrl ? `\nBon de commande : ${bonUrl}` : null,
     '\nMerci de votre confiance.\nL’équipe Rennes VTC - 07 68 42 52 62 - contact@rennesvtc.com',

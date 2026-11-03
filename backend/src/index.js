@@ -24,6 +24,17 @@ async function pickVehicle(driverId, category) {
   return pool.find((v) => v.vehicle_category === category) ?? pool[0] ?? null;
 }
 
+// Chauffeurs supplementaires d'une mission (prenom, vehicule), pour les e-mails et la page de suivi.
+async function loadExtraDrivers(ids, category) {
+  return Promise.all((ids ?? []).map(async (id) => {
+    const [{ data: p }, v] = await Promise.all([supabaseAdmin.from('profiles').select('full_name').eq('id', id).single(), pickVehicle(id, category)]);
+    return { firstName: (p?.full_name || '').split(' ')[0] || null, vehicleName: v?.display_name || null, plate: v?.plate || null };
+  }));
+}
+
+// Vrai pour le chauffeur principal ou un chauffeur supplementaire de la mission.
+const isRideDriver = (ride, userId) => ride.driver_id === userId || (ride.extra_driver_ids ?? []).includes(userId);
+
 // Notification push aux proprietaires (chauffeurs marques "proprietaire") : nouvelle demande, devis...
 async function notifyOwners(title, body) {
   const { data } = await supabaseAdmin.from('profiles').select('push_token').eq('is_owner', true).not('push_token', 'is', null);
@@ -74,10 +85,11 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
   if (!to) return;
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('id, client_id, client_name, scheduled_at, pickup_address, dropoff_address, vehicle_category, price, payment_method, service_type, duration_hours, tracking_token, driver_id')
+    .select('id, client_id, client_name, scheduled_at, pickup_address, dropoff_address, vehicle_category, price, payment_method, service_type, duration_hours, tracking_token, driver_id, extra_driver_ids')
     .eq('id', rideId)
     .single();
   if (!ride) return;
+  const extraDrivers = kind !== 'received' ? await loadExtraDrivers(ride.extra_driver_ids, ride.vehicle_category) : [];
   let passenger = ride.client_name;
   if (!passenger && ride.client_id) {
     const { data: p } = await supabaseAdmin.from('profiles').select('full_name').eq('id', ride.client_id).single();
@@ -99,6 +111,7 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
       showPrice: audience === 'client', price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '',
     },
     driver,
+    extraDrivers,
     trackingUrl: audience === 'orderer' && ride.tracking_token ? `${BASE_URL}/suivi/${ride.tracking_token}` : null,
   });
   await sendEmail(to, subject, text, undefined, html);
@@ -125,7 +138,7 @@ async function sendDriverRideMail({ bonData, pdf }) {
       showPrice: true, price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '', clientPhone: ride.client_phone,
       paxText: `${ride.passenger_count || 1} passager${(ride.passenger_count || 1) > 1 ? 's' : ''}${bags ? ` · ${bags} bagage${bags > 1 ? 's' : ''}` : ''}`,
     },
-    bonUrl: bonUrl(ride.id, ride.driver_id),
+    bonUrl: bonUrl(ride.id, driver.id),
   });
   await sendEmail(driver.email, 'Bon de commande - course acceptee', text, [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }], html);
 }
@@ -284,17 +297,33 @@ app.post('/public/track/:token/messages', async (req, res) => {
 // Attribue directement une course a un chauffeur (meme en dispatch automatique) : elle passe en « acceptee »
 // et tout le monde est prevenu comme si le chauffeur l'avait acceptee lui-meme.
 app.post('/admin/rides/:id/assign', requireAdmin, async (req, res) => {
-  const { data: ride } = await supabaseAdmin.from('rides').select('id, status, pickup_address, dropoff_address').eq('id', req.params.id).single();
+  const { data: ride } = await supabaseAdmin.from('rides').select('id, status, extra_driver_ids, pickup_address, dropoff_address').eq('id', req.params.id).single();
   if (!ride) return res.status(404).json({ error: 'Reservation introuvable' });
   if (['completed', 'cancelled'].includes(ride.status)) return res.status(400).json({ error: 'Cette course est terminee ou annulee.' });
   const { data: driver } = await supabaseAdmin.from('profiles').select('id, push_token').eq('id', req.body.driverId).eq('role', 'chauffeur').single();
   if (!driver) return res.status(400).json({ error: 'Chauffeur introuvable' });
 
-  const { error } = await supabaseAdmin.from('rides').update({ driver_id: driver.id, status: 'accepted', dispatched_to: null }).eq('id', ride.id);
+  // Le nouveau chauffeur principal ne peut pas rester dans la liste des supplementaires.
+  const { error } = await supabaseAdmin.from('rides').update({ driver_id: driver.id, status: 'accepted', dispatched_to: null, extra_driver_ids: (ride.extra_driver_ids ?? []).filter((id) => id !== driver.id) }).eq('id', ride.id);
   if (error) return res.status(400).json({ error: error.message });
   await sendPush([driver.push_token], 'Course attribuee', `${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   await announceAccepted(ride.id);
   res.json({ ok: true });
+});
+
+// Definit les chauffeurs supplementaires d'une mission (plusieurs chauffeurs sur la meme course) : liste complete a chaque appel.
+// Les nouveaux sont prevenus tout de suite si la course est acceptee ; sinon ils le sont a l'acceptation (deferNotify : l'appelant previent lui-meme).
+app.post('/admin/rides/:id/extra-drivers', requireAdmin, async (req, res) => {
+  const { data: ride } = await supabaseAdmin.from('rides').select('id, status, driver_id, extra_driver_ids').eq('id', req.params.id).single();
+  if (!ride) return res.status(404).json({ error: 'Reservation introuvable' });
+  if (['completed', 'cancelled'].includes(ride.status)) return res.status(400).json({ error: 'Cette course est terminee ou annulee.' });
+  const wanted = [...new Set((Array.isArray(req.body.driverIds) ? req.body.driverIds : []).map(String))].filter((id) => id !== ride.driver_id);
+  const { data: valid } = wanted.length ? await supabaseAdmin.from('profiles').select('id').eq('role', 'chauffeur').in('id', wanted) : { data: [] };
+  const ids = (valid ?? []).map((d) => d.id);
+  const { error } = await supabaseAdmin.from('rides').update({ extra_driver_ids: ids }).eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+  if (ride.status === 'accepted' && !req.body.deferNotify) await notifyExtraDrivers(ride.id, ids.filter((id) => !(ride.extra_driver_ids ?? []).includes(id)));
+  res.json({ ok: true, extraDriverIds: ids });
 });
 
 // Supprime definitivement une reservation (demande explicite de l'admin, confirmee dans l'interface).
@@ -357,10 +386,11 @@ app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
 
 // Rassemble toutes les donnees necessaires au bon de commande (billet collectif)
 // d'une course : identite de l'entreprise, du chauffeur et du vehicule assigne.
-async function fetchBonCommandeData(rideId) {
+// asDriverId : bon d'un chauffeur supplementaire (son identite et son vehicule) ; par defaut le chauffeur principal.
+async function fetchBonCommandeData(rideId, asDriverId) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('id, client_id, client_name, client_phone, driver_id, vehicle_category, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at, payment_method, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, stop_addresses, round_trip, return_scheduled_at')
+    .select('id, client_id, client_name, client_phone, driver_id, extra_driver_ids, vehicle_category, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at, payment_method, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, stop_addresses, round_trip, return_scheduled_at')
     .eq('id', rideId)
     .single();
   if (!ride) return null;
@@ -371,13 +401,14 @@ async function fetchBonCommandeData(rideId) {
     ride.client_phone = client?.phone ?? null;
   }
 
+  const driverId = asDriverId && isRideDriver(ride, asDriverId) ? asDriverId : ride.driver_id;
   const [{ data: company }, { data: driver }, { data: vehicle }] = await Promise.all([
     supabaseAdmin.from('app_settings').select('company_legal_name, company_siret, company_address, logo_url').eq('id', true).single(),
-    ride.driver_id
-      ? supabaseAdmin.from('profiles').select('email, full_name, vtc_card_number, siret').eq('id', ride.driver_id).single()
+    driverId
+      ? supabaseAdmin.from('profiles').select('id, email, full_name, vtc_card_number, siret').eq('id', driverId).single()
       : Promise.resolve({ data: null }),
-    ride.driver_id
-      ? pickVehicle(ride.driver_id, ride.vehicle_category).then((data) => ({ data }))
+    driverId
+      ? pickVehicle(driverId, ride.vehicle_category).then((data) => ({ data }))
       : Promise.resolve({ data: null }),
   ]);
 
@@ -451,7 +482,7 @@ app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
 async function announceAccepted(rideId) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('client_id, client_email, orderer_email, driver_id, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
+    .select('client_id, client_email, orderer_email, driver_id, extra_driver_ids, pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at')
     .eq('id', rideId)
     .single();
   if (!ride) return;
@@ -477,6 +508,18 @@ async function announceAccepted(rideId) {
   if (bonData?.driver?.email) {
     const pdf = await buildBonCommandePdf(bonData);
     await sendDriverRideMail({ bonData, pdf });
+  }
+  await notifyExtraDrivers(rideId, ride.extra_driver_ids);
+}
+
+// Chauffeurs supplementaires d'une mission : alerte et bon de commande a leur nom (meme document que le principal).
+async function notifyExtraDrivers(rideId, ids) {
+  for (const id of ids ?? []) {
+    const bonData = await fetchBonCommandeData(rideId, id);
+    if (!bonData?.driver?.email) continue;
+    const { data: p } = await supabaseAdmin.from('profiles').select('push_token').eq('id', id).single();
+    await sendPush([p?.push_token], 'Mission partagee', `${bonData.ride.pickup_address} -> ${bonData.ride.dropoff_address}`, { channelId: 'courses_v2' });
+    await sendDriverRideMail({ bonData, pdf: await buildBonCommandePdf(bonData) });
   }
 }
 
@@ -774,7 +817,7 @@ app.post('/driver/rides/:rideId/release', requireDriver, async (req, res) => {
 // Coordonnees du client d'une course acceptee, visibles uniquement par son chauffeur.
 app.get('/driver/ride-client/:rideId', requireSupabaseUser, async (req, res) => {
   const bonData = await fetchBonCommandeData(req.params.rideId);
-  if (!bonData || bonData.ride.driver_id !== req.user.id) {
+  if (!bonData || !isRideDriver(bonData.ride, req.user.id)) {
     return res.status(404).json({ error: 'Course introuvable' });
   }
   res.json({ name: bonData.ride.client_name, phone: bonData.ride.client_phone });
@@ -786,7 +829,7 @@ const CANCEL_DELAY_HOURS = 24;
 app.post('/client/rides/:rideId/cancel', requireSupabaseUser, async (req, res) => {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('id, client_id, driver_id, status, scheduled_at, pickup_address, dropoff_address')
+    .select('id, client_id, driver_id, extra_driver_ids, status, scheduled_at, pickup_address, dropoff_address')
     .eq('id', req.params.rideId)
     .single();
   if (!ride || ride.client_id !== req.user.id) return res.status(404).json({ error: 'Course introuvable' });
@@ -808,8 +851,8 @@ app.post('/client/rides/:rideId/cancel', requireSupabaseUser, async (req, res) =
 
   const trajet = `${ride.pickup_address} -> ${ride.dropoff_address}`;
   if (ride.driver_id) {
-    const { data: driver } = await supabaseAdmin.from('profiles').select('push_token').eq('id', ride.driver_id).single();
-    await sendPush([driver?.push_token], 'Course annulee par le client', trajet, { channelId: 'courses_v2' });
+    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').in('id', [ride.driver_id, ...(ride.extra_driver_ids ?? [])]);
+    await sendPush((drivers ?? []).map((d) => d.push_token), 'Course annulee par le client', trajet, { channelId: 'courses_v2' });
   }
   await sendAdminEmail('Reservation annulee par le client', `${trajet}\n${ride.scheduled_at ? `Prevue le ${new Date(ride.scheduled_at).toLocaleString('fr-FR')}` : 'Course immediate'}`);
   res.json({ ok: true });
@@ -851,8 +894,8 @@ app.get('/client/ride-driver/:rideId', requireSupabaseUser, async (req, res) => 
 
 // Telecharge le bon de commande d'une course (espace chauffeur).
 app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) => {
-  const bonData = await fetchBonCommandeData(req.params.rideId);
-  if (!bonData || bonData.ride.driver_id !== req.user.id) {
+  const bonData = await fetchBonCommandeData(req.params.rideId, req.user.id);
+  if (!bonData || !isRideDriver(bonData.ride, req.user.id)) {
     return res.status(404).json({ error: 'Course introuvable' });
   }
   const pdf = await buildBonCommandePdf(bonData);
@@ -867,8 +910,8 @@ app.get('/public/bon-commande/:rideId', async (req, res) => {
   const sig = String(req.query.sig || '');
   const ok = d && sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(bonSignature(req.params.rideId, d)));
   if (!ok) return res.status(403).send('Lien invalide');
-  const bonData = await fetchBonCommandeData(req.params.rideId);
-  if (!bonData || bonData.ride.driver_id !== d) return res.status(404).send('Course introuvable');
+  const bonData = await fetchBonCommandeData(req.params.rideId, d);
+  if (!bonData || !isRideDriver(bonData.ride, d)) return res.status(404).send('Course introuvable');
   const pdf = await buildBonCommandePdf(bonData);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline; filename="bon-commande.pdf"');
@@ -983,7 +1026,7 @@ app.get('/public/track/:token', async (req, res) => {
   const token = String(req.params.token).slice(0, 64);
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('status, ride_step, service_type, vehicle_category, scheduled_at, duration_hours, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, stop_addresses, round_trip, client_name, driver_id, driver_lat, driver_lng, step_times, created_at')
+    .select('status, ride_step, service_type, vehicle_category, scheduled_at, duration_hours, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, stop_addresses, round_trip, client_name, driver_id, extra_driver_ids, driver_lat, driver_lng, step_times, created_at')
     .eq('tracking_token', token)
     .maybeSingle();
   if (!ride) return res.status(404).json({ error: 'Suivi introuvable' });
@@ -999,8 +1042,9 @@ app.get('/public/track/:token', async (req, res) => {
     driver = { firstName: (profile?.full_name || '').split(' ')[0] || null, vehicle: vehicle ?? null };
   }
   const { data: settings } = await supabaseAdmin.from('app_settings').select('app_name, logo_url, accent_color, accent_contrast').eq('id', true).single();
-  const { driver_id, driver_lat, driver_lng, ...rest } = ride;
-  res.json({ ...rest, driver, driverPosition: live ? { lat: driver_lat, lng: driver_lng } : null, branding: settings });
+  const { driver_id, extra_driver_ids, driver_lat, driver_lng, ...rest } = ride;
+  const extraDrivers = driver ? (await loadExtraDrivers(extra_driver_ids, ride.vehicle_category)).map((e) => ({ firstName: e.firstName, vehicle: e.vehicleName ? { display_name: e.vehicleName, plate: e.plate } : null })) : [];
+  res.json({ ...rest, driver, extraDrivers, driverPosition: live ? { lat: driver_lat, lng: driver_lng } : null, branding: settings });
 });
 
 // ---- Module de reservation web public (sans compte) ----
