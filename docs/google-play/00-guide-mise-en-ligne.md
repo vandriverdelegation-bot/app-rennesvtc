@@ -45,7 +45,9 @@ Utilise un compte Google **dédié à l'entreprise** (par exemple rennesvtc@gmai
 ## 3. À préparer de ton côté
 - Un compte Google d'entreprise pour la console, la pièce d'identité, une carte pour les 25 $.
 - **Douze testeurs** (hors toi) avec une adresse Gmail : chauffeurs, proches, clients fidèles.
-- **Deux comptes de démonstration pour l'examen Google** (rubrique « Accès à l'appli ») : un compte client et un compte chauffeur, avec quelques courses de test. Choisis une adresse du type `revue-client@rennesvtc.com` ; je les crée dans la base quand tu me donnes le feu vert, et le mot de passe ne sera noté que dans la console, jamais dans le dépôt.
+- **Comptes de démonstration pour l'examen Google** (rubrique « Accès à l'appli ») :
+  - **Client : créé le 03/11/2026** (`rennesvtc+revueclient@gmail.com`, les e-mails arrivent dans la boîte rennesvtc@gmail.com). Les identifiants sont dans `docs/google-play/comptes-demo.txt`, fichier exclu de git ; à copier dans la console, nulle part ailleurs.
+  - **Chauffeur : volontairement pas encore créé.** Un chauffeur de démonstration verrait les courses réelles en dispatch de sa gamme, donc des noms et téléphones de vrais clients. À créer seulement au moment de soumettre l'appli chauffeur, puis à supprimer après l'examen (ou bien l'appli reste en test fermé).
 - Une adresse de contact publique (déjà `contact@rennesvtc.com`) et ton numéro (07 68 42 52 62).
 
 ## 4. Points techniques à connaître avant de soumettre
