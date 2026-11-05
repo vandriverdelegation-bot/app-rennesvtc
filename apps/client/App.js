@@ -110,9 +110,10 @@ function AppContent() {
       });
   }, [session?.user.id]);
 
-  async function handleGoogle() {
+  // Connexion par un fournisseur externe : le navigateur s'ouvre, puis rouvre l'app sur GOOGLE_REDIRECT.
+  async function handleOAuth(provider) {
     setErrorMsg('');
-    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: GOOGLE_REDIRECT, skipBrowserRedirect: true } });
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: GOOGLE_REDIRECT, skipBrowserRedirect: true } });
     if (error) setErrorMsg(error.message);
     else Linking.openURL(data.url);
   }
@@ -230,9 +231,15 @@ function AppContent() {
           <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={submitting}>
             <Text style={styles.buttonText}>{submitting ? '...' : mode === 'login' ? 'Se connecter' : "S'inscrire"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogle}>
+          <TouchableOpacity style={styles.googleButton} onPress={() => handleOAuth('google')}>
             <Text style={styles.googleText}>Continuer avec Google</Text>
           </TouchableOpacity>
+          {/* Apple impose « Se connecter avec Apple » des qu'une autre connexion externe est proposee (regle 4.8) : iPhone uniquement. */}
+          {Platform.OS === 'ios' ? (
+            <TouchableOpacity style={styles.googleButton} onPress={() => handleOAuth('apple')}>
+              <Text style={styles.googleText}>Se connecter avec Apple</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={() => setMode(mode === 'login' ? 'signup' : 'login')}>
             <Text style={styles.link}>
               {mode === 'login' ? 'Pas encore de compte ? Inscrivez-vous' : 'Deja un compte ? Connectez-vous'}
