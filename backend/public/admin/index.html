@@ -3150,7 +3150,7 @@ async function renderRidePaiementTab() {
       <div class="rm-grid">
         <div>
           <label for="rm-payment">Moyen de paiement</label>
-          <select id="rm-payment" style="width:100%">
+          <select id="rm-payment" style="width:100%" title="Enregistre tout de suite">
             <option value="carte_a_bord" ${ride.payment_method === 'carte_a_bord' ? 'selected' : ''}>CB a bord</option>
             <option value="especes" ${ride.payment_method === 'especes' ? 'selected' : ''}>Especes</option>
             <option value="compte" ${ride.payment_method === 'compte' ? 'selected' : ''}>En compte</option>
@@ -3161,7 +3161,8 @@ async function renderRidePaiementTab() {
           <input type="number" step="0.01" id="rm-price" value="${ride.price ?? ''}" placeholder="Prix a fixer" />
         </div>
       </div>
-      <button class="secondary" id="rm-save-payment">Enregistrer</button>
+      <div class="hint">Le moyen de paiement s'enregistre des qu'on le change, a tout moment de la reservation (meme terminee). Le tarif s'enregistre avec le bouton.</div>
+      <button class="secondary" id="rm-save-payment">Enregistrer le tarif</button>
     </div>
     ${ride.payment_method === 'compte' ? `
       <div class="rm-section">
@@ -3184,11 +3185,17 @@ async function renderRidePaiementTab() {
     await supabase.from('rides').update({ paid_at: ride.paid_at ? null : new Date().toISOString() }).eq('id', ride.id);
     await refreshRideModal();
   });
+  // Moyen de paiement : enregistre au changement, sans toucher au tarif.
+  document.getElementById('rm-payment').addEventListener('change', async (e) => {
+    const { error } = await supabase.from('rides').update({ payment_method: e.target.value }).eq('id', ride.id);
+    if (error) { alert(error.message); return; }
+    await refreshRideModal();
+    refresh();
+  });
   document.getElementById('rm-save-payment').addEventListener('click', async () => {
-    const payment_method = document.getElementById('rm-payment').value;
     const priceVal = document.getElementById('rm-price').value;
     const price = priceVal === '' ? null : parseFloat(priceVal);
-    await supabase.from('rides').update({ payment_method, price }).eq('id', ride.id);
+    await supabase.from('rides').update({ price }).eq('id', ride.id);
     await refreshRideModal();
     refresh();
   });

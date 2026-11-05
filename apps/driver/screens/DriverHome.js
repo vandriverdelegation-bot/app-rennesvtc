@@ -64,6 +64,7 @@ export default function DriverHome({ session }) {
   const [sharedRides, setSharedRides] = useState([]); // missions partagees : je suis chauffeur supplementaire (lecture seule)
   const [tab, setTab] = useState('available'); // 'available' | 'upcoming'
   const [selectedDay, setSelectedDay] = useState(null);
+  const [showUpcoming, setShowUpcoming] = useState(false); // pendant une course : afficher mes reservations a venir
   const selectedRef = useRef(null); // course ouverte depuis « Mes reservations » (lue par refresh, qui tourne dans un intervalle)
   const openRide = (id) => { selectedRef.current = id; refresh(); };
 
@@ -173,6 +174,9 @@ export default function DriverHome({ session }) {
       locationSubscription.current = null;
     };
   }, [activeRide?.id, activeRide?.ride_step]);
+
+  // Une nouvelle course en cours ramene toujours sur son ecran.
+  useEffect(() => setShowUpcoming(false), [activeRide?.id]);
 
   // Coordonnees du client, recuperees via le backend une fois la course acceptee.
   useEffect(() => {
@@ -432,10 +436,74 @@ export default function DriverHome({ session }) {
     return <ActivityIndicator style={styles.container} color={theme.colors.accent} />;
   }
 
+  const dayMatch = (r) => !selectedDay || (r.scheduled_at && dayKey(new Date(r.scheduled_at)) === selectedDay);
+  // Liste « Mes reservations a venir » : meme contenu hors course et pendant une course (onglet du haut).
+  const upcomingList = () => (
+    <ScrollView style={styles.list} contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+              <RideCalendar rides={myRides} selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+              {myRides.filter(dayMatch).length === 0 && sharedRides.filter(dayMatch).length === 0 ? (
+                <Card>
+                  <Text style={styles.clientName}>{selectedDay ? 'Aucune réservation ce jour-là' : 'Aucune réservation à venir'}</Text>
+                  <Text style={styles.mutedSmall}>Les courses que vous acceptez pour plus tard apparaissent ici.</Text>
+                </Card>
+              ) : (
+                myRides
+                  .filter(dayMatch)
+                  .map((item) => (
+                    <Card key={item.id}>
+                      <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
+                      <View style={styles.pillRow}>
+                        <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
+                        <Pill icon="users">{item.passenger_count ?? 1}</Pill>
+                        <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
+                      </View>
+                      <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      {!activeRide ? (
+                        <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
+                      ) : item.id === activeRide.id ? (
+                        <Btn title="Revenir à la course en cours" chevron onPress={() => setShowUpcoming(false)} />
+                      ) : (
+                        <Btn title="Bon de commande" variant="secondary" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${item.id}?token=${session.access_token}`)} />
+                      )}
+                    </Card>
+                  ))
+              )}
+              {sharedRides.filter(dayMatch).map((item) => (
+                <Card key={item.id}>
+                  <Pill highlight>Mission partagée : le chauffeur principal gère les étapes</Pill>
+                  <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
+                  <View style={styles.pillRow}>
+                    <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
+                    <Pill icon="users">{item.passenger_count ?? 1}</Pill>
+                    <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
+                  </View>
+                  <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                  <Btn title="Bon de commande" variant="secondary" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${item.id}?token=${session.access_token}`)} />
+                </Card>
+              ))}
+            </ScrollView>
+  );
+
   if (activeRide) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
+    const upcomingCount = myRides.filter((r) => r.id !== activeRide.id).length + sharedRides.length;
+    const topTabs = (
+      <View style={[styles.tabRow, { paddingHorizontal: 16, paddingTop: 8 }]}>
+        <TabPill icon="car" active={!showUpcoming} label="Course en cours" onPress={() => setShowUpcoming(false)} />
+        <TabPill icon="calendar" active={showUpcoming} label={`Mes réservations à venir (${upcomingCount})`} onPress={() => setShowUpcoming(true)} />
+      </View>
+    );
+    if (showUpcoming) {
+      return (
+        <View style={styles.activeScreen}>
+          {topTabs}
+          <View style={[styles.listScreen, { gap: 14 }]}>{upcomingList()}</View>
+        </View>
+      );
+    }
     return (
       <View style={styles.activeScreen}>
+      {topTabs}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.activeContent}>
         {selectedRef.current === activeRide.id && !IN_PROGRESS_STEPS.includes(activeRide.ride_step) ? (
           <TouchableOpacity onPress={() => { selectedRef.current = null; refresh(); }}>
@@ -556,7 +624,6 @@ export default function DriverHome({ session }) {
     );
   }
 
-  const dayMatch = (r) => !selectedDay || (r.scheduled_at && dayKey(new Date(r.scheduled_at)) === selectedDay);
   return (
     <View style={styles.listScreen}>
       <View style={styles.tabRow}>
@@ -566,43 +633,7 @@ export default function DriverHome({ session }) {
       {permissions.can_create_rides ? <ActionRow title="Saisir une réservation" onPress={() => setShowCreateRide(true)} /> : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       {tab === 'upcoming' ? (
-        <ScrollView style={styles.list} contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
-          <RideCalendar rides={myRides} selectedDay={selectedDay} onSelectDay={setSelectedDay} />
-          {myRides.filter(dayMatch).length === 0 && sharedRides.filter(dayMatch).length === 0 ? (
-            <Card>
-              <Text style={styles.clientName}>{selectedDay ? 'Aucune réservation ce jour-là' : 'Aucune réservation à venir'}</Text>
-              <Text style={styles.mutedSmall}>Les courses que vous acceptez pour plus tard apparaissent ici.</Text>
-            </Card>
-          ) : (
-            myRides
-              .filter(dayMatch)
-              .map((item) => (
-                <Card key={item.id}>
-                  <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
-                  <View style={styles.pillRow}>
-                    <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
-                    <Pill icon="users">{item.passenger_count ?? 1}</Pill>
-                    <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
-                  </View>
-                  <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
-                  <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
-                </Card>
-              ))
-          )}
-          {sharedRides.filter(dayMatch).map((item) => (
-            <Card key={item.id}>
-              <Pill highlight>Mission partagée : le chauffeur principal gère les étapes</Pill>
-              <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
-              <View style={styles.pillRow}>
-                <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
-                <Pill icon="users">{item.passenger_count ?? 1}</Pill>
-                <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
-              </View>
-              <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
-              <Btn title="Bon de commande" variant="secondary" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${item.id}?token=${session.access_token}`)} />
-            </Card>
-          ))}
-        </ScrollView>
+        upcomingList()
       ) : pendingRides.length === 0 ? (
         <Card>
           <Text style={styles.clientName}>Aucune course pour le moment</Text>

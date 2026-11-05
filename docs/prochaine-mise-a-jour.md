@@ -44,6 +44,9 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 - Interrupteur « Mode clair » dans Réglages (chauffeur) et Mon compte (client) ; choix mémorisé sur le téléphone, sombre par défaut. Code : `packages/shared/theme.js` (setThemeMode, themedStyles, useThemeMode, ThemeSwitch), palette claire ivoire + vert #2F8F10 ; pictogrammes recolorés en mode clair. Demande un build.
 - **Course attribuée** : le chauffeur reçoit la notification quand l'admin lui attribue une course (bouton « Assigner » ET création d'une réservation avec chauffeur choisi). Côté serveur, déjà en ligne.
 
+- **Réservations à venir pendant une course** (05/11, appli chauffeur) : en pleine course, onglets en haut « Course en cours » / « Mes réservations à venir (N) » ; la liste (calendrier, courses, missions partagées) s'ouvre sans quitter la course, avec le bon de commande de chaque réservation. Demande un build.
+- **Back-office : moyen de paiement modifiable à tout moment** (05/11, déjà en ligne) : dans l'onglet Paiement de la réservation, le moyen de paiement (CB à bord / Espèces / En compte) s'enregistre dès qu'on le change, même sur une réservation terminée, sans toucher au tarif (bouton « Enregistrer le tarif » séparé). Le chauffeur le voit dans les 3 secondes.
+
 ## Déjà en ligne (backend, pas besoin de build)
 - Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.
