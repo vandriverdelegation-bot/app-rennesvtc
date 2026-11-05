@@ -1,23 +1,22 @@
-const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+// Le calcul d'itineraire passe par le serveur, qui detient seul la cle Google.
+
+async function fetchRoute(origin, destination) {
+  const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/public/route`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ origin, destination }),
+  }).catch((e) => ({ ok: false, json: async () => ({ error: e.message }) }));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.km) throw new Error(data.error || "Impossible de calculer l'itineraire");
+  return data;
+}
 
 export async function getDistanceKm(origin, destination) {
-  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${API_KEY}`;
-  let data = {};
-  for (let attempt = 0; attempt < 2; attempt++) {
-    data = await fetch(url).then((r) => r.json()).catch((e) => ({ status: 'RESEAU', error_message: e.message }));
-    const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
-    if (meters) return meters / 1000;
-    await new Promise((r) => setTimeout(r, 600));
-  }
-  throw new Error(data.error_message || data.status || "Impossible de calculer l'itineraire");
+  return (await fetchRoute(origin, destination)).km;
 }
 
 // Distance (km) et duree (minutes) du trajet, pour l'aperçu d'une course.
 export async function getRouteInfo(origin, destination) {
-  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${API_KEY}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  const leg = data.routes?.[0]?.legs?.[0];
-  if (!leg) throw new Error("Impossible de calculer l'itineraire");
-  return { km: Math.round((leg.distance.value / 1000) * 10) / 10, durationMin: Math.round(leg.duration.value / 60) };
+  const { km, durationMin } = await fetchRoute(origin, destination);
+  return { km: Math.round(km * 10) / 10, durationMin };
 }

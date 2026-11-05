@@ -1,36 +1,24 @@
-const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const BACKEND = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// Les appels Google passent par le serveur, qui detient seul la cle (rien de secret dans l'appli).
 export async function autocompleteAddress(input) {
   if (!input || input.length < 3) return [];
-  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+  const res = await fetch(`${BACKEND}/public/places/autocomplete`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': API_KEY,
-    },
-    body: JSON.stringify({
-      input,
-      includedRegionCodes: ['fr'],
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input }),
   });
-  const data = await res.json();
-  return (data.suggestions ?? [])
-    .map((s) => s.placePrediction)
-    .filter(Boolean)
-    .map((p) => ({ placeId: p.placeId, text: p.text.text }));
+  const data = await res.json().catch(() => ({}));
+  return data.suggestions ?? [];
 }
 
 export async function getPlaceLocation(placeId) {
-  const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
-    headers: {
-      'X-Goog-Api-Key': API_KEY,
-      'X-Goog-FieldMask': 'location,formattedAddress',
-    },
+  const res = await fetch(`${BACKEND}/public/places/details`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ placeId }),
   });
-  const data = await res.json();
-  return {
-    address: data.formattedAddress,
-    lat: data.location.latitude,
-    lng: data.location.longitude,
-  };
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Adresse introuvable');
+  return { address: data.address, lat: data.lat, lng: data.lng };
 }

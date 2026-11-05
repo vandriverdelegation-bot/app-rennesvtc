@@ -154,6 +154,8 @@ async function sendTrackingEmail(rideId, step) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Derriere le proxy de Render : req.ip doit etre l adresse du visiteur (limites par IP).
+app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json());
@@ -1064,19 +1066,48 @@ app.get('/public/track/:token', async (req, res) => {
 // Le client en front-end n'a jamais besoin de la cle Google Maps : tous les
 // appels passent par le serveur, qui la detient seule.
 
-async function getDistanceKmServer(origin, destination) {
+// Distance (km) et duree (min) d'un trajet via l'API Directions ; 2 essais.
+async function getRouteServer(origin, destination) {
   const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
   for (let attempt = 0; attempt < 2; attempt++) {
     const data = await fetch(url).then((r) => r.json()).catch(() => ({}));
-    const meters = data.routes?.[0]?.legs?.[0]?.distance?.value;
-    if (meters) return meters / 1000;
+    const leg = data.routes?.[0]?.legs?.[0];
+    if (leg?.distance?.value) return { km: leg.distance.value / 1000, durationMin: Math.round(leg.duration.value / 60) };
     console.error('Directions API :', data.status, data.error_message || '');
     await new Promise((r) => setTimeout(r, 600));
   }
   throw new Error("Impossible de calculer l'itinéraire, réessayez dans un instant.");
 }
+const getDistanceKmServer = async (origin, destination) => (await getRouteServer(origin, destination)).km;
 
-app.post('/public/places/autocomplete', async (req, res) => {
+// Limite d'appels par adresse IP et par minute sur les routes qui consomment la cle Google (aucun compte requis).
+// shortcut: compteur en memoire (un seul serveur Render) ; a remplacer par un stockage partage si on passe a plusieurs instances.
+function limitPerMinute(max) {
+  const hits = new Map();
+  setInterval(() => hits.clear(), 60000).unref();
+  return (req, res, next) => {
+    const ip = req.ip;
+    const n = (hits.get(ip) ?? 0) + 1;
+    hits.set(ip, n);
+    if (n > max) return res.status(429).json({ error: 'Trop de requetes, reessayez dans une minute.' });
+    next();
+  };
+}
+const googleLimit = limitPerMinute(120);
+
+// Itineraire pour les applis (distance et duree) : la cle Google reste sur le serveur.
+app.post('/public/route', googleLimit, async (req, res) => {
+  const { origin, destination } = req.body;
+  const ok = (p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
+  if (!ok(origin) || !ok(destination)) return res.status(400).json({ error: 'Points de depart et d arrivee requis' });
+  try {
+    res.json(await getRouteServer({ lat: Number(origin.lat), lng: Number(origin.lng) }, { lat: Number(destination.lat), lng: Number(destination.lng) }));
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+app.post('/public/places/autocomplete', googleLimit, async (req, res) => {
   const { input } = req.body;
   if (!input || input.length < 3) return res.json({ suggestions: [] });
   const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
@@ -1092,7 +1123,7 @@ app.post('/public/places/autocomplete', async (req, res) => {
   res.json({ suggestions });
 });
 
-app.post('/public/places/details', async (req, res) => {
+app.post('/public/places/details', googleLimit, async (req, res) => {
   const { placeId } = req.body;
   const r = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: { 'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY, 'X-Goog-FieldMask': 'location,formattedAddress' },
