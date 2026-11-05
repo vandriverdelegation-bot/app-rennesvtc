@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { VEHICLE_CATEGORIES, theme } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 
 const DAYS = [
@@ -143,7 +143,7 @@ export default function DriverSettings({ session }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   container: { width: '100%', alignItems: 'center', gap: 12, padding: 24, backgroundColor: theme.colors.background },
   title: { fontSize: 16, fontWeight: '700', color: theme.colors.text, alignSelf: 'flex-start', marginTop: 8 },
@@ -195,4 +195,4 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   saveButtonText: { color: theme.colors.accentText, fontWeight: '700' },
-});
+}));

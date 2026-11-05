@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { registerPushToken, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, theme, themedStyles, ThemeSwitch } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import BackOffice from './BackOffice';
@@ -264,7 +264,7 @@ function AccountView({ session, onBack, profile }) {
   );
 }
 
-export default function DriverMenu({ session, onClose }) {
+export default function DriverMenu({ session, onClose, themePref, onThemePref }) {
   const [view, setView] = useState('menu');
   const [profile, setProfile] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -348,6 +348,7 @@ export default function DriverMenu({ session, onClose }) {
         hint={profile?.online_status ? 'Vous etes en ligne' : 'Vous etes hors ligne'}
         onPress={() => setView('settings')}
       />
+      <ThemeSwitch value={themePref} onChange={onThemePref} />
       <TouchableOpacity style={styles.logout} onPress={handleLogout} disabled={loggingOut}>
         <Text style={styles.logoutText}>{loggingOut ? 'Deconnexion...' : 'Se deconnecter'}</Text>
       </TouchableOpacity>
@@ -355,7 +356,7 @@ export default function DriverMenu({ session, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   content: { padding: 16, gap: 12 },
   settingsBack: { paddingHorizontal: 16, paddingTop: 8 },
@@ -399,4 +400,4 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   logoutText: { color: theme.colors.error, fontWeight: '700' },
-});
+}));

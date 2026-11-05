@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform, Alert } from 'react-native';
 import * as Location from 'expo-location';
-import { theme, whatsappUrl } from '@app-rennesvtc/shared';
+import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
@@ -669,7 +669,7 @@ function ClientNote({ text }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   noteBox: { borderWidth: 1, borderColor: theme.colors.accent, borderRadius: 14, padding: 12, gap: 4 },
   noteText: { color: theme.colors.text, fontSize: 15 },
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   dateValue: { color: theme.colors.text, fontSize: 22, fontWeight: '700', marginTop: 2 },
   dateLabel: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   rideHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  priceBadge: { borderWidth: 1.5, borderColor: '#2f8f12', backgroundColor: '#0d2308', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 16 },
+  priceBadge: { borderWidth: 1.5, borderColor: '#2f8f12', backgroundColor: theme.colors.accentSoft, borderRadius: 18, paddingVertical: 10, paddingHorizontal: 16 },
   clientName: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
   mutedSmall: { color: theme.colors.textMuted, fontSize: 13 },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
@@ -703,4 +703,4 @@ const styles = StyleSheet.create({
   releaseText: { color: theme.colors.text },
   releaseTextSelected: { color: theme.colors.accentText, fontWeight: '800' },
   link: { color: theme.colors.accent, textAlign: 'center', marginTop: 4, marginBottom: 12 },
-});
+}));

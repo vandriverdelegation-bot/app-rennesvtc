@@ -1,4 +1,5 @@
 import { Image } from 'react-native';
+import { theme } from '@app-rennesvtc/shared';
 
 // Pictogrammes du design (PNG : w = blanc, g = vert, m = gris, k = noir).
 const ICONS = {
@@ -20,6 +21,12 @@ const ICONS = {
   star: { g: require('./assets/ui/star_g.png') },
 };
 
-export function Icon({ name, color = 'w', size = 20, style }) {
-  return <Image source={ICONS[name][color]} style={[{ width: size, height: size }, style]} resizeMode="contain" />;
+// color : w = adaptatif (blanc en mode sombre, texte en mode clair), white = toujours blanc (sur fond vert), g = vert, m = gris, k = noir (texte du bouton vert).
+// En mode clair les pictogrammes sont recolores (tintColor) ; en mode sombre ils gardent leurs couleurs d'origine.
+export function Icon({ name, color = 'w', size = 24, style }) {
+  const set = ICONS[name];
+  const key = color === 'white' ? 'w' : color;
+  const c = theme.colors;
+  const tint = theme.mode === 'light' ? { w: c.text, g: c.accent, m: c.textMuted, k: c.accentText }[color] : undefined;
+  return <Image source={set[key] ?? Object.values(set)[0]} style={[{ width: size, height: size }, tint && { tintColor: tint }, style]} resizeMode="contain" />;
 }

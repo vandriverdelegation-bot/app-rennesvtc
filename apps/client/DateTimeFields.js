@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 
 // Selecteurs de date et d'heure en JS pur (aucun module natif). Les valeurs gardent le format
 // des anciens champs texte : 'JJ/MM/AAAA' et 'HH:MM'.
@@ -106,7 +106,7 @@ export function TimeField({ value, onChange, placeholder = "Choisir l'heure", st
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   field: { borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: theme.radius, padding: 12, justifyContent: 'center', minHeight: 46 },
   fieldText: { color: theme.colors.text },
   fieldPlaceholder: { color: theme.colors.textMuted },
@@ -126,4 +126,4 @@ const styles = StyleSheet.create({
   selected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   selectedText: { color: theme.colors.accentText, fontWeight: '700' },
   hint: { color: theme.colors.textMuted, textAlign: 'center', marginTop: 8, fontSize: 12 },
-});
+}));

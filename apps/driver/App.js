@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
@@ -37,6 +37,7 @@ export default function App() {
 }
 
 function AppContent() {
+  const { pref: themePref, mode, choose: setThemePref, loaded: themeLoaded } = useThemeMode();
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [appName, setAppName] = useState('RENNES VTC');
@@ -92,7 +93,7 @@ function AppContent() {
     }
   }
 
-  if (checkingSession) {
+  if (checkingSession || !themeLoaded) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator color={theme.colors.accent} />
@@ -102,21 +103,21 @@ function AppContent() {
 
   if (session) {
     return (
-      <SafeAreaView style={styles.sessionContainer}>
+      <SafeAreaView key={mode} style={styles.sessionContainer}>
         <View style={styles.header}>
           <Image source={HEADER_IMAGE} style={styles.headerImage} resizeMode="cover" />
           <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)} accessibilityLabel={showMenu ? 'Fermer le menu' : 'Ouvrir le menu'}>
             <Icon name={showMenu ? 'close' : 'menu'} color="w" size={30} />
           </TouchableOpacity>
         </View>
-        {showMenu ? <DriverMenu session={session} onClose={() => setShowMenu(false)} /> : <DriverHome session={session} />}
-        <StatusBar style="light" />
+        {showMenu ? <DriverMenu session={session} onClose={() => setShowMenu(false)} themePref={themePref} onThemePref={setThemePref} /> : <DriverHome session={session} />}
+        <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView key={mode} style={styles.container}>
       <Text style={styles.logo}>{renderAppName(appName)}</Text>
       <Text style={styles.title}>Connexion chauffeur</Text>
       <TextInput
@@ -143,12 +144,12 @@ function AppContent() {
       <Text style={styles.hint}>
         Pas encore de compte ? Contactez votre administrateur.
       </Text>
-      <StatusBar style="light" />
+      <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     borderWidth: 3,
     borderColor: theme.colors.accent,
-    backgroundColor: 'rgba(71,196,21,0.08)',
+    backgroundColor: theme.colors.accentTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -206,4 +207,4 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.colors.accentText, fontWeight: '700', fontSize: 16 },
   hint: { marginTop: 12, color: theme.colors.textMuted, fontSize: 12 },
   error: { color: theme.colors.error },
-});
+}));

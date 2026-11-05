@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 
 const LABELS = { client: 'Client', chauffeur: 'Chauffeur', donneur_ordre: "Donneur d'ordre" };
 
@@ -82,7 +82,7 @@ export default function RideChat({ session, rideId, me }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   box: { gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, paddingTop: 12 },
   title: { color: theme.colors.text, fontWeight: '700', fontSize: 16 },
   list: { maxHeight: 240 },
@@ -98,4 +98,4 @@ const styles = StyleSheet.create({
   send: { backgroundColor: theme.colors.accent, borderRadius: theme.radius, paddingHorizontal: 16, paddingVertical: 12 },
   sendText: { color: theme.colors.accentText, fontWeight: '700' },
   error: { color: theme.colors.error, fontSize: 13 },
-});
+}));

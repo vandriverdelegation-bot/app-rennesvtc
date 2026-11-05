@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme, whatsappUrl } from '@app-rennesvtc/shared';
+import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { COMPANY_PHONE, euro, longDay, plural, relativeWhen, timeOf } from '../lib/format';
 import { Icon } from '../icons';
@@ -176,17 +176,17 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
 }
 
 const c = theme.colors;
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: { width: '100%', borderRadius: 26, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder, overflow: 'hidden' },
   top: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16, gap: 14 },
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 30, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(91,212,42,0.12)', flexShrink: 1 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 30, paddingHorizontal: 12, borderRadius: 999, backgroundColor: c.accentTint, flexShrink: 1 },
   statusPillWait: { backgroundColor: 'rgba(154,161,154,0.12)' },
-  statusHalo: { width: 16, height: 16, borderRadius: 8, backgroundColor: 'rgba(91,212,42,0.2)', alignItems: 'center', justifyContent: 'center', marginLeft: -4 },
+  statusHalo: { width: 16, height: 16, borderRadius: 8, backgroundColor: c.accentHalo, alignItems: 'center', justifyContent: 'center', marginLeft: -4 },
   statusHaloWait: { backgroundColor: 'rgba(154,161,154,0.2)' },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
   statusDotWait: { backgroundColor: c.textMuted },
-  statusText: { color: '#7EE04F', fontSize: 13, fontFamily: FONT.semi, flexShrink: 1 },
+  statusText: { color: c.accentLight, fontSize: 13, fontFamily: FONT.semi, flexShrink: 1 },
   relative: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
   dateRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   day: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
@@ -200,13 +200,13 @@ const styles = StyleSheet.create({
   route: { paddingTop: 18, paddingHorizontal: 20, paddingBottom: 4 },
   details: { paddingVertical: 16, paddingHorizontal: 20, gap: 10 },
   chips: { flexDirection: 'row', gap: 8 },
-  chip: { flex: 1, borderRadius: 14, backgroundColor: '#1A1D1A', paddingVertical: 10, paddingHorizontal: 10, gap: 6 },
+  chip: { flex: 1, borderRadius: 14, backgroundColor: c.pill, paddingVertical: 10, paddingHorizontal: 10, gap: 6 },
   chipText: { color: c.text, fontSize: 13, fontFamily: FONT.semi },
   extras: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
   driverBox: { gap: 4, borderTopWidth: 1, borderTopColor: c.cardBorder, paddingTop: 12 },
   driverName: { color: c.text, fontSize: 17, fontFamily: FONT.title },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 20 },
-  action: { minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: '#2E332E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  action: { minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: c.inputBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   actionSquare: { width: 48 },
   actionText: { color: c.text, fontSize: 14, fontFamily: FONT.semi },
   chat: { paddingHorizontal: 20, paddingBottom: 20 },
@@ -215,4 +215,4 @@ const styles = StyleSheet.create({
   lockedText: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
   muted: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body, paddingHorizontal: 20, paddingBottom: 12 },
   error: { color: c.error, paddingHorizontal: 20, paddingBottom: 12 },
-});
+}));

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 
 const c = theme.colors;
 
@@ -63,7 +63,7 @@ export function Btn({ title, onPress, variant = 'primary', disabled }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: {
     width: '100%',
     backgroundColor: c.card,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   dotStart: { position: 'absolute', top: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent },
   dotEnd: { position: 'absolute', bottom: 0, width: 10, height: 10, borderRadius: 3, backgroundColor: c.text },
   dashes: { position: 'absolute', top: 16, bottom: 16, left: 4, width: 2, overflow: 'hidden', gap: 4 }, // hors flux : seul le texte fixe la hauteur
-  dash: { width: 2, height: 4, backgroundColor: '#3A3F3A' },
+  dash: { width: 2, height: 4, backgroundColor: c.inputBorder },
   routeTexts: { flex: 1, gap: 18 },
   routeLabel: { color: c.textMuted, fontSize: 11, fontFamily: FONT.medium, letterSpacing: 1.3, marginBottom: 3 },
   routeAddress: { color: c.text, fontSize: 15, fontFamily: FONT.medium, lineHeight: 21 },
@@ -92,4 +92,4 @@ const styles = StyleSheet.create({
   btnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.inputBorder },
   btnWhatsapp: { backgroundColor: '#25D366' },
   btnText: { fontFamily: FONT.title, fontSize: 16 },
-});
+}));

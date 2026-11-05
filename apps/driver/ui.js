@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { ACCEPT_ICON, Icon, PIN_ICON } from './icons';
 
 const c = theme.colors;
@@ -49,6 +49,7 @@ export function Btn({ title, onPress, variant = 'primary', disabled, icon, chevr
   const accept = variant === 'accept';
   const solid = variant === 'primary' || accept;
   const textColor = solid || variant === 'whatsapp' ? '#FFFFFF' : c.text;
+  const iconColor = solid || variant === 'whatsapp' ? 'white' : 'w';
   return (
     <TouchableOpacity
       style={[styles.btn, chevron && { paddingRight: 50 }, solid && styles.btnPrimary, variant === 'secondary' && styles.btnSecondary, variant === 'whatsapp' && styles.btnWhatsapp, disabled && { opacity: 0.5 }]}
@@ -56,9 +57,9 @@ export function Btn({ title, onPress, variant = 'primary', disabled, icon, chevr
       disabled={disabled}
       activeOpacity={0.8}
     >
-      {accept ? <Image source={ACCEPT_ICON} style={styles.btnIconAccept} /> : icon ? <Icon name={icon} color={solid ? 'w' : 'w'} size={26} style={styles.btnIcon} /> : null}
+      {accept ? <Image source={ACCEPT_ICON} style={styles.btnIconAccept} /> : icon ? <Icon name={icon} color={iconColor} size={26} style={styles.btnIcon} /> : null}
       <Text style={[styles.btnText, { color: textColor }, (accept || icon) && { marginLeft: 12 }]}>{title}</Text>
-      {chevron ? <Icon name="chevron" color="w" size={24} style={styles.btnChevron} /> : null}
+      {chevron ? <Icon name="chevron" color={iconColor} size={24} style={styles.btnChevron} /> : null}
     </TouchableOpacity>
   );
 }
@@ -67,7 +68,7 @@ export function Btn({ title, onPress, variant = 'primary', disabled, icon, chevr
 export function TabPill({ label, icon, active, onPress }) {
   return (
     <TouchableOpacity style={[styles.tab, active && styles.tabActive]} onPress={onPress} activeOpacity={0.85}>
-      <Icon name={icon} color={active ? 'w' : 'm'} size={24} />
+      <Icon name={icon} color={active ? 'white' : 'm'} size={24} />
       <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={2}>{label}</Text>
     </TouchableOpacity>
   );
@@ -77,7 +78,7 @@ export function TabPill({ label, icon, active, onPress }) {
 export function ActionRow({ title, onPress }) {
   return (
     <TouchableOpacity style={styles.actionRow} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.actionPlus}><Icon name="plus" color="w" size={26} /></View>
+      <View style={styles.actionPlus}><Icon name="plus" color="white" size={26} /></View>
       <Text style={styles.actionTitle}>{title}</Text>
       <Icon name="chevron" color="w" size={24} />
     </TouchableOpacity>
@@ -111,7 +112,7 @@ export function LinkRow({ title, icon, onPress }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: {
     width: '100%',
     backgroundColor: c.card,
@@ -134,10 +135,10 @@ const styles = StyleSheet.create({
   rideHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dateLabel: { color: c.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
   dateValue: { color: c.text, fontSize: 17, lineHeight: 22, fontWeight: '700', marginTop: 2 },
-  priceBadge: { borderWidth: 1.5, borderColor: GREEN_DARK, backgroundColor: '#0d2308', borderRadius: 16, paddingVertical: 7, paddingHorizontal: 10 },
+  priceBadge: { borderWidth: 1.5, borderColor: GREEN_DARK, backgroundColor: c.accentSoft, borderRadius: 16, paddingVertical: 7, paddingHorizontal: 10 },
   bigPrice: { color: c.accent, fontSize: 22, fontWeight: '800' },
   sectionLabel: { color: c.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#242628', backgroundColor: c.pill, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.pill, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16 },
   pillHighlight: { backgroundColor: c.accent, borderColor: c.accent },
   pillText: { color: c.text, fontSize: 15, fontWeight: '600' },
   pillTextHighlight: { color: c.accentText, fontWeight: '800' },
@@ -152,19 +153,19 @@ const styles = StyleSheet.create({
   routeAddress: { color: c.text, fontSize: 18, fontWeight: '600', marginTop: 3, lineHeight: 25 },
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 999, minHeight: 58, paddingVertical: 14, paddingHorizontal: 22, alignSelf: 'stretch' },
   btnPrimary: { backgroundColor: c.accent, borderWidth: 1, borderColor: '#7BE04A' },
-  btnSecondary: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#8A8F94' },
+  btnSecondary: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: c.textMuted },
   btnWhatsapp: { backgroundColor: '#25D366' },
   btnText: { fontWeight: '700', fontSize: 18 },
   btnIcon: {},
   btnIconAccept: { width: 34, height: 34 },
   btnChevron: { position: 'absolute', right: 20 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 58, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1.5, borderColor: '#2E3133', backgroundColor: '#101213' },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 58, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1.5, borderColor: c.inputBorder, backgroundColor: c.input },
   tabActive: { backgroundColor: c.accent, borderColor: '#7BE04A' },
   tabText: { flexShrink: 1, color: c.textMuted, fontSize: 12.5, lineHeight: 16, fontWeight: '600', textAlign: 'center' },
   tabTextActive: { color: '#FFFFFF', fontWeight: '700' },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 68, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1.5, borderColor: '#2E3133', backgroundColor: '#101213', alignSelf: 'stretch' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 68, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1.5, borderColor: c.inputBorder, backgroundColor: c.input, alignSelf: 'stretch' },
   actionPlus: { width: 42, height: 42, borderRadius: 13, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
   actionTitle: { flex: 1, color: c.text, fontSize: 19, fontWeight: '600' },
-  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18, borderTopWidth: 1, borderTopColor: '#1d1f20', alignSelf: 'stretch' },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18, borderTopWidth: 1, borderTopColor: c.cardBorder, alignSelf: 'stretch' },
   linkText: { color: c.accent, fontSize: 16, fontWeight: '600' },
-});
+}));

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import { autocompleteAddress, getPlaceLocation } from '../lib/places';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -668,7 +668,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
   backLink: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
   scrollView: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
@@ -819,4 +819,4 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: theme.colors.accentText, fontWeight: '800', fontSize: 16 },
   error: { color: theme.colors.error },
-});
+}));

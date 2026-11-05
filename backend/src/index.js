@@ -478,6 +478,15 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
 // Previent le client qu'un chauffeur a accepte sa course (push + email avec
 // les coordonnees du chauffeur et un rappel complet de la reservation).
 app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
+  const { data: assigned } = await supabaseAdmin.from('rides').select('driver_id, pickup_address, dropoff_address').eq('id', req.body.rideId).single();
+  if (assigned?.driver_id && assigned.driver_id !== req.user.id) {
+    // Un chauffeur attribue par quelqu'un d'autre est prevenu ; reserve a l'admin pour qu'un compte client ne puisse pas declencher d'alerte.
+    const { data: caller } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', req.user.id).single();
+    if (caller?.role === 'admin' || caller?.is_owner) {
+      const { data: d } = await supabaseAdmin.from('profiles').select('push_token').eq('id', assigned.driver_id).single();
+      await sendPush([d?.push_token], 'Course attribuee', `${assigned.pickup_address} -> ${assigned.dropoff_address}`, { channelId: 'courses_v2' });
+    }
+  }
   await announceAccepted(req.body.rideId);
   res.json({ ok: true });
 });

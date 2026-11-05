@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { autocompleteAddress, getPlaceLocation } from '../lib/places';
 
 export default function AddressAutocomplete({ placeholder, value, onSelect }) {
@@ -41,7 +41,7 @@ export default function AddressAutocomplete({ placeholder, value, onSelect }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: { width: '100%' },
   input: {
     width: '100%',
@@ -67,4 +67,4 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.cardBorder,
   },
   suggestionText: { color: theme.colors.text },
-});
+}));

@@ -25,7 +25,7 @@ export default function RouteSketch({ points, height = 110, style }) {
       <View style={{ position: 'absolute', left: a.x, top: a.y - 1.5, width: len, height: 3, backgroundColor: theme.colors.accent, transform: [{ rotate: `${angle}rad` }], transformOrigin: 'left center' }} />
       {dot(a, theme.colors.accent)}
       {dot(b, '#E5484D')}
-      {c ? dot(c, '#0A0A0A', 18) : null}
+      {c ? dot(c, theme.colors.text, 18) : null}
     </View>
   );
 }

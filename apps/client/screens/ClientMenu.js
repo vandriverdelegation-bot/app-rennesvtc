@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { registerPushToken, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, theme, themedStyles, ThemeSwitch } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { Btn, Card } from '../ui';
 
@@ -153,7 +153,7 @@ function NotificationsView({ session, onBack }) {
   );
 }
 
-export default function ClientMenu({ session, onClose, initialView = 'menu' }) {
+export default function ClientMenu({ session, onClose, initialView = 'menu', themePref, onThemePref }) {
   const [view, setView] = useState(initialView);
   const [profile, setProfile] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -217,6 +217,7 @@ export default function ClientMenu({ session, onClose, initialView = 'menu' }) {
       <MenuItem label="Mes informations" hint={profile?.full_name ?? session.user.email} onPress={() => setView('account')} />
       <MenuItem label="Mes courses" hint="Historique de mes reservations" onPress={() => setView('history')} />
       <MenuItem label="Notifications" hint="Suivi de ma course" onPress={() => setView('notifications')} />
+      <ThemeSwitch value={themePref} onChange={onThemePref} />
       <TouchableOpacity style={styles.logout} onPress={handleLogout} disabled={loggingOut}>
         <Text style={styles.logoutText}>{loggingOut ? 'Deconnexion...' : 'Se deconnecter'}</Text>
       </TouchableOpacity>
@@ -227,7 +228,7 @@ export default function ClientMenu({ session, onClose, initialView = 'menu' }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   content: { padding: 16, gap: 12, paddingBottom: 110 },
   title: { fontFamily: theme.fonts.title, fontSize: 24, color: theme.colors.text },
@@ -267,4 +268,4 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   logoutText: { color: theme.colors.error, fontWeight: '700' },
-});
+}));

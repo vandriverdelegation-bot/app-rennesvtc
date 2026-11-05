@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import RouteSketch from './RouteSketch';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { getRouteInfo } from '../lib/directions';
 import { Icon } from '../icons';
 
@@ -43,12 +43,12 @@ export default function RideMiniMap({ pickupLat, pickupLng, dropoffLat, dropoffL
   );
 }
 
-const styles = StyleSheet.create({
-  box: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0d0b', borderWidth: 1, borderColor: '#1f2420', borderRadius: 22, paddingLeft: 16, paddingRight: 6, paddingVertical: 8, gap: 10 },
+const styles = themedStyles(() => ({
+  box: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 22, paddingLeft: 16, paddingRight: 6, paddingVertical: 8, gap: 10 },
   info: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   text: { fontSize: 17 },
   km: { color: theme.colors.text, fontWeight: '600' },
   min: { color: theme.colors.accent, fontWeight: '600' },
   muted: { color: theme.colors.textMuted, fontSize: 13 },
   map: { flex: 1, width: undefined, borderWidth: 0, backgroundColor: 'transparent' },
-});
+}));

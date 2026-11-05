@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme, whatsappUrl } from '@app-rennesvtc/shared';
+import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { COMPANY_PHONE, euro, shortDay, timeOf } from '../lib/format';
 import { Icon } from '../icons';
 import { FONT } from '../ui';
@@ -19,7 +19,7 @@ function Halo() {
   return (
     <View pointerEvents="none" style={styles.halo}>
       {Array.from({ length: 16 }, (_, i) => 340 - i * 20).map((size) => (
-        <View key={size} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(91,212,42,0.012)' }} />
+        <View key={size} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: theme.mode === 'light' ? 'rgba(47,143,16,0.012)' : 'rgba(91,212,42,0.012)' }} />
       ))}
     </View>
   );
@@ -31,7 +31,7 @@ function BrandName({ appName }) {
   return (
     <Text style={styles.brand}>
       {words.length ? words.join(' ').toUpperCase() + ' ' : ''}
-      <Text style={{ color: '#5BD42A' }}>{last.toUpperCase()}</Text>
+      <Text style={{ color: theme.colors.accent }}>{last.toUpperCase()}</Text>
     </Text>
   );
 }
@@ -100,7 +100,7 @@ export default function HomeView({ session, appName, firstName, initials, rides,
             <TouchableOpacity style={styles.iconBtn} onPress={onOpenNotifications} accessibilityLabel="Notifications">
               <Icon name="bell" color="w" size={20} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconBtn, { backgroundColor: '#1C201C' }]} onPress={onOpenAccount} accessibilityLabel="Mon compte">
+            <TouchableOpacity style={[styles.iconBtn, { backgroundColor: theme.colors.pill }]} onPress={onOpenAccount} accessibilityLabel="Mon compte">
               <Text style={styles.initials}>{initials}</Text>
             </TouchableOpacity>
           </View>
@@ -197,39 +197,39 @@ export default function HomeView({ session, appName, firstName, initials, rides,
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: { flex: 1, width: '100%', backgroundColor: c.background },
   halo: { position: 'absolute', top: -140, right: -120, width: 340, height: 340, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 20, paddingHorizontal: 24, paddingBottom: 120, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoTile: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#000000', borderWidth: 1, borderColor: '#2A2E2A', alignItems: 'center', justifyContent: 'center' },
+  logoTile: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#000000', borderWidth: 1, borderColor: c.cardBorder, alignItems: 'center', justifyContent: 'center' },
   brand: { color: c.text, fontSize: 17, fontFamily: FONT.bold, letterSpacing: 0.7 },
   tagline: { color: c.textMuted, fontSize: 10, fontFamily: FONT.body, letterSpacing: 2.2 },
   headerBtns: { flexDirection: 'row', gap: 8 },
-  iconBtn: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: '#2A2E2A', backgroundColor: '#141614', alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
   initials: { color: c.text, fontSize: 15, fontFamily: FONT.title },
   hero: { gap: 18 },
   hello: { color: c.textMuted, fontSize: 14, fontFamily: FONT.body, marginBottom: 4 },
   h1: { color: c.text, fontSize: 32, lineHeight: 35, fontFamily: FONT.title, letterSpacing: -0.3 },
   cta: { minHeight: 64, borderRadius: 20, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 20, paddingRight: 10 },
-  ctaTitle: { color: '#0B0C0B', fontSize: 18, fontFamily: FONT.title },
-  ctaSub: { color: 'rgba(11,12,11,0.75)', fontSize: 12, fontFamily: FONT.body },
-  ctaArrow: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#0B0C0B', alignItems: 'center', justifyContent: 'center' },
+  ctaTitle: { color: c.accentText, fontSize: 18, fontFamily: FONT.title },
+  ctaSub: { color: c.accentText, opacity: 0.75, fontSize: 12, fontFamily: FONT.body },
+  ctaArrow: { width: 44, height: 44, borderRadius: 14, backgroundColor: c.accentText, alignItems: 'center', justifyContent: 'center' },
   shortcuts: { flexDirection: 'row', gap: 10 },
-  shortcut: { flex: 1, minHeight: 76, borderRadius: 18, borderWidth: 1, borderColor: '#262A26', backgroundColor: '#141614', paddingVertical: 12, paddingHorizontal: 14, justifyContent: 'space-between', alignItems: 'flex-start' },
+  shortcut: { flex: 1, minHeight: 76, borderRadius: 18, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.card, paddingVertical: 12, paddingHorizontal: 14, justifyContent: 'space-between', alignItems: 'flex-start' },
   shortcutText: { color: c.text, fontSize: 13, fontFamily: FONT.medium },
   bookings: { gap: 16 },
   h2: { color: c.text, fontSize: 22, fontFamily: FONT.title },
-  tabs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 16, backgroundColor: '#141614', borderWidth: 1, borderColor: '#222622' },
+  tabs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 16, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder },
   tab: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tabOn: { backgroundColor: '#F2F2EE' },
+  tabOn: { backgroundColor: c.text },
   tabText: { color: c.textMuted, fontSize: 14, fontFamily: FONT.semi },
-  tabTextOn: { color: '#0B0C0B' },
+  tabTextOn: { color: c.background },
   empty: { borderRadius: 22, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.card, padding: 20, gap: 4 },
   emptyTitle: { color: c.text, fontSize: 17, fontFamily: FONT.title },
   emptyText: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
-  pastCard: { borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: '#262A26', paddingVertical: 16, paddingHorizontal: 18, gap: 12 },
+  pastCard: { borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder, paddingVertical: 16, paddingHorizontal: 18, gap: 12 },
   pastTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   pastDate: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body, flex: 1 },
   pastPrice: { color: c.text, fontSize: 17, fontFamily: FONT.title },
@@ -237,11 +237,11 @@ const styles = StyleSheet.create({
   dotStart: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
   dotEnd: { width: 8, height: 8, borderRadius: 2, backgroundColor: c.text },
   pastAddress: { color: c.text, fontSize: 14, fontFamily: FONT.body, flex: 1 },
-  rebook: { minHeight: 44, borderRadius: 12, backgroundColor: '#1F241F', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  rebookText: { color: '#7EE04F', fontSize: 13, fontFamily: FONT.semi },
-  assurance: { borderRadius: 22, borderWidth: 1, borderColor: '#262A26', paddingVertical: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  assuranceIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(91,212,42,0.12)', alignItems: 'center', justifyContent: 'center' },
+  rebook: { minHeight: 44, borderRadius: 12, backgroundColor: c.accentSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  rebookText: { color: c.accentLight, fontSize: 13, fontFamily: FONT.semi },
+  assurance: { borderRadius: 22, borderWidth: 1, borderColor: c.cardBorder, paddingVertical: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  assuranceIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: c.accentTint, alignItems: 'center', justifyContent: 'center' },
   assuranceTitle: { color: c.text, fontSize: 15, fontFamily: FONT.semi },
   assuranceSub: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body, marginTop: 2 },
-  assuranceLink: { color: '#7EE04F', fontSize: 14, fontFamily: FONT.semi },
-});
+  assuranceLink: { color: c.accentLight, fontSize: 14, fontFamily: FONT.semi },
+}));

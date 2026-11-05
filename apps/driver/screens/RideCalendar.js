@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -46,7 +46,7 @@ export default function RideCalendar({ rides, selectedDay, onSelectDay }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   box: { backgroundColor: theme.colors.card, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.cardBorder, padding: 12 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   nav: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -60,4 +60,4 @@ const styles = StyleSheet.create({
   selectedText: { color: theme.colors.accentText, fontWeight: '700' },
   today: { borderWidth: 1, borderColor: theme.colors.accent },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: theme.colors.accent, marginTop: 2 },
-});
+}));

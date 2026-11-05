@@ -8,4 +8,8 @@ Object.assign(theme.colors, {
   pill: '#141718',
   input: '#0f1111',
   inputBorder: '#2f3336',
+  accentTint: 'rgba(71,196,21,0.12)',
+  accentHalo: 'rgba(71,196,21,0.2)',
+  accentSoft: '#0d2308',
+  accentLight: '#6FDC3F',
 });

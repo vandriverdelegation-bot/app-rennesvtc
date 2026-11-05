@@ -1,3 +1,4 @@
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon } from '../icons';
 import { FONT } from '../ui';
@@ -25,9 +26,9 @@ export default function BottomNav({ active, onPress }) {
   );
 }
 
-const styles = StyleSheet.create({
-  nav: { position: 'absolute', left: 16, right: 16, bottom: 20, height: 68, borderRadius: 24, backgroundColor: 'rgba(24,27,24,0.96)', borderWidth: 1, borderColor: '#2A2E2A', flexDirection: 'row', alignItems: 'center' },
+const styles = themedStyles(() => ({
+  nav: { position: 'absolute', left: 16, right: 16, bottom: 20, height: 68, borderRadius: 24, backgroundColor: theme.colors.navBg, borderWidth: 1, borderColor: theme.colors.cardBorder, flexDirection: 'row', alignItems: 'center' },
   item: { flex: 1, alignItems: 'center', gap: 4 },
-  label: { color: '#9AA19A', fontSize: 11, fontFamily: FONT.medium },
-  labelOn: { color: '#5BD42A', fontFamily: FONT.semi },
-});
+  label: { color: theme.colors.textMuted, fontSize: 11, fontFamily: FONT.medium },
+  labelOn: { color: theme.colors.accent, fontFamily: FONT.semi },
+}));

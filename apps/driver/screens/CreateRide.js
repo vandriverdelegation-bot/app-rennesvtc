@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
-import { theme, computeTrajetSimplePrice } from '@app-rennesvtc/shared';
+import { theme, computeTrajetSimplePrice, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -439,7 +439,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   suggestRow: { backgroundColor: theme.colors.card, borderColor: theme.colors.accent, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   suggestName: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
   suggestDetail: { color: theme.colors.textMuted, fontSize: 13, marginTop: 2 },
@@ -515,4 +515,4 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.colors.accentText, fontWeight: '700' },
   link: { color: theme.colors.accent, textAlign: 'center', marginTop: 12, marginBottom: 24 },
   error: { color: theme.colors.error },
-});
+}));

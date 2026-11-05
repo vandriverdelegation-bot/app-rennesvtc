@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Linking, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-import { registerPushToken, fetchAppSettings, theme } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import ClientHome from './screens/ClientHome';
 import ClientMenu from './screens/ClientMenu';
@@ -42,6 +42,7 @@ const FONT_FILES = {
 };
 
 function AppContent() {
+  const { pref: themePref, mode: themeMode, choose: setThemePref, loaded: themeLoaded } = useThemeMode();
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -156,7 +157,7 @@ function AppContent() {
     setFocus({ to: key === 'bookings' ? 'bookings' : 'top', n: Date.now() });
   }
 
-  if (checkingSession || (!fontsLoaded && !fontError)) {
+  if (checkingSession || !themeLoaded || (!fontsLoaded && !fontError)) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator color={theme.colors.accent} />
@@ -166,7 +167,7 @@ function AppContent() {
 
   if (session && needPhone) {
     return (
-      <SafeAreaView style={styles.loginSafe}>
+      <SafeAreaView key={themeMode} style={styles.loginSafe}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>Derniere etape</Text>
           <Text style={styles.link}>Votre chauffeur a besoin de votre numero pour vous joindre.</Text>
@@ -182,20 +183,20 @@ function AppContent() {
 
   if (session) {
     return (
-      <SafeAreaView style={styles.sessionContainer}>
+      <SafeAreaView key={themeMode} style={styles.sessionContainer}>
         {tab === 'account' ? (
-          <ClientMenu session={session} initialView={menuView} onClose={() => setTab('home')} />
+          <ClientMenu session={session} initialView={menuView} onClose={() => setTab('home')} themePref={themePref} onThemePref={setThemePref} />
         ) : (
           <ClientHome session={session} appName={appName} onViewChange={(v) => setBooking(v === 'book')} onOpenAccount={() => openAccount('account')} onOpenNotifications={() => openAccount('notifications')} focus={focus} />
         )}
         {tab === 'account' || !booking ? <BottomNav active={tab === 'account' ? 'account' : focus?.to === 'bookings' ? 'bookings' : 'home'} onPress={navigate} /> : null}
-        <StatusBar style="light" />
+        <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.loginSafe}>
+    <SafeAreaView key={themeMode} style={styles.loginSafe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logoRow}>
@@ -239,12 +240,12 @@ function AppContent() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-      <StatusBar style="light" />
+      <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   googleButton: { width: '100%', borderWidth: 1, borderColor: theme.colors.inputBorder, borderRadius: theme.radius, padding: 14, alignItems: 'center', marginTop: 10 },
   googleText: { color: theme.colors.text, fontWeight: '600' },
   loginSafe: { flex: 1, backgroundColor: theme.colors.background },
@@ -284,4 +285,4 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.colors.accentText, fontWeight: '800', fontSize: 16 },
   link: { marginTop: 14, color: theme.colors.accent },
   error: { color: theme.colors.error, textAlign: 'center' },
-});
+}));

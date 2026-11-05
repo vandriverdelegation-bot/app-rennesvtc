@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { theme } from '@app-rennesvtc/shared';
+import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 
 // Back-office (administration) affiche dans l'app, reserve au proprietaire. La session du proprietaire est
@@ -47,9 +47,9 @@ export default function BackOffice() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: { flex: 1, width: '100%', backgroundColor: theme.colors.background },
   web: { flex: 1, backgroundColor: theme.colors.background },
   center: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
   error: { color: theme.colors.error, padding: 16 },
-});
+}));
