@@ -11,6 +11,7 @@ const { buildBonCommandePdf } = require('./bonCommande');
 const { registerDriverOnboarding } = require('./driverOnboarding');
 const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
+const { registerNavettes } = require('./navettes');
 const { buildRideMail } = require('./mailTemplate');
 const { renderAccueil } = require('./accueil');
 
@@ -597,6 +598,7 @@ async function requireStaff(req, res, next) {
   });
 }
 registerClients(app, requireStaff);
+registerNavettes(app, requireAdmin, BASE_URL);
 
 async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {

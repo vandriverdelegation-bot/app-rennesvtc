@@ -67,6 +67,8 @@ Déjà en ligne sans build : rappel 1 h, notification « Course attribuée » à
 
 - **Tablette d'accueil** (12/11) : image WELCOME avec le nom du client (nom du client, ou « Nom sur la tablette d'accueil » saisi au back-office). Serveur/e-mail/back-office en ligne ; appli chauffeur : bouton « Tablette d'accueil » (course en cours + réservations à venir, plein écran tourné) = demande le build. Migration 049 appliquée.
 
+- **Navettes événementielles** (module back-office, sans build d'appli) : étape 1 faite le 13/11 (tables navette_events / navette_departures / navette_signups = migration 050 appliquée ; menu « Navettes » ; événements, départs auto avec passage après minuit, logo). Étapes suivantes : 2 page invité /navette/{code}, 3 QR + chevalet PDF, 4 suivi de soirée. Code : backend/src/navettes.js (+ test navettes.test.js), backend/public/admin/navettes.js.
+
 ## Déjà en ligne (backend, pas besoin de build)
 - Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.
