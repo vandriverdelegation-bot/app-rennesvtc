@@ -4,68 +4,129 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<meta name="theme-color" content="#0A0C0B" />
+<meta name="theme-color" content="#070908" />
 <title>Navette retour - Rennes VTC</title>
+<link rel="preload" href="/navette/fonts/Outfit_700Bold.ttf" as="font" type="font/ttf" crossorigin />
+<link rel="preload" href="/navette/fonts/Outfit_600SemiBold.ttf" as="font" type="font/ttf" crossorigin />
 <style>
-  :root { color-scheme: dark; --bg: #0A0C0B; --card: #131715; --card-2: #1A1F1C; --border: #242B27; --accent: #47C415; --accent-text: #0E0F10; --text: #F4F7F5; --muted: #9BA6A0; --amber: #F5B83D; --error: #FF6B6B; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; -webkit-text-size-adjust: 100%; }
-  .wrap { max-width: 560px; margin: 0 auto; padding: 16px 14px 48px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; margin-bottom: 14px; }
-  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: .02em; font-size: 17px; }
-  .brand img, .evlogo img { height: 44px; max-width: 150px; object-fit: contain; }
+  @font-face { font-family: 'Outfit'; font-weight: 600; font-display: swap; src: url('/navette/fonts/Outfit_600SemiBold.ttf') format('truetype'); }
+  @font-face { font-family: 'Outfit'; font-weight: 700; font-display: swap; src: url('/navette/fonts/Outfit_700Bold.ttf') format('truetype'); }
+  @font-face { font-family: 'Inter'; font-weight: 400; font-display: swap; src: url('/navette/fonts/Inter_400Regular.ttf') format('truetype'); }
+  :root {
+    color-scheme: dark;
+    --bg: #070908; --card: #101412; --card-2: #171c19; --line: #232b26; --line-2: #2f3933;
+    --accent: #5BD42A; --accent-2: #8EEA5E; --accent-text: #08110A; --text: #F3F6F4; --muted: #94a29a;
+    --amber: #F5B83D; --red: #FF6B6B;
+    --title: 'Outfit', 'Inter', system-ui, sans-serif; --body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); }
+  body { margin: 0; min-height: 100vh; font-family: var(--body); color: var(--text); line-height: 1.5; -webkit-text-size-adjust: 100%;
+    background: radial-gradient(900px 460px at 50% -140px, rgba(91,212,42,.20), transparent 70%), radial-gradient(500px 300px at 100% 40%, rgba(91,212,42,.05), transparent 70%), var(--bg); }
+  .wrap { max-width: 540px; margin: 0 auto; padding: 18px 16px 56px; }
+  strong, b { font-family: var(--title); font-weight: 600; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; font-family: var(--title); font-weight: 700; font-size: 20px; letter-spacing: .04em; }
+  .brand img { height: 52px; max-width: 170px; object-fit: contain; }
   .brand .v { color: var(--accent); }
-  .evlogo { background: #fff; border-radius: 10px; padding: 4px 8px; display: flex; align-items: center; }
-  .hero { background: linear-gradient(180deg, #131A16, #0F1311); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 14px; }
-  .hero small { color: var(--accent); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }
-  .hero h1 { font-size: 26px; line-height: 1.15; margin: 6px 0 8px; text-wrap: balance; }
-  .hero p { margin: 4px 0; color: var(--muted); }
-  .hero p strong { color: var(--text); }
-  .welcome { margin-top: 10px; padding: 10px 12px; background: var(--card-2); border-radius: 12px; color: var(--text); white-space: pre-line; }
-  .banner { border-radius: 14px; padding: 14px; margin-bottom: 14px; font-weight: 600; }
-  .banner.ok { background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
-  .banner.warn { background: color-mix(in srgb, var(--amber) 14%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber); }
-  .banner .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  h2 { font-size: 15px; margin: 18px 2px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-  .dep { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 12px; }
-  .dep.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  .dep.off { opacity: .6; }
-  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .time { font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
-  .time small { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
-  .places { font-weight: 800; font-size: 18px; text-align: right; }
-  .places small { display: block; color: var(--muted); font-weight: 600; font-size: 12px; }
-  .bar { height: 7px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin: 10px 0 12px; }
-  .bar i { display: block; height: 100%; background: var(--accent); }
-  .names { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
-  .names li { background: var(--card-2); border-radius: 99px; padding: 4px 11px; font-size: 14px; }
-  .names li b { color: var(--accent); font-weight: 700; }
+  .evlogo { background: #fff; border-radius: 14px; padding: 6px 12px; display: flex; align-items: center; box-shadow: 0 6px 22px rgba(0,0,0,.4); }
+  .evlogo img { height: 42px; max-width: 120px; object-fit: contain; }
+
+  .kicker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; border-radius: 99px; background: rgba(91,212,42,.12); border: 1px solid rgba(91,212,42,.35); color: var(--accent-2); font-family: var(--title); font-weight: 600; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
+  .kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  h1 { font-family: var(--title); font-weight: 700; font-size: clamp(30px, 9vw, 40px); line-height: 1.08; letter-spacing: -.02em; margin: 14px 0 6px; text-wrap: balance; }
+  .lead { color: var(--muted); font-size: 16px; margin: 0 0 18px; }
+  .lead strong { color: var(--text); }
+  .infos { display: grid; gap: 10px; margin-bottom: 14px; }
+  .info { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+  .ico { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: rgba(91,212,42,.12); color: var(--accent); }
+  .ico svg { width: 20px; height: 20px; }
+  .info small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  .info span.v { font-family: var(--title); font-weight: 600; font-size: 17px; line-height: 1.25; }
+  .welcome { margin: 0 0 6px; padding: 12px 14px 12px 16px; border-left: 3px solid var(--accent); background: linear-gradient(90deg, rgba(91,212,42,.08), transparent); border-radius: 0 14px 14px 0; color: #dfe7e2; white-space: pre-line; }
+
+  .banner { display: flex; gap: 12px; align-items: flex-start; border-radius: 18px; padding: 14px; margin: 16px 0 0; }
+  .banner.ok { background: linear-gradient(135deg, rgba(91,212,42,.18), rgba(91,212,42,.06)); border: 1px solid rgba(91,212,42,.45); }
+  .banner.warn { background: rgba(245,184,61,.1); border: 1px solid rgba(245,184,61,.4); color: var(--amber); font-family: var(--title); font-weight: 600; align-items: center; }
+  .banner .ico { background: var(--accent); color: var(--accent-text); }
+  .banner .txt { flex: 1; font-size: 15px; }
+  .banner .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .banner .row button { min-height: 42px; font-size: 14px; }
+
+  h2 { display: flex; align-items: center; justify-content: space-between; font-family: var(--title); font-size: 22px; font-weight: 700; margin: 26px 2px 12px; letter-spacing: -.01em; }
+  h2 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
+
+  .dep { position: relative; background: linear-gradient(180deg, var(--card), #0d110f); border: 1px solid var(--line); border-radius: 22px; padding: 16px; margin-bottom: 14px; transition: border-color .2s, transform .2s; }
+  .dep.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 14px 40px rgba(91,212,42,.14); }
+  .dep.off .time, .dep.off .left b { color: #6f7b74; }
+  .tag { position: absolute; top: -11px; left: 16px; background: var(--accent); color: var(--accent-text); font-family: var(--title); font-weight: 700; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; padding: 3px 11px; border-radius: 99px; }
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .time { font-family: var(--title); font-weight: 700; font-size: 46px; line-height: 1; letter-spacing: -.03em; }
+  .time em { display: block; font-style: normal; font-family: var(--body); font-weight: 400; font-size: 12.5px; color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+  .right { text-align: right; }
+  .chip { display: inline-block; padding: 4px 11px; border-radius: 99px; font-family: var(--title); font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  .chip.ok { background: rgba(91,212,42,.14); color: var(--accent-2); }
+  .chip.few { background: rgba(245,184,61,.14); color: var(--amber); }
+  .chip.full { background: rgba(255,107,107,.13); color: var(--red); }
+  .chip.off { background: var(--card-2); color: var(--muted); }
+  .left { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .left b { font-size: 22px; color: var(--text); }
+  .bar { height: 8px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin: 12px 0 14px; }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .5s; }
+  .bar i.few { background: linear-gradient(90deg, #e69a14, var(--amber)); }
+  .bar i.full { background: linear-gradient(90deg, #d94d4d, var(--red)); }
+  .names { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 7px; }
+  .names li { display: inline-flex; align-items: center; gap: 7px; background: var(--card-2); border: 1px solid var(--line); border-radius: 99px; padding: 4px 11px 4px 4px; font-size: 14px; }
+  .names .av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: rgba(91,212,42,.16); color: var(--accent-2); font-family: var(--title); font-weight: 700; font-size: 11px; }
+  .names li b { color: var(--accent-2); font-size: 13px; }
   .none { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
-  button { font: inherit; cursor: pointer; border: 0; border-radius: 14px; min-height: 50px; padding: 0 18px; font-weight: 800; }
-  button.primary { background: var(--accent); color: var(--accent-text); width: 100%; font-size: 17px; }
-  button.ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
-  button.danger { background: transparent; color: var(--error); border: 1.5px solid color-mix(in srgb, var(--error) 55%, transparent); }
-  button:disabled { background: var(--card-2); color: var(--muted); border-color: transparent; cursor: default; }
-  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+
+  button { font: inherit; font-family: var(--title); font-weight: 600; cursor: pointer; border: 0; border-radius: 16px; min-height: 52px; padding: 0 18px; letter-spacing: .01em; }
+  button.primary { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 18px; font-weight: 700; color: var(--accent-text); background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 10px 26px rgba(91,212,42,.28); }
+  button.primary:active:not(:disabled) { transform: translateY(1px); }
+  button.primary svg { width: 20px; height: 20px; }
+  button.ghost { background: rgba(255,255,255,.04); color: var(--text); border: 1.5px solid var(--line-2); }
+  button.danger { background: transparent; color: var(--red); border: 1.5px solid rgba(255,107,107,.5); }
+  button:disabled { background: var(--card-2); color: #67746d; box-shadow: none; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(3px); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
   .sheet-bg.open { display: flex; }
-  .sheet { width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--border); border-radius: 22px 22px 0 0; padding: 18px 16px 24px; max-height: 92vh; overflow: auto; }
-  .sheet h3 { margin: 0 0 4px; font-size: 20px; }
-  .sheet p.sub { margin: 0 0 14px; color: var(--muted); }
-  label { display: block; font-weight: 700; font-size: 14px; margin: 12px 0 5px; }
-  label small { font-weight: 500; color: var(--muted); }
-  input, select { width: 100%; font: inherit; font-size: 17px; min-height: 50px; padding: 0 14px; background: var(--bg); color: var(--text); border: 1.5px solid var(--border); border-radius: 12px; }
-  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .sheet { width: 100%; max-width: 540px; background: var(--card); border: 1px solid var(--line-2); border-bottom: 0; border-radius: 28px 28px 0 0; padding: 12px 18px 26px; max-height: 94vh; overflow: auto; animation: up .28s ease-out; }
+  @keyframes up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+  .grip { width: 44px; height: 5px; border-radius: 99px; background: var(--line-2); margin: 0 auto 14px; }
+  .sheet h3 { font-family: var(--title); font-weight: 700; font-size: 26px; margin: 0 0 2px; letter-spacing: -.01em; }
+  .sheet p.sub { margin: 0 0 6px; color: var(--accent-2); font-family: var(--title); font-weight: 600; }
+  label { display: block; font-family: var(--title); font-weight: 600; font-size: 14px; margin: 14px 0 6px; color: #dfe7e2; }
+  input, select { width: 100%; font: inherit; font-size: 17px; min-height: 54px; padding: 0 15px; background: var(--bg); color: var(--text); border: 1.5px solid var(--line-2); border-radius: 14px; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[readonly] { color: var(--muted); }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .err { color: var(--error); font-weight: 700; margin: 12px 0 0; min-height: 1.2em; }
+  .err { color: var(--red); font-weight: 600; margin: 12px 0 0; min-height: 1.2em; font-size: 15px; }
   .rgpd { color: var(--muted); font-size: 12.5px; margin: 14px 0; }
-  .center { text-align: center; padding: 28px 10px; }
-  .big-tick { width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 32px; font-weight: 800; }
-  .recap { text-align: left; background: var(--card-2); border-radius: 14px; padding: 14px; margin: 16px 0; }
-  .recap div { margin: 4px 0; }
-  .recap span { color: var(--muted); }
-  footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align: center; }
-  a { color: var(--accent); }
+
+  .ticket { background: linear-gradient(180deg, var(--card), #0c100e); border: 1px solid var(--line-2); border-radius: 26px; overflow: hidden; text-align: center; margin-bottom: 16px; }
+  .ticket .head { padding: 26px 18px 20px; background: radial-gradient(420px 200px at 50% 0, rgba(91,212,42,.25), transparent 75%); }
+  .big-tick { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--accent-text); box-shadow: 0 10px 30px rgba(91,212,42,.4); }
+  .big-tick svg { width: 38px; height: 38px; }
+  .ticket h1 { margin: 0 0 4px; font-size: 30px; }
+  .ticket .time { font-size: 64px; margin: 8px 0 0; }
+  .ticket .time em { margin-top: 4px; }
+  .perf { position: relative; border-top: 2px dashed var(--line-2); margin: 0 18px; }
+  .perf::before, .perf::after { content: ''; position: absolute; top: -11px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg); border: 1px solid var(--line-2); }
+  .perf::before { left: -28px; } .perf::after { right: -28px; }
+  .recap { padding: 18px; display: grid; gap: 14px; text-align: left; }
+  .recap small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  .recap span.v { font-family: var(--title); font-weight: 600; font-size: 18px; }
+  .recap .msg { white-space: pre-line; color: #dfe7e2; }
+  .note { color: var(--muted); text-align: center; margin: 0 8px 16px; font-size: 14px; }
+  .center { text-align: center; padding: 28px 6px; }
+  .center h1 { margin-top: 6px; }
+  footer { margin-top: 30px; color: #71807a; font-size: 12px; text-align: center; line-height: 1.6; }
+  a { color: var(--accent-2); }
   .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -77,6 +138,7 @@
 
 <div class="sheet-bg" id="sheet-bg" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
   <form class="sheet" id="sheet" autocomplete="on" novalidate>
+    <div class="grip"></div>
     <h3 id="sheet-title">Je réserve</h3>
     <p class="sub" id="sheet-sub"></p>
     <div class="two">
@@ -87,7 +149,7 @@
     <select id="f-seats"></select>
     <p class="err" id="f-err" role="alert"></p>
     <p class="rgpd">Votre prénom et votre nom sont visibles des autres invités sur ce tableau. Ils ne servent qu'à organiser les navettes de cet événement et sont supprimés 30 jours après.</p>
-    <button class="primary" type="submit" id="f-submit">Confirmer</button>
+    <button class="primary" type="submit" id="f-submit">Confirmer ma réservation</button>
     <button class="ghost" type="button" id="f-cancel" style="width:100%;margin-top:10px">Annuler</button>
   </form>
 </div>
@@ -104,6 +166,15 @@
   let device = ls.get('device'); if (!device) { device = uid(); ls.set('device', device); }
   let data = null, changing = false, target = null, busy = false, confirmShown = false;
 
+  const I = {
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.3-9.2C1.4 8.3 3.5 5 6.8 5c1.9 0 3.5 1 5.2 3 1.7-2 3.3-3 5.2-3 3.3 0 5.4 3.3 4.1 6.8C19.500 16.400 12 21 12 21z"/></svg>',
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>',
+  };
+
   async function api(path, opt = {}) {
     const headers = { 'Content-Type': 'application/json', 'x-navette-pin': ss.get('pin') || '', 'x-navette-token': ls.get('token') || '' };
     const res = await fetch('/public/navette/' + code + path, { ...opt, headers });
@@ -112,8 +183,11 @@
   }
 
   function brand(ev) {
-    $('brand').innerHTML = ev.rvtc_logo ? `<img src="${esc(ev.rvtc_logo)}" alt="Rennes VTC" />` : '<span>RENNES <span class="v">VTC</span></span>';
-    if (ev.logo_url) { $('evlogo').classList.remove('hidden'); $('evlogo').innerHTML = `<img src="${esc(ev.logo_url)}" alt="" />`; } else { $('evlogo').classList.add('hidden'); }
+    const wordmark = '<span>RENNES <span class="v">VTC</span></span>';
+    $('brand').innerHTML = ev.rvtc_logo ? `<img src="${esc(ev.rvtc_logo)}" alt="Rennes VTC" />` : wordmark;
+    // Un logo qui ne charge pas ne doit laisser ni trou ni texte casse : repli sur le nom ecrit / masquage.
+    const rv = $('brand').querySelector('img'); if (rv) rv.onerror = () => { $('brand').innerHTML = wordmark; };
+    if (ev.logo_url) { $('evlogo').classList.remove('hidden'); $('evlogo').innerHTML = `<img src="${esc(ev.logo_url)}" alt="" />`; $('evlogo').querySelector('img').onerror = () => $('evlogo').classList.add('hidden'); } else { $('evlogo').classList.add('hidden'); }
     if (ev.name) document.title = ev.name + ' - Navette retour';
   }
 
@@ -130,47 +204,54 @@
   }
 
   function pinScreen(wrong) {
-    $('app').innerHTML = `<div class="hero"><small>Accès protégé</small><h1>Code PIN</h1><p>Saisissez le code à 4 chiffres communiqué par les organisateurs.</p></div>
-      <form id="pinform"><input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="font-size:28px;text-align:center;letter-spacing:.4em" /><p class="err">${wrong ? 'Code incorrect.' : ''}</p><button class="primary" type="submit">Valider</button></form>`;
+    $('app').innerHTML = `<span class="kicker">Accès protégé</span><h1>Code PIN</h1><p class="lead">Saisissez le code à 4 chiffres communiqué par les organisateurs.</p>
+      <form id="pinform"><input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="font-family:var(--title);font-weight:700;font-size:34px;text-align:center;letter-spacing:.45em;min-height:68px" /><p class="err">${wrong ? 'Code incorrect.' : ''}</p><button class="primary" type="submit">Valider</button></form>`;
     $('pinform').onsubmit = (e) => { e.preventDefault(); ss.set('pin', $('pin').value.trim()); load(); };
     $('pin').focus();
   }
 
   const frDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const hh = (t) => t.replace(':', 'h');
+  const initials = (name) => { const p = String(name).trim().split(/\s+/); return ((p[0] || '')[0] || '') + ((p.length > 1 ? p[p.length - 1] : '')[0] || ''); };
 
   function draw() {
     const ev = data.event;
-    $('foot').innerHTML = 'Service proposé par <a href="https://www.rennesvtc.com" target="_blank" rel="noopener">Rennes VTC</a> · Vos prénom et nom sont visibles des autres invités. Données supprimées 30 jours après l\'événement.';
+    $('foot').innerHTML = 'Service proposé par <a href="https://www.rennesvtc.com" target="_blank" rel="noopener">Rennes VTC</a><br>Vos prénom et nom sont visibles des autres invités. Données supprimées 30 jours après l\'événement.';
     if (ev.status === 'termine') {
-      $('app').innerHTML = `<div class="hero center"><div class="big-tick">♥</div><h1>Merci et à bientôt !</h1><p>L'événement « ${esc(ev.name)} » est terminé. Merci d'avoir voyagé avec Rennes VTC.</p><p style="margin-top:14px"><a href="https://www.rennesvtc.com" target="_blank" rel="noopener"><strong>www.rennesvtc.com</strong></a></p></div>`;
+      $('app').innerHTML = `<div class="center"><div class="big-tick" style="margin:0 auto 14px">${I.heart}</div><h1>Merci et à bientôt !</h1><p class="lead">L'événement « ${esc(ev.name)} » est terminé. Merci d'avoir voyagé avec Rennes VTC.</p><p><a href="https://www.rennesvtc.com" target="_blank" rel="noopener"><strong>www.rennesvtc.com</strong></a></p></div>`;
       return;
     }
     const me = data.me;
     const myDep = me ? data.departures.find((d) => d.id === me.departure_id) : null;
-    let html = `<div class="hero"><small>${ev.type === 'mariage' ? 'Mariage' : ev.type === 'entreprise' ? 'Soirée' : 'Événement'} · ${esc(frDay(ev.event_date))}</small><h1>${esc(ev.name)}</h1>
-      <p>Réservez votre <strong>navette retour</strong>.</p>
-      ${ev.pickup_place ? `<p>📍 Rendez-vous : <strong>${esc(ev.pickup_place)}</strong></p>` : ''}${ev.destination ? `<p>➜ Destination : <strong>${esc(ev.destination)}</strong></p>` : ''}
-      ${ev.welcome_message ? `<div class="welcome">${esc(ev.welcome_message)}</div>` : ''}</div>`;
+    const kind = ev.type === 'mariage' ? 'Mariage' : ev.type === 'entreprise' ? 'Soirée' : 'Événement';
+    let html = `<span class="kicker">${kind} · ${esc(frDay(ev.event_date))}</span><h1>${esc(ev.name)}</h1>
+      <p class="lead">Réservez votre <strong>navette retour</strong> en quelques secondes.</p>
+      <div class="infos">${ev.pickup_place ? `<div class="info"><span class="ico">${I.pin}</span><div><small>Rendez-vous</small><span class="v">${esc(ev.pickup_place)}</span></div></div>` : ''}${ev.destination ? `<div class="info"><span class="ico">${I.flag}</span><div><small>Destination</small><span class="v">${esc(ev.destination)}</span></div></div>` : ''}</div>
+      ${ev.welcome_message ? `<div class="welcome">${esc(ev.welcome_message)}</div>` : ''}`;
     if (ev.status !== 'ouvert') html += '<div class="banner warn">Les inscriptions sont fermées pour cet événement.</div>';
     if (me && myDep) {
-      html += `<div class="banner ok">✅ Vous êtes inscrit(e), ${esc(me.first_name)} : navette de <strong>${esc(hh(myDep.time))}</strong>${myDep.next_day ? ' (après minuit)' : ''} · ${me.seats} place${me.seats > 1 ? 's' : ''}.
+      html += `<div class="banner ok"><span class="ico">${I.check}</span><div class="txt">Vous êtes inscrit(e), <strong>${esc(me.first_name)}</strong> : navette de <strong>${esc(hh(myDep.time))}</strong>${myDep.next_day ? ' (après minuit)' : ''} · ${me.seats} place${me.seats > 1 ? 's' : ''}.
         ${changing ? '<br>Choisissez ci-dessous votre nouveau départ.' : ''}
-        <div class="row"><button class="ghost" id="b-change">${changing ? 'Garder mon départ' : 'Changer de départ'}</button><button class="danger" id="b-cancel">Annuler mon inscription</button></div></div>`;
+        <div class="row"><button class="ghost" id="b-change">${changing ? 'Garder mon départ' : 'Changer de départ'}</button><button class="danger" id="b-cancel">Annuler mon inscription</button></div></div></div>`;
     }
-    html += '<h2>Départs</h2>';
+    html += `<h2>Les départs <small>${data.departures.length} navette${data.departures.length > 1 ? 's' : ''}</small></h2>`;
     if (!data.departures.length) html += '<p class="none">Aucun départ n\'est encore programmé.</p>';
     html += data.departures.map((d) => {
       const isMine = me && d.id === me.departure_id;
-      const pct = d.seats ? Math.round(((d.seats - d.remaining) / d.seats) * 100) : 100;
-      const label = isMine ? 'Votre départ' : d.state === 'complet' ? 'Complet' : d.state === 'ferme' ? 'Fermé' : (me ? 'Choisir ce départ' : 'Je réserve');
+      const used = d.seats - d.remaining;
+      const pct = d.seats ? Math.round((used / d.seats) * 100) : 100;
+      const few = d.state === 'ouvert' && d.remaining > 0 && d.remaining <= Math.max(1, Math.floor(d.seats * 0.25));
+      const cls = d.state === 'complet' ? 'full' : d.state === 'ferme' ? 'off' : few ? 'few' : 'ok';
+      const chip = d.state === 'complet' ? 'Complet' : d.state === 'ferme' ? 'Fermé' : few ? 'Dernières places' : 'Disponible';
+      const label = isMine ? 'Votre départ' : d.state === 'complet' ? 'Complet' : d.state === 'ferme' ? 'Inscriptions fermées' : (me ? 'Choisir ce départ' : 'Je réserve');
       const disabled = isMine || d.state !== 'ouvert' || (me && !changing);
-      return `<div class="dep ${isMine ? 'mine' : ''} ${d.state !== 'ouvert' && !isMine ? 'off' : ''}">
-        <div class="top"><div class="time">${esc(hh(d.time))}${d.next_day ? '<small>après minuit</small>' : ''}</div>
-        <div class="places">${d.remaining} / ${d.seats}<small>places restantes</small></div></div>
-        <div class="bar"><i style="width:${pct}%"></i></div>
-        ${d.names.length ? `<ul class="names">${d.names.map((n) => `<li>${esc(n.name)}${n.seats > 1 ? ` <b>×${n.seats}</b>` : ''}</li>`).join('')}</ul>` : '<p class="none">Personne d\'inscrit pour le moment.</p>'}
-        <button class="primary" data-dep="${d.id}" ${disabled ? 'disabled' : ''}>${label}</button></div>`;
+      const arrow = !disabled ? I.arrow : '';
+      return `<div class="dep ${isMine ? 'mine' : ''} ${d.state !== 'ouvert' && !isMine ? 'off' : ''}">${isMine ? '<span class="tag">Ma navette</span>' : ''}
+        <div class="top"><div class="time">${esc(hh(d.time))}${d.next_day ? '<em>après minuit</em>' : ''}</div>
+        <div class="right"><span class="chip ${cls}">${chip}</span><div class="left"><b>${d.remaining}</b> / ${d.seats} places</div></div></div>
+        <div class="bar"><i class="${cls === 'few' || cls === 'full' ? cls : ''}" style="width:${pct}%"></i></div>
+        ${d.names.length ? `<ul class="names">${d.names.map((n) => `<li><span class="av">${esc(initials(n.name))}</span>${esc(n.name)}${n.seats > 1 ? ` <b>×${n.seats}</b>` : ''}</li>`).join('')}</ul>` : '<p class="none">Personne d\'inscrit pour le moment : soyez le premier !</p>'}
+        <button class="primary" data-dep="${d.id}" ${disabled ? 'disabled' : ''}>${label}${arrow}</button></div>`;
     }).join('');
     $('app').innerHTML = html;
     document.querySelectorAll('[data-dep]').forEach((b) => (b.onclick = () => openSheet(b.dataset.dep)));
@@ -223,12 +304,15 @@
 
   function confirmation(d) {
     const ev = data.event;
-    $('app').innerHTML = `<div class="hero center"><div class="big-tick">✓</div><h1>C'est confirmé !</h1><p>Votre place est réservée sur la navette de</p>
-      <div class="time" style="margin:6px 0">${esc(hh(d.time))}${d.next_day ? '<small>après minuit</small>' : ''}</div>
-      <div class="recap">${ev.pickup_place ? `<div><span>Rendez-vous</span><br><strong>${esc(ev.pickup_place)}</strong></div>` : ''}${ev.destination ? `<div><span>Destination</span><br><strong>${esc(ev.destination)}</strong></div>` : ''}${ev.welcome_message ? `<div style="white-space:pre-line">${esc(ev.welcome_message)}</div>` : ''}
-      <div><span>Nom</span><br><strong>${esc(ls.get('first') || '')} ${esc(ls.get('last') || '')}</strong></div></div>
-      <p style="color:var(--muted)">Revenez sur cette page pour changer de départ ou annuler.</p>
-      <button class="primary" id="b-back">Voir le tableau des départs</button></div>`;
+    $('app').innerHTML = `<div class="ticket"><div class="head"><div class="big-tick">${I.check}</div><h1>C'est confirmé !</h1><p class="lead" style="margin:0">Votre place est réservée sur la navette de</p>
+      <div class="time">${esc(hh(d.time))}${d.next_day ? '<em>après minuit</em>' : ''}</div></div>
+      <div class="perf"></div>
+      <div class="recap">
+        <div><small>Voyageur</small><span class="v">${esc(ls.get('first') || '')} ${esc(ls.get('last') || '')}</span></div>
+        ${ev.pickup_place ? `<div><small>Rendez-vous</small><span class="v">${esc(ev.pickup_place)}</span></div>` : ''}${ev.destination ? `<div><small>Destination</small><span class="v">${esc(ev.destination)}</span></div>` : ''}
+        ${ev.welcome_message ? `<div class="msg">${esc(ev.welcome_message)}</div>` : ''}</div></div>
+      <p class="note">Revenez sur cette page pour changer de départ ou annuler.</p>
+      <button class="primary" id="b-back">Voir le tableau des départs${I.arrow}</button>`;
     confirmShown = true;
     $('b-back').onclick = () => { confirmShown = false; draw(); };
     window.scrollTo(0, 0);
