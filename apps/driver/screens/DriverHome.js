@@ -72,7 +72,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: mine } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category, leg')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, vehicle_category, leg')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -97,7 +97,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, declined_by, leg')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, declined_by, leg')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       // Les courses que j'ai refusees ne reviennent plus dans ma liste.
@@ -460,6 +460,7 @@ export default function DriverHome({ session }) {
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                       </View>
                       <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
                       {!activeRide ? (
                         <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
                       ) : item.id === activeRide.id ? (
@@ -559,6 +560,7 @@ export default function DriverHome({ session }) {
           </View>
           {!seats ? <Text style={styles.mutedSmall}>Aucun siege enfant demande.</Text> : null}
           {activeRide.client_note ? <ClientNote text={activeRide.client_note} /> : null}
+          {activeRide.driver_note ? <ClientNote title="Note de Rennes VTC" text={activeRide.driver_note} /> : null}
         </Card>
 
         <Card>
@@ -661,6 +663,7 @@ export default function DriverHome({ session }) {
               </View>
               <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
               {item.client_note ? <ClientNote text={item.client_note} /> : null}
+              {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
               <RideMiniMap
                 pickupLat={item.pickup_lat}
                 pickupLng={item.pickup_lng}
@@ -696,10 +699,10 @@ export default function DriverHome({ session }) {
   );
 }
 
-function ClientNote({ text }) {
+function ClientNote({ text, title = 'Information du client' }) {
   return (
     <View style={styles.noteBox}>
-      <SectionLabel>Information du client</SectionLabel>
+      <SectionLabel>{title}</SectionLabel>
       <Text style={styles.noteText}>{text}</Text>
     </View>
   );

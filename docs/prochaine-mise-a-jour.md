@@ -52,6 +52,8 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 
 - **Aller-retour scindé en deux courses** (11/11) : à la saisie (appli client, module web, back-office, appli chauffeur), la réservation devient 2 courses : un trajet aller et un trajet retour (départ et arrivée inversés, arrêts inversés, date de retour, même client, gamme, paiement et même tarif affiché pour chaque trajet), chacune avec son chauffeur, ses étapes et son lien de suivi. Étiquette « Trajet aller / Trajet retour » dans l'appli chauffeur et l'appli client. **Migration 048 à appliquer AVANT d'installer les prochains builds** (colonnes leg et linked_ride_id lues par les applis). Le tarif n'est pas doublé ni partagé : chaque trajet reprend le prix saisi (à confirmer avec Jim).
 
+- **Note pour le chauffeur** (12/11) : champ à la création d'une réservation dans le back-office (déjà en ligne) et dans l'onglet Notes d'une réservation existante (existait) ; la note est imprimée sur le bon de commande (déjà le cas) et affichée dans l'appli chauffeur (« Note de Rennes VTC », sur la course en cours, les courses disponibles et les réservations à venir). Demande un build pour l'appli.
+
 ## Déjà en ligne (backend, pas besoin de build)
 - Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.

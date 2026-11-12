@@ -571,6 +571,7 @@
                 </div>
                 <div class="field wide"><label>Chauffeurs supplementaires (plusieurs chauffeurs sur la meme mission)</label><div id="new-ride-extra-drivers"></div><button type="button" class="secondary" id="new-ride-add-extra-driver">+ Ajouter un chauffeur</button></div>
                 <div class="field wide"><label for="new-ride-tags">Tags (separes par ,)</label><input id="new-ride-tags" placeholder="Facultatif" /></div>
+                <div class="field wide"><label for="new-ride-driver-note">Note pour le chauffeur</label><textarea id="new-ride-driver-note" style="min-height:60px" placeholder="Facultatif : visible par le chauffeur dans l'appli et sur le bon de reservation"></textarea></div>
               </div>
             </div>
 
@@ -1095,6 +1096,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const return_date = document.getElementById('new-ride-return-date').value;
   const return_time = document.getElementById('new-ride-return-time').value;
   const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
+  const driver_note = document.getElementById('new-ride-driver-note').value.trim() || null;
 
   const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
   if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
@@ -1143,6 +1145,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     round_trip,
     return_scheduled_at: round_trip ? new Date(`${return_date}T${return_time}`).toISOString() : null,
     tags,
+    driver_note,
     orderer_name: ordererOpen ? document.getElementById('new-ride-orderer-name').value.trim() || null : null,
     orderer_email: ordererOpen ? document.getElementById('new-ride-orderer-email').value.trim() || null : null,
     orderer_phone: ordererOpen ? document.getElementById('new-ride-orderer-phone').value.trim() || null : null,
@@ -1216,6 +1219,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-return-date').value = '';
   document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
+  document.getElementById('new-ride-driver-note').value = '';
   document.getElementById('new-ride-passengers').value = '1';
   ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
   document.getElementById('new-ride-child-ages').value = '';
