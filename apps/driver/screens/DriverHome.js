@@ -34,6 +34,7 @@ const SERVICE_LABELS = {
 };
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
+const LEG_LABELS = { aller: 'Trajet aller', retour: 'Trajet retour' }; // aller-retour scinde en deux courses
 
 function formatRideDateTime(scheduledAt) {
   if (!scheduledAt) return 'Des que possible';
@@ -71,7 +72,7 @@ export default function DriverHome({ session }) {
   async function refresh() {
     const { data: mine } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, vehicle_category, leg')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -79,7 +80,7 @@ export default function DriverHome({ session }) {
     setMyRides(list);
     const { data: shared } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, service_type, price, scheduled_at, passenger_count, payment_method')
+      .select('id, pickup_address, dropoff_address, status, service_type, price, scheduled_at, passenger_count, payment_method, leg')
       .contains('extra_driver_ids', [session.user.id])
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -96,7 +97,7 @@ export default function DriverHome({ session }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, declined_by')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, declined_by, leg')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       // Les courses que j'ai refusees ne reviennent plus dans ma liste.
@@ -453,6 +454,7 @@ export default function DriverHome({ session }) {
                     <Card key={item.id}>
                       <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
                       <View style={styles.pillRow}>
+                        {item.leg ? <Pill highlight>{LEG_LABELS[item.leg]}</Pill> : null}
                         <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
                         <Pill icon="users">{item.passenger_count ?? 1}</Pill>
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
@@ -473,6 +475,7 @@ export default function DriverHome({ session }) {
                   <Pill highlight>Mission partagée : le chauffeur principal gère les étapes</Pill>
                   <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
                   <View style={styles.pillRow}>
+                    {item.leg ? <Pill highlight>{LEG_LABELS[item.leg]}</Pill> : null}
                     <Pill>{SERVICE_LABELS[item.service_type]}</Pill>
                     <Pill icon="users">{item.passenger_count ?? 1}</Pill>
                     <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
@@ -534,6 +537,7 @@ export default function DriverHome({ session }) {
             )
           ) : null}
           <View style={styles.pillRow}>
+            {activeRide.leg ? <Pill highlight>{LEG_LABELS[activeRide.leg]}</Pill> : null}
             <Pill>{SERVICE_LABELS[activeRide.service_type]}</Pill>
             <Pill>{PAYMENT_LABELS[activeRide.payment_method]}</Pill>
             {activeRide.vehicle_category && !permissions.is_owner ? <Pill>Gamme {VEHICLE_LABELS[activeRide.vehicle_category]}</Pill> : null}
@@ -649,6 +653,7 @@ export default function DriverHome({ session }) {
             <Card glow>
               <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
               <View style={styles.pillRow}>
+                {item.leg ? <Pill highlight>{LEG_LABELS[item.leg]}</Pill> : null}
                 <Pill icon="users">{item.passenger_count ?? 1}</Pill>
                 <Pill icon="luggage">{item.luggage_count ?? 0}</Pill>
                 {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege{agesLabel(item.child_ages)}</Pill> : null}

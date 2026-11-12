@@ -140,8 +140,8 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
           <Chip icon="user">{plural(ride.passenger_count ?? 1, 'passager')}</Chip>
           <Chip icon="luggage">{plural(ride.luggage_count ?? 0, 'bagage')}</Chip>
         </View>
-        {ride.child_seats > 0 || ride.booster_seats > 0 || ride.round_trip ? (
-          <Text style={styles.extras}>{[ride.round_trip ? 'Aller-retour' : null, ride.child_seats > 0 ? 'Siège enfant' : null, ride.booster_seats > 0 ? 'Rehausseur' : null].filter(Boolean).join(' · ')}</Text>
+        {ride.child_seats > 0 || ride.booster_seats > 0 || ride.leg ? (
+          <Text style={styles.extras}>{[ride.leg === 'aller' ? 'Trajet aller' : ride.leg === 'retour' ? 'Trajet retour' : null, ride.child_seats > 0 ? 'Siège enfant' : null, ride.booster_seats > 0 ? 'Rehausseur' : null].filter(Boolean).join(' · ')}</Text>
         ) : null}
         {accepted ? (
           <View style={styles.driverBox}>
