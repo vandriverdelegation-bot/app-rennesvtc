@@ -186,7 +186,8 @@
     document.getElementById('sh-open').onclick = () => window.open(current.public_url, '_blank');
     document.getElementById('sh-copy').onclick = async () => {
       const input = document.getElementById('sh-url');
-      try { await navigator.clipboard.writeText(current.public_url); } catch { input.select(); document.execCommand('copy'); }
+      // Copie moderne, avec repli apres 1 s (certains navigateurs bloquent la copie sans geste de l'utilisateur).
+      try { await Promise.race([navigator.clipboard.writeText(current.public_url), new Promise((_, no) => setTimeout(no, 1000))]); } catch { input.select(); document.execCommand('copy'); }
       msg('Lien copie ✓');
       document.getElementById('sh-copy').textContent = 'Lien copie ✓';
       setTimeout(() => { const b = document.getElementById('sh-copy'); if (b) b.textContent = 'Copier le lien'; }, 2500);
