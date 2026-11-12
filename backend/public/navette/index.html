@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="theme-color" content="#0A0C0B" />
+<title>Navette retour - Rennes VTC</title>
+<style>
+  :root { color-scheme: dark; --bg: #0A0C0B; --card: #131715; --card-2: #1A1F1C; --border: #242B27; --accent: #47C415; --accent-text: #0E0F10; --text: #F4F7F5; --muted: #9BA6A0; --amber: #F5B83D; --error: #FF6B6B; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 16px 14px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; margin-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: .02em; font-size: 17px; }
+  .brand img, .evlogo img { height: 44px; max-width: 150px; object-fit: contain; }
+  .brand .v { color: var(--accent); }
+  .evlogo { background: #fff; border-radius: 10px; padding: 4px 8px; display: flex; align-items: center; }
+  .hero { background: linear-gradient(180deg, #131A16, #0F1311); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 14px; }
+  .hero small { color: var(--accent); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }
+  .hero h1 { font-size: 26px; line-height: 1.15; margin: 6px 0 8px; text-wrap: balance; }
+  .hero p { margin: 4px 0; color: var(--muted); }
+  .hero p strong { color: var(--text); }
+  .welcome { margin-top: 10px; padding: 10px 12px; background: var(--card-2); border-radius: 12px; color: var(--text); white-space: pre-line; }
+  .banner { border-radius: 14px; padding: 14px; margin-bottom: 14px; font-weight: 600; }
+  .banner.ok { background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .banner.warn { background: color-mix(in srgb, var(--amber) 14%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber); }
+  .banner .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  h2 { font-size: 15px; margin: 18px 2px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .dep { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 12px; }
+  .dep.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .dep.off { opacity: .6; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .time { font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
+  .time small { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+  .places { font-weight: 800; font-size: 18px; text-align: right; }
+  .places small { display: block; color: var(--muted); font-weight: 600; font-size: 12px; }
+  .bar { height: 7px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin: 10px 0 12px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .names { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  .names li { background: var(--card-2); border-radius: 99px; padding: 4px 11px; font-size: 14px; }
+  .names li b { color: var(--accent); font-weight: 700; }
+  .none { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 14px; min-height: 50px; padding: 0 18px; font-weight: 800; }
+  button.primary { background: var(--accent); color: var(--accent-text); width: 100%; font-size: 17px; }
+  button.ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+  button.danger { background: transparent; color: var(--error); border: 1.5px solid color-mix(in srgb, var(--error) 55%, transparent); }
+  button:disabled { background: var(--card-2); color: var(--muted); border-color: transparent; cursor: default; }
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+  .sheet-bg.open { display: flex; }
+  .sheet { width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--border); border-radius: 22px 22px 0 0; padding: 18px 16px 24px; max-height: 92vh; overflow: auto; }
+  .sheet h3 { margin: 0 0 4px; font-size: 20px; }
+  .sheet p.sub { margin: 0 0 14px; color: var(--muted); }
+  label { display: block; font-weight: 700; font-size: 14px; margin: 12px 0 5px; }
+  label small { font-weight: 500; color: var(--muted); }
+  input, select { width: 100%; font: inherit; font-size: 17px; min-height: 50px; padding: 0 14px; background: var(--bg); color: var(--text); border: 1.5px solid var(--border); border-radius: 12px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .err { color: var(--error); font-weight: 700; margin: 12px 0 0; min-height: 1.2em; }
+  .rgpd { color: var(--muted); font-size: 12.5px; margin: 14px 0; }
+  .center { text-align: center; padding: 28px 10px; }
+  .big-tick { width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 32px; font-weight: 800; }
+  .recap { text-align: left; background: var(--card-2); border-radius: 14px; padding: 14px; margin: 16px 0; }
+  .recap div { margin: 4px 0; }
+  .recap span { color: var(--muted); }
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align: center; }
+  a { color: var(--accent); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="brand" id="brand"><span>RENNES <span class="v">VTC</span></span></div><div class="evlogo hidden" id="evlogo"></div></header>
+  <div id="app"><p style="color:var(--muted);text-align:center;padding:40px 0">Chargement…</p></div>
+  <footer id="foot"></footer>
+</div>
+
+<div class="sheet-bg" id="sheet-bg" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <form class="sheet" id="sheet" autocomplete="on" novalidate>
+    <h3 id="sheet-title">Je réserve</h3>
+    <p class="sub" id="sheet-sub"></p>
+    <div class="two">
+      <div><label for="f-first">Prénom</label><input id="f-first" name="given-name" autocomplete="given-name" maxlength="60" required /></div>
+      <div><label for="f-last">Nom</label><input id="f-last" name="family-name" autocomplete="family-name" maxlength="60" required /></div>
+    </div>
+    <label for="f-seats">Nombre de places</label>
+    <select id="f-seats"></select>
+    <label for="f-phone">Téléphone <small>(facultatif, visible uniquement de Rennes VTC)</small></label>
+    <input id="f-phone" type="tel" name="tel" autocomplete="tel" inputmode="tel" maxlength="20" />
+    <p class="err" id="f-err" role="alert"></p>
+    <p class="rgpd">Votre prénom et votre nom sont visibles des autres invités sur ce tableau. Vos données ne servent qu'à organiser les navettes de cet événement et sont supprimées 30 jours après.</p>
+    <button class="primary" type="submit" id="f-submit">Confirmer</button>
+    <button class="ghost" type="button" id="f-cancel" style="width:100%;margin-top:10px">Annuler</button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const code = location.pathname.split('/').filter(Boolean).pop();
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = (id) => document.getElementById(id);
+  const K = (k) => `navette:${code}:${k}`;
+  const ls = { get: (k) => { try { return localStorage.getItem(K(k)); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(K(k), v); } catch {} }, del: (k) => { try { localStorage.removeItem(K(k)); } catch {} } };
+  const ss = { get: (k) => { try { return sessionStorage.getItem(K(k)); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(K(k), v); } catch {} } };
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'd' + Math.random().toString(16).slice(2) + Date.now().toString(16));
+  let device = ls.get('device'); if (!device) { device = uid(); ls.set('device', device); }
+  let data = null, changing = false, target = null, busy = false, confirmShown = false;
+
+  async function api(path, opt = {}) {
+    const headers = { 'Content-Type': 'application/json', 'x-navette-pin': ss.get('pin') || '', 'x-navette-token': ls.get('token') || '' };
+    const res = await fetch('/public/navette/' + code + path, { ...opt, headers });
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, json };
+  }
+
+  function brand(ev) {
+    $('brand').innerHTML = ev.rvtc_logo ? `<img src="${esc(ev.rvtc_logo)}" alt="Rennes VTC" />` : '<span>RENNES <span class="v">VTC</span></span>';
+    if (ev.logo_url) { $('evlogo').classList.remove('hidden'); $('evlogo').innerHTML = `<img src="${esc(ev.logo_url)}" alt="" />`; } else { $('evlogo').classList.add('hidden'); }
+    if (ev.name) document.title = ev.name + ' - Navette retour';
+  }
+
+  async function load() {
+    const r = await api('');
+    if (r.status === 404) { $('app').innerHTML = '<div class="center"><h1>Lien invalide</h1><p style="color:var(--muted)">Ce lien ne correspond à aucun événement. Vérifiez le QR code ou le lien reçu.</p></div>'; return; }
+    if (r.status === 429) { return; }
+    if (r.json.event) brand(r.json.event);
+    if (r.status === 401 && r.json.needPin) { pinScreen(r.json.wrong); return; }
+    if (!r.ok) return;
+    data = r.json;
+    if (ls.get('token') && !data.me) ls.del('token'); // inscription annulee ailleurs
+    if (!confirmShown) draw();
+  }
+
+  function pinScreen(wrong) {
+    $('app').innerHTML = `<div class="hero"><small>Accès protégé</small><h1>Code PIN</h1><p>Saisissez le code à 4 chiffres communiqué par les organisateurs.</p></div>
+      <form id="pinform"><input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="font-size:28px;text-align:center;letter-spacing:.4em" /><p class="err">${wrong ? 'Code incorrect.' : ''}</p><button class="primary" type="submit">Valider</button></form>`;
+    $('pinform').onsubmit = (e) => { e.preventDefault(); ss.set('pin', $('pin').value.trim()); load(); };
+    $('pin').focus();
+  }
+
+  const frDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const hh = (t) => t.replace(':', 'h');
+
+  function draw() {
+    const ev = data.event;
+    $('foot').innerHTML = 'Service proposé par <a href="https://www.rennesvtc.com" target="_blank" rel="noopener">Rennes VTC</a> · Vos prénom et nom sont visibles des autres invités ; le téléphone, facultatif, reste confidentiel. Données supprimées 30 jours après l\'événement.';
+    if (ev.status === 'termine') {
+      $('app').innerHTML = `<div class="hero center"><div class="big-tick">♥</div><h1>Merci et à bientôt !</h1><p>L'événement « ${esc(ev.name)} » est terminé. Merci d'avoir voyagé avec Rennes VTC.</p><p style="margin-top:14px"><a href="https://www.rennesvtc.com" target="_blank" rel="noopener"><strong>www.rennesvtc.com</strong></a></p></div>`;
+      return;
+    }
+    const me = data.me;
+    const myDep = me ? data.departures.find((d) => d.id === me.departure_id) : null;
+    let html = `<div class="hero"><small>${ev.type === 'mariage' ? 'Mariage' : ev.type === 'entreprise' ? 'Soirée' : 'Événement'} · ${esc(frDay(ev.event_date))}</small><h1>${esc(ev.name)}</h1>
+      <p>Réservez votre <strong>navette retour</strong>.</p>
+      ${ev.pickup_place ? `<p>📍 Rendez-vous : <strong>${esc(ev.pickup_place)}</strong></p>` : ''}${ev.destination ? `<p>➜ Destination : <strong>${esc(ev.destination)}</strong></p>` : ''}
+      ${ev.welcome_message ? `<div class="welcome">${esc(ev.welcome_message)}</div>` : ''}</div>`;
+    if (ev.status !== 'ouvert') html += '<div class="banner warn">Les inscriptions sont fermées pour cet événement.</div>';
+    if (me && myDep) {
+      html += `<div class="banner ok">✅ Vous êtes inscrit(e), ${esc(me.first_name)} : navette de <strong>${esc(hh(myDep.time))}</strong>${myDep.next_day ? ' (après minuit)' : ''} · ${me.seats} place${me.seats > 1 ? 's' : ''}.
+        ${changing ? '<br>Choisissez ci-dessous votre nouveau départ.' : ''}
+        <div class="row"><button class="ghost" id="b-change">${changing ? 'Garder mon départ' : 'Changer de départ'}</button><button class="danger" id="b-cancel">Annuler mon inscription</button></div></div>`;
+    }
+    html += '<h2>Départs</h2>';
+    if (!data.departures.length) html += '<p class="none">Aucun départ n\'est encore programmé.</p>';
+    html += data.departures.map((d) => {
+      const isMine = me && d.id === me.departure_id;
+      const pct = d.seats ? Math.round(((d.seats - d.remaining) / d.seats) * 100) : 100;
+      const label = isMine ? 'Votre départ' : d.state === 'complet' ? 'Complet' : d.state === 'ferme' ? 'Fermé' : (me ? 'Choisir ce départ' : 'Je réserve');
+      const disabled = isMine || d.state !== 'ouvert' || (me && !changing);
+      return `<div class="dep ${isMine ? 'mine' : ''} ${d.state !== 'ouvert' && !isMine ? 'off' : ''}">
+        <div class="top"><div class="time">${esc(hh(d.time))}${d.next_day ? '<small>après minuit</small>' : ''}</div>
+        <div class="places">${d.remaining} / ${d.seats}<small>places restantes</small></div></div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        ${d.names.length ? `<ul class="names">${d.names.map((n) => `<li>${esc(n.name)}${n.seats > 1 ? ` <b>×${n.seats}</b>` : ''}</li>`).join('')}</ul>` : '<p class="none">Personne d\'inscrit pour le moment.</p>'}
+        <button class="primary" data-dep="${d.id}" ${disabled ? 'disabled' : ''}>${label}</button></div>`;
+    }).join('');
+    $('app').innerHTML = html;
+    document.querySelectorAll('[data-dep]').forEach((b) => (b.onclick = () => openSheet(b.dataset.dep)));
+    const bc = $('b-change'); if (bc) bc.onclick = () => { changing = !changing; draw(); };
+    const bx = $('b-cancel'); if (bx) bx.onclick = cancelMine;
+  }
+
+  function openSheet(depId) {
+    const d = data.departures.find((x) => x.id === depId); if (!d) return;
+    target = d;
+    const me = data.me;
+    $('sheet-title').textContent = me ? 'Changer de départ' : 'Je réserve';
+    $('sheet-sub').textContent = `Navette de ${hh(d.time)}${d.next_day ? ' (après minuit)' : ''} · ${d.remaining} place${d.remaining > 1 ? 's' : ''} restante${d.remaining > 1 ? 's' : ''}`;
+    const ownSeats = me && me.departure_id === d.id ? me.seats : 0;
+    const max = Math.max(1, Math.min(data.event.max_party, d.remaining + ownSeats));
+    $('f-seats').innerHTML = Array.from({ length: max }, (_, i) => `<option value="${i + 1}">${i + 1} place${i ? 's' : ''}</option>`).join('');
+    if (me) { $('f-first').value = me.first_name; $('f-last').value = me.last_name; $('f-seats').value = String(Math.min(me.seats, max)); $('f-first').readOnly = $('f-last').readOnly = true; $('f-phone').classList.add('hidden'); document.querySelector('label[for=f-phone]').classList.add('hidden'); }
+    else { $('f-first').readOnly = $('f-last').readOnly = false; $('f-phone').classList.remove('hidden'); document.querySelector('label[for=f-phone]').classList.remove('hidden'); $('f-first').value = ls.get('first') || ''; $('f-last').value = ls.get('last') || ''; }
+    $('f-err').textContent = '';
+    $('sheet-bg').classList.add('open');
+    (me ? $('f-seats') : $('f-first')).focus();
+  }
+  const closeSheet = () => $('sheet-bg').classList.remove('open');
+  $('f-cancel').onclick = closeSheet;
+  $('sheet-bg').addEventListener('click', (e) => { if (e.target.id === 'sheet-bg') closeSheet(); });
+
+  $('sheet').onsubmit = async (e) => {
+    e.preventDefault();
+    if (busy || !target) return;
+    const first = $('f-first').value.trim(), last = $('f-last').value.trim();
+    if (!first || !last) { $('f-err').textContent = 'Indiquez votre prénom et votre nom.'; return; }
+    busy = true; $('f-submit').disabled = true; $('f-err').textContent = '';
+    const me = data.me;
+    const body = JSON.stringify({ departure_id: target.id, first_name: first, last_name: last, seats: $('f-seats').value, phone: $('f-phone').value.trim() || undefined, device, pin: ss.get('pin') || undefined });
+    const r = me ? await api('/signup/' + encodeURIComponent(me.token), { method: 'PATCH', body }) : await api('/signup', { method: 'POST', body });
+    busy = false; $('f-submit').disabled = false;
+    if (r.status === 401 && r.json.needPin) { closeSheet(); pinScreen(r.json.wrong); return; }
+    if (!r.ok) {
+      $('f-err').textContent = r.json.error || 'Inscription impossible, réessayez.';
+      if (r.status === 409 || r.status === 403 || r.status === 404) await load(); // tableau remis a jour
+      return;
+    }
+    ls.set('token', r.json.token); ls.set('first', first); ls.set('last', last);
+    changing = false;
+    closeSheet();
+    confirmShown = false;
+    await load();
+    confirmation(target);
+  };
+
+  function confirmation(d) {
+    const ev = data.event;
+    $('app').innerHTML = `<div class="hero center"><div class="big-tick">✓</div><h1>C'est confirmé !</h1><p>Votre place est réservée sur la navette de</p>
+      <div class="time" style="margin:6px 0">${esc(hh(d.time))}${d.next_day ? '<small>après minuit</small>' : ''}</div>
+      <div class="recap">${ev.pickup_place ? `<div><span>Rendez-vous</span><br><strong>${esc(ev.pickup_place)}</strong></div>` : ''}${ev.destination ? `<div><span>Destination</span><br><strong>${esc(ev.destination)}</strong></div>` : ''}${ev.welcome_message ? `<div style="white-space:pre-line">${esc(ev.welcome_message)}</div>` : ''}
+      <div><span>Nom</span><br><strong>${esc(ls.get('first') || '')} ${esc(ls.get('last') || '')}</strong></div></div>
+      <p style="color:var(--muted)">Revenez sur cette page pour changer de départ ou annuler.</p>
+      <button class="primary" id="b-back">Voir le tableau des départs</button></div>`;
+    confirmShown = true;
+    $('b-back').onclick = () => { confirmShown = false; draw(); };
+    window.scrollTo(0, 0);
+  }
+
+  async function cancelMine() {
+    if (!data.me || !confirm('Annuler votre inscription ?')) return;
+    const r = await api('/signup/' + encodeURIComponent(data.me.token), { method: 'DELETE' });
+    if (r.ok || r.status === 404) { ls.del('token'); changing = false; await load(); } else alert(r.json.error || 'Annulation impossible, réessayez.');
+  }
+
+  load();
+  setInterval(() => { if (!document.hidden && !busy && !$('sheet-bg').classList.contains('open') && data && data.event.status !== 'termine') load(); }, 15000);
+})();
+</script>
+</body>
+</html>

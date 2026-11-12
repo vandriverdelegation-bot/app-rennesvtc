@@ -1,5 +1,6 @@
 // Navettes evenementielles : back-office (reserve a l'admin). La page publique invite vient a l'etape 2.
 const crypto = require('crypto');
+const path = require('path');
 const express = require('express');
 const { supabaseAdmin } = require('./supabaseAdmin');
 
@@ -49,6 +50,7 @@ function eventPayload(b, partial) {
   set('pin', /^\d{4}$/.test(String(b.pin ?? '')) ? String(b.pin) : null);
   set('status', ['ouvert', 'ferme', 'termine'].includes(b.status) ? b.status : 'ouvert');
   set('close_minutes', Math.min(Math.max(parseInt(b.close_minutes, 10) || 0, 0), 1440));
+  set('max_party', Math.min(Math.max(parseInt(b.max_party, 10) || 4, 1), 10));
   set('client_id', isUuid(b.client_id) ? b.client_id : null);
   set('ride_id', isUuid(b.ride_id) ? b.ride_id : null);
   return out;
@@ -276,6 +278,161 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
     if (event.logo_url) await removeLogoFile(event.logo_url);
     await supabaseAdmin.from('navette_events').update({ logo_url: null }).eq('id', event.id);
+    res.json({ ok: true });
+  });
+
+  registerGuest(app);
+}
+
+// ---- Page publique invite : /navette/{code} (aucun compte ; le code du lien et, si defini, le PIN donnent l'acces).
+const windows = new Map();
+// Compteur par fenetre de temps (en memoire). shortcut: un seul serveur Render ; a remplacer par un stockage partage si on passe a plusieurs instances.
+function allow(key, max, windowMs) {
+  const now = Date.now();
+  const e = windows.get(key);
+  if (!e || e.reset < now) { windows.set(key, { n: 1, reset: now + windowMs }); return true; }
+  e.n += 1;
+  return e.n <= max;
+}
+setInterval(() => { const n = Date.now(); for (const [k, v] of windows) if (v.reset < n) windows.delete(k); }, 60000).unref();
+
+const MESSAGES = {
+  departure_not_found: 'Ce depart n\'existe plus. Actualisez la page.',
+  event_closed: 'Les inscriptions sont fermees pour cet evenement.',
+  departure_closed: 'Les inscriptions pour ce depart sont fermees. Choisissez un autre depart.',
+  bad_seats: 'Nombre de places invalide.',
+  device_limit: 'Vous avez atteint le nombre maximum d\'inscriptions depuis cet appareil.',
+  full: 'Ce depart vient d\'etre complete (ou n\'a plus assez de places). Choisissez un autre depart.',
+  signup_not_found: 'Inscription introuvable : elle a peut-etre deja ete annulee.',
+};
+const STATUS_HTTP = { full: 409, departure_closed: 403, event_closed: 403, signup_not_found: 404, departure_not_found: 404 };
+
+const samePin = (given, pin) => {
+  const a = Buffer.from(String(given ?? '').padEnd(8, ' ')); const b = Buffer.from(String(pin).padEnd(8, ' '));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+const cleanName = (v) => {
+  const t = String(v ?? '').replace(/\s+/g, ' ').trim();
+  return t.length >= 1 && t.length <= 60 && /^[\p{L}\p{M}' .-]+$/u.test(t) ? t : null;
+};
+const cleanPhone = (v) => {
+  const t = String(v ?? '').replace(/[\s.()-]/g, '');
+  return /^\+?\d{6,16}$/.test(t) ? t : null;
+};
+
+let brandCache = { at: 0, data: null };
+async function brand() {
+  if (Date.now() - brandCache.at > 300000) {
+    const { data } = await supabaseAdmin.from('app_settings').select('logo_url, app_name').eq('id', true).single();
+    brandCache = { at: Date.now(), data: data ?? {} };
+  }
+  return brandCache.data;
+}
+
+function registerGuest(app) {
+  const page = path.join(__dirname, '../public/navette/index.html');
+  app.get('/navette/:code', (req, res) => res.set('Cache-Control', 'no-store').sendFile(page));
+
+  async function eventByCode(code) {
+    if (!/^[A-Za-z0-9_-]{8,40}$/.test(String(code))) return null;
+    const { data } = await supabaseAdmin.from('navette_events').select('*').eq('code', code).single();
+    return data ?? null;
+  }
+  // Acces : code PIN eventuel (en-tete ou corps), avec limite de tentatives par appareil/reseau.
+  function pinGate(req, ev, given) {
+    if (!ev.pin || ev.status === 'termine') return { ok: true };
+    if (!given) return { ok: false, status: 401, body: { needPin: true } };
+    if (samePin(given, ev.pin)) return { ok: true };
+    if (!allow('pin:' + req.ip + ':' + ev.id, 10, 600000)) return { ok: false, status: 429, body: { error: 'Trop d\'essais. Reessayez dans quelques minutes.' } };
+    return { ok: false, status: 401, body: { needPin: true, wrong: true } };
+  }
+  const header = (ev, b) => ({ name: ev.name, logo_url: ev.logo_url, rvtc_logo: b.logo_url ?? null });
+
+  app.get('/public/navette/:code', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!allow('read:' + req.ip, 600, 60000)) return res.status(429).json({ error: 'Trop de requetes, patientez un instant.' });
+    const ev = await eventByCode(req.params.code);
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    const b = await brand();
+    const gate = pinGate(req, ev, req.get('x-navette-pin'));
+    if (!gate.ok) return res.status(gate.status).json({ ...gate.body, event: header(ev, b) });
+
+    const base = { event: { ...header(ev, b), type: ev.type, status: ev.status, event_date: ev.event_date, pickup_place: ev.pickup_place, destination: ev.destination, welcome_message: ev.welcome_message, max_party: ev.max_party }, server_time: new Date().toISOString() };
+    if (ev.status === 'termine') return res.json({ ...base, departures: [], me: null });
+
+    const { data: deps } = await supabaseAdmin.from('navette_departures').select('id, departs_at, seats, status').eq('event_id', ev.id).order('departs_at', { ascending: true });
+    const ids = (deps ?? []).map((d) => d.id);
+    const { data: signups } = ids.length ? await supabaseAdmin.from('navette_signups').select('departure_id, first_name, last_name, seats, token').in('departure_id', ids).order('created_at', { ascending: true }) : { data: [] };
+    const myToken = String(req.get('x-navette-token') ?? '');
+    const now = Date.now();
+    const evDay = ev.event_date;
+    const departures = (deps ?? []).map((d) => {
+      const mine = (signups ?? []).filter((x) => x.departure_id === d.id);
+      const taken = mine.reduce((a, x) => a + x.seats, 0);
+      const closed = ev.status !== 'ouvert' || d.status === 'ferme' || now >= new Date(d.departs_at).getTime() - ev.close_minutes * 60000;
+      const full = d.status === 'complet' || taken >= d.seats;
+      const iso = new Date(d.departs_at);
+      return {
+        id: d.id, time: iso.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }),
+        next_day: iso.toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }) !== evDay,
+        seats: d.seats, taken, remaining: d.status === 'complet' ? 0 : Math.max(d.seats - taken, 0),
+        state: closed ? 'ferme' : full ? 'complet' : 'ouvert',
+        names: mine.map((x) => ({ name: `${x.first_name} ${x.last_name}`, seats: x.seats })),
+      };
+    });
+    const me = myToken ? (signups ?? []).find((x) => x.token === myToken) : null;
+    res.json({ ...base, departures, me: me ? { token: me.token, departure_id: me.departure_id, first_name: me.first_name, last_name: me.last_name, seats: me.seats } : null });
+  });
+
+  function fail(res, result) {
+    res.status(STATUS_HTTP[result.error] ?? 400).json({ error: MESSAGES[result.error] ?? 'Inscription impossible.', code: result.error, remaining: result.remaining, max: result.max });
+  }
+
+  app.post('/public/navette/:code/signup', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
+    const ev = await eventByCode(req.params.code);
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    const gate = pinGate(req, ev, req.body?.pin);
+    if (!gate.ok) return res.status(gate.status).json(gate.body);
+    const first = cleanName(req.body?.first_name), last = cleanName(req.body?.last_name);
+    if (!first || !last) return res.status(400).json({ error: 'Indiquez votre prenom et votre nom (lettres uniquement).' });
+    const seats = parseInt(req.body?.seats, 10);
+    if (!(seats >= 1)) return res.status(400).json({ error: 'Indiquez le nombre de places.' });
+    const phone = req.body?.phone ? cleanPhone(req.body.phone) : null;
+    if (req.body?.phone && !phone) return res.status(400).json({ error: 'Numero de telephone invalide (laissez vide si vous ne souhaitez pas en donner).' });
+    const device = /^[A-Za-z0-9-]{8,64}$/.test(String(req.body?.device ?? '')) ? req.body.device : null;
+    if (!/^[0-9a-f-]{36}$/i.test(String(req.body?.departure_id ?? ''))) return res.status(400).json({ error: 'Depart invalide.' });
+    const { data, error } = await supabaseAdmin.rpc('navette_signup', { p_event: ev.id, p_departure: req.body.departure_id, p_first: first, p_last: last, p_seats: seats, p_phone: phone, p_device: device });
+    if (error) { console.error('navette_signup :', error.message); return res.status(500).json({ error: 'Inscription impossible pour le moment.' }); }
+    if (!data.ok) return fail(res, data);
+    res.status(201).json({ token: data.token, remaining: data.remaining });
+  });
+
+  // Changer de depart (ou de nombre de places) avec le jeton de l'invite.
+  app.patch('/public/navette/:code/signup/:token', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
+    const ev = await eventByCode(req.params.code);
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    const gate = pinGate(req, ev, req.body?.pin);
+    if (!gate.ok) return res.status(gate.status).json(gate.body);
+    const seats = parseInt(req.body?.seats, 10);
+    if (!(seats >= 1) || !/^[0-9a-f-]{36}$/i.test(String(req.body?.departure_id ?? ''))) return res.status(400).json({ error: 'Demande invalide.' });
+    const { data, error } = await supabaseAdmin.rpc('navette_move', { p_event: ev.id, p_token: req.params.token, p_departure: req.body.departure_id, p_seats: seats });
+    if (error) { console.error('navette_move :', error.message); return res.status(500).json({ error: 'Changement impossible pour le moment.' }); }
+    if (!data.ok) return fail(res, data);
+    res.json({ token: data.token, remaining: data.remaining });
+  });
+
+  app.delete('/public/navette/:code/signup/:token', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
+    const ev = await eventByCode(req.params.code);
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    const { data: deps } = await supabaseAdmin.from('navette_departures').select('id').eq('event_id', ev.id);
+    const { data } = await supabaseAdmin.from('navette_signups').delete().eq('token', req.params.token).in('departure_id', (deps ?? []).map((d) => d.id)).select('id');
+    if (!data?.length) return res.status(404).json({ error: MESSAGES.signup_not_found });
     res.json({ ok: true });
   });
 }

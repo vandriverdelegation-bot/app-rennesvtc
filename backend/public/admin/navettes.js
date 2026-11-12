@@ -47,7 +47,7 @@
   }
 
   function drawEvent() {
-    const e = current ?? { name: '', type: 'evenement', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, client_id: null, ride_id: null, departures: [] };
+    const e = current ?? { name: '', type: 'evenement', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, max_party: 4, client_id: null, ride_id: null, departures: [] };
     const L = lookups;
     root().innerHTML = `
       <p><a href="#" id="nav-back">&larr; Tous les evenements</a></p>
@@ -63,6 +63,7 @@
           <div class="field"><label>Code PIN (4 chiffres, facultatif)</label><input id="ne-pin" value="${esc(e.pin)}" maxlength="4" inputmode="numeric" placeholder="Aucun" /></div>
           <div class="field"><label>Etat</label><select id="ne-status"><option value="ouvert" ${e.status === 'ouvert' ? 'selected' : ''}>Ouvert</option><option value="ferme" ${e.status === 'ferme' ? 'selected' : ''}>Ferme</option><option value="termine" ${e.status === 'termine' ? 'selected' : ''}>Termine</option></select></div>
           <div class="field"><label>Cloture automatique (minutes avant le depart)</label><input id="ne-close" type="number" min="0" max="1440" value="${e.close_minutes}" /></div>
+          <div class="field"><label>Places maximum par inscription</label><input id="ne-party" type="number" min="1" max="10" value="${e.max_party ?? 4}" /></div>
           <div class="field"><label>Client (facultatif)</label><select id="ne-client">${options(L.clients, 'x', (c) => c.name, e.client_id, 'Aucun')}</select></div>
           <div class="field wide"><label>Reservation Rennes VTC liee (facultatif)</label><select id="ne-ride">${options(L.rides, 'x', (r) => `${r.client_name ?? 'Client'} - ${r.pickup_address} -> ${r.dropoff_address}`, e.ride_id, 'Aucune')}</select></div>
         </div>
@@ -81,7 +82,7 @@
     const body = {
       name: document.getElementById('ne-name').value, type: document.getElementById('ne-type').value, event_date: document.getElementById('ne-date').value,
       pickup_place: document.getElementById('ne-pickup').value, destination: document.getElementById('ne-dest').value, welcome_message: document.getElementById('ne-welcome').value,
-      pin: document.getElementById('ne-pin').value, status: document.getElementById('ne-status').value, close_minutes: document.getElementById('ne-close').value,
+      pin: document.getElementById('ne-pin').value, status: document.getElementById('ne-status').value, close_minutes: document.getElementById('ne-close').value, max_party: document.getElementById('ne-party').value,
       client_id: document.getElementById('ne-client').value || null, ride_id: document.getElementById('ne-ride').value || null,
     };
     if (body.pin && !/^\d{4}$/.test(body.pin)) return alert('Le code PIN doit comporter exactement 4 chiffres (ou rester vide).');
