@@ -41,7 +41,7 @@ function eventPayload(b, partial) {
   const out = {};
   const set = (k, v) => { if (!partial || b[k] !== undefined) out[k] = v; };
   set('name', clean(b.name, 120));
-  set('type', ['mariage', 'entreprise'].includes(b.type) ? b.type : 'entreprise');
+  set('type', ['mariage', 'entreprise', 'evenement'].includes(b.type) ? b.type : 'evenement');
   set('event_date', /^\d{4}-\d{2}-\d{2}$/.test(b.event_date ?? '') ? b.event_date : null);
   set('pickup_place', clean(b.pickup_place));
   set('destination', clean(b.destination));

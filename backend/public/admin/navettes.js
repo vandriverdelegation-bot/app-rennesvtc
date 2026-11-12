@@ -7,6 +7,7 @@
   const dayOf = (iso) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }); // AAAA-MM-JJ
   const frDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const STATUS = { ouvert: 'Ouvert', ferme: 'Ferme', termine: 'Termine', complet: 'Complet' };
+  const TYPES = { mariage: 'Mariage', entreprise: 'Soiree d\'entreprise', evenement: 'Evenement' };
   let lookups = null;
   let current = null; // evenement ouvert (avec ses departs)
 
@@ -27,7 +28,7 @@
         ${events.length === 0 ? '<p>Aucun evenement pour le moment.</p>' : `
         <table><thead><tr><th>Evenement</th><th>Type</th><th>Date</th><th>Etat</th><th>Departs</th><th>Places prises</th><th></th></tr></thead><tbody>
           ${events.map((e) => `<tr>
-            <td><strong>${esc(e.name)}</strong></td><td>${e.type === 'mariage' ? 'Mariage' : 'Entreprise'}</td><td>${esc(frDate(e.event_date))}</td>
+            <td><strong>${esc(e.name)}</strong></td><td>${TYPES[e.type] ?? e.type}</td><td>${esc(frDate(e.event_date))}</td>
             <td>${STATUS[e.status]}</td><td>${e.departures_count}</td><td>${e.seats_taken} / ${e.seats_total}</td>
             <td><button class="secondary" data-open="${e.id}">Ouvrir</button></td></tr>`).join('')}
         </tbody></table>`}`;
@@ -46,7 +47,7 @@
   }
 
   function drawEvent() {
-    const e = current ?? { name: '', type: 'entreprise', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, client_id: null, ride_id: null, departures: [] };
+    const e = current ?? { name: '', type: 'evenement', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, client_id: null, ride_id: null, departures: [] };
     const L = lookups;
     root().innerHTML = `
       <p><a href="#" id="nav-back">&larr; Tous les evenements</a></p>
@@ -54,8 +55,8 @@
         <h3>${current ? esc(e.name) : 'Nouvel evenement'}</h3>
         <div class="form-grid">
           <div class="field wide"><label>Nom affiche aux invites</label><input id="ne-name" value="${esc(e.name)}" placeholder="Mariage de Camille et Hugo" /></div>
-          <div class="field"><label>Type</label><select id="ne-type"><option value="mariage" ${e.type === 'mariage' ? 'selected' : ''}>Mariage</option><option value="entreprise" ${e.type === 'entreprise' ? 'selected' : ''}>Soiree d'entreprise</option></select></div>
-          <div class="field"><label>Date de la soiree</label><input id="ne-date" type="date" value="${esc(e.event_date)}" /></div>
+          <div class="field"><label>Type</label><select id="ne-type">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${e.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          <div class="field"><label>Date de l'evenement</label><input id="ne-date" type="date" value="${esc(e.event_date)}" /></div>
           <div class="field"><label>Lieu de depart</label><input id="ne-pickup" value="${esc(e.pickup_place)}" placeholder="Domaine des Pres" /></div>
           <div class="field"><label>Destination</label><input id="ne-dest" value="${esc(e.destination)}" placeholder="Centre-ville de Rennes" /></div>
           <div class="field wide"><label>Message d'accueil / point de rendez-vous</label><textarea id="ne-welcome" style="min-height:60px" placeholder="Rendez-vous devant l'entree principale, 5 minutes avant le depart.">${esc(e.welcome_message)}</textarea></div>
