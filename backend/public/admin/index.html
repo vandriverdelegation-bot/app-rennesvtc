@@ -2217,6 +2217,8 @@ async function renderActive() {
     .from('rides')
     .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at, tracking_token')
     .in('status', ['dispatched', 'accepted'])
+    // Par date de course (les plus proches en premier) ; les courses immediates, sans date, passent en tete.
+    .order('scheduled_at', { ascending: true, nullsFirst: true })
     .order('created_at', { ascending: true });
 
   setCount('active', rides?.length ?? 0);
