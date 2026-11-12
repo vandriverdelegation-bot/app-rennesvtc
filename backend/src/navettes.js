@@ -315,10 +315,6 @@ const cleanName = (v) => {
   const t = String(v ?? '').replace(/\s+/g, ' ').trim();
   return t.length >= 1 && t.length <= 60 && /^[\p{L}\p{M}' .-]+$/u.test(t) ? t : null;
 };
-const cleanPhone = (v) => {
-  const t = String(v ?? '').replace(/[\s.()-]/g, '');
-  return /^\+?\d{6,16}$/.test(t) ? t : null;
-};
 
 let brandCache = { at: 0, data: null };
 async function brand() {
@@ -399,11 +395,9 @@ function registerGuest(app) {
     if (!first || !last) return res.status(400).json({ error: 'Indiquez votre prenom et votre nom (lettres uniquement).' });
     const seats = parseInt(req.body?.seats, 10);
     if (!(seats >= 1)) return res.status(400).json({ error: 'Indiquez le nombre de places.' });
-    const phone = req.body?.phone ? cleanPhone(req.body.phone) : null;
-    if (req.body?.phone && !phone) return res.status(400).json({ error: 'Numero de telephone invalide (laissez vide si vous ne souhaitez pas en donner).' });
     const device = /^[A-Za-z0-9-]{8,64}$/.test(String(req.body?.device ?? '')) ? req.body.device : null;
     if (!/^[0-9a-f-]{36}$/i.test(String(req.body?.departure_id ?? ''))) return res.status(400).json({ error: 'Depart invalide.' });
-    const { data, error } = await supabaseAdmin.rpc('navette_signup', { p_event: ev.id, p_departure: req.body.departure_id, p_first: first, p_last: last, p_seats: seats, p_phone: phone, p_device: device });
+    const { data, error } = await supabaseAdmin.rpc('navette_signup', { p_event: ev.id, p_departure: req.body.departure_id, p_first: first, p_last: last, p_seats: seats, p_phone: null, p_device: device });
     if (error) { console.error('navette_signup :', error.message); return res.status(500).json({ error: 'Inscription impossible pour le moment.' }); }
     if (!data.ok) return fail(res, data);
     res.status(201).json({ token: data.token, remaining: data.remaining });

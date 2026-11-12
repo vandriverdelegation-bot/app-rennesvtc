@@ -85,10 +85,8 @@
     </div>
     <label for="f-seats">Nombre de places</label>
     <select id="f-seats"></select>
-    <label for="f-phone">Téléphone <small>(facultatif, visible uniquement de Rennes VTC)</small></label>
-    <input id="f-phone" type="tel" name="tel" autocomplete="tel" inputmode="tel" maxlength="20" />
     <p class="err" id="f-err" role="alert"></p>
-    <p class="rgpd">Votre prénom et votre nom sont visibles des autres invités sur ce tableau. Vos données ne servent qu'à organiser les navettes de cet événement et sont supprimées 30 jours après.</p>
+    <p class="rgpd">Votre prénom et votre nom sont visibles des autres invités sur ce tableau. Ils ne servent qu'à organiser les navettes de cet événement et sont supprimés 30 jours après.</p>
     <button class="primary" type="submit" id="f-submit">Confirmer</button>
     <button class="ghost" type="button" id="f-cancel" style="width:100%;margin-top:10px">Annuler</button>
   </form>
@@ -143,7 +141,7 @@
 
   function draw() {
     const ev = data.event;
-    $('foot').innerHTML = 'Service proposé par <a href="https://www.rennesvtc.com" target="_blank" rel="noopener">Rennes VTC</a> · Vos prénom et nom sont visibles des autres invités ; le téléphone, facultatif, reste confidentiel. Données supprimées 30 jours après l\'événement.';
+    $('foot').innerHTML = 'Service proposé par <a href="https://www.rennesvtc.com" target="_blank" rel="noopener">Rennes VTC</a> · Vos prénom et nom sont visibles des autres invités. Données supprimées 30 jours après l\'événement.';
     if (ev.status === 'termine') {
       $('app').innerHTML = `<div class="hero center"><div class="big-tick">♥</div><h1>Merci et à bientôt !</h1><p>L'événement « ${esc(ev.name)} » est terminé. Merci d'avoir voyagé avec Rennes VTC.</p><p style="margin-top:14px"><a href="https://www.rennesvtc.com" target="_blank" rel="noopener"><strong>www.rennesvtc.com</strong></a></p></div>`;
       return;
@@ -189,8 +187,8 @@
     const ownSeats = me && me.departure_id === d.id ? me.seats : 0;
     const max = Math.max(1, Math.min(data.event.max_party, d.remaining + ownSeats));
     $('f-seats').innerHTML = Array.from({ length: max }, (_, i) => `<option value="${i + 1}">${i + 1} place${i ? 's' : ''}</option>`).join('');
-    if (me) { $('f-first').value = me.first_name; $('f-last').value = me.last_name; $('f-seats').value = String(Math.min(me.seats, max)); $('f-first').readOnly = $('f-last').readOnly = true; $('f-phone').classList.add('hidden'); document.querySelector('label[for=f-phone]').classList.add('hidden'); }
-    else { $('f-first').readOnly = $('f-last').readOnly = false; $('f-phone').classList.remove('hidden'); document.querySelector('label[for=f-phone]').classList.remove('hidden'); $('f-first').value = ls.get('first') || ''; $('f-last').value = ls.get('last') || ''; }
+    if (me) { $('f-first').value = me.first_name; $('f-last').value = me.last_name; $('f-seats').value = String(Math.min(me.seats, max)); $('f-first').readOnly = $('f-last').readOnly = true; }
+    else { $('f-first').readOnly = $('f-last').readOnly = false; $('f-first').value = ls.get('first') || ''; $('f-last').value = ls.get('last') || ''; }
     $('f-err').textContent = '';
     $('sheet-bg').classList.add('open');
     (me ? $('f-seats') : $('f-first')).focus();
@@ -206,7 +204,7 @@
     if (!first || !last) { $('f-err').textContent = 'Indiquez votre prénom et votre nom.'; return; }
     busy = true; $('f-submit').disabled = true; $('f-err').textContent = '';
     const me = data.me;
-    const body = JSON.stringify({ departure_id: target.id, first_name: first, last_name: last, seats: $('f-seats').value, phone: $('f-phone').value.trim() || undefined, device, pin: ss.get('pin') || undefined });
+    const body = JSON.stringify({ departure_id: target.id, first_name: first, last_name: last, seats: $('f-seats').value, device, pin: ss.get('pin') || undefined });
     const r = me ? await api('/signup/' + encodeURIComponent(me.token), { method: 'PATCH', body }) : await api('/signup', { method: 'POST', body });
     busy = false; $('f-submit').disabled = false;
     if (r.status === 401 && r.json.needPin) { closeSheet(); pinScreen(r.json.wrong); return; }
