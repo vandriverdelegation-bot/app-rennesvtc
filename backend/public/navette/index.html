@@ -22,7 +22,7 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { background: var(--bg); }
   body { margin: 0; min-height: 100vh; font-family: var(--body); color: var(--text); line-height: 1.5; -webkit-text-size-adjust: 100%;
-    background: radial-gradient(900px 460px at 50% -140px, rgba(91,212,42,.20), transparent 70%), radial-gradient(500px 300px at 100% 40%, rgba(91,212,42,.05), transparent 70%), var(--bg); }
+    background: var(--bg); }
   .wrap { max-width: 540px; margin: 0 auto; padding: 18px 16px 56px; }
   strong, b { font-family: var(--title); font-weight: 600; }
 
@@ -34,7 +34,7 @@
   .evlogo img { height: 42px; max-width: 120px; object-fit: contain; }
 
   .kicker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; border-radius: 99px; background: rgba(91,212,42,.12); border: 1px solid rgba(91,212,42,.35); color: var(--accent-2); font-family: var(--title); font-weight: 600; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
-  .kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
   h1 { font-family: var(--title); font-weight: 700; font-size: clamp(30px, 9vw, 40px); line-height: 1.08; letter-spacing: -.02em; margin: 14px 0 6px; text-wrap: balance; }
   .lead { color: var(--muted); font-size: 16px; margin: 0 0 18px; }
   .lead strong { color: var(--text); }
@@ -44,10 +44,10 @@
   .ico svg { width: 20px; height: 20px; }
   .info small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
   .info span.v { font-family: var(--title); font-weight: 600; font-size: 17px; line-height: 1.25; }
-  .welcome { margin: 0 0 6px; padding: 12px 14px 12px 16px; border-left: 3px solid var(--accent); background: linear-gradient(90deg, rgba(91,212,42,.08), transparent); border-radius: 0 14px 14px 0; color: #dfe7e2; white-space: pre-line; }
+  .welcome { margin: 0 0 6px; padding: 12px 14px 12px 16px; border-left: 3px solid var(--accent); background: var(--card); border-radius: 0 14px 14px 0; color: #dfe7e2; white-space: pre-line; }
 
   .banner { display: flex; gap: 12px; align-items: flex-start; border-radius: 18px; padding: 14px; margin: 16px 0 0; }
-  .banner.ok { background: linear-gradient(135deg, rgba(91,212,42,.18), rgba(91,212,42,.06)); border: 1px solid rgba(91,212,42,.45); }
+  .banner.ok { background: rgba(91,212,42,.1); border: 1px solid rgba(91,212,42,.45); }
   .banner.warn { background: rgba(245,184,61,.1); border: 1px solid rgba(245,184,61,.4); color: var(--amber); font-family: var(--title); font-weight: 600; align-items: center; }
   .banner .ico { background: var(--accent); color: var(--accent-text); }
   .banner .txt { flex: 1; font-size: 15px; }
@@ -57,8 +57,8 @@
   h2 { display: flex; align-items: center; justify-content: space-between; font-family: var(--title); font-size: 22px; font-weight: 700; margin: 26px 2px 12px; letter-spacing: -.01em; }
   h2 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
 
-  .dep { position: relative; background: linear-gradient(180deg, var(--card), #0d110f); border: 1px solid var(--line); border-radius: 22px; padding: 16px; margin-bottom: 14px; transition: border-color .2s, transform .2s; }
-  .dep.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 14px 40px rgba(91,212,42,.14); }
+  .dep { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 16px; margin-bottom: 14px; transition: border-color .2s, transform .2s; }
+  .dep.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
   .dep.off .time, .dep.off .left b { color: #6f7b74; }
   .tag { position: absolute; top: -11px; left: 16px; background: var(--accent); color: var(--accent-text); font-family: var(--title); font-weight: 700; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; padding: 3px 11px; border-radius: 99px; }
   .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -73,9 +73,9 @@
   .left { margin-top: 10px; font-size: 14px; color: var(--muted); }
   .left b { font-size: 22px; color: var(--text); }
   .bar { height: 8px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin: 12px 0 14px; }
-  .bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .5s; }
-  .bar i.few { background: linear-gradient(90deg, #e69a14, var(--amber)); }
-  .bar i.full { background: linear-gradient(90deg, #d94d4d, var(--red)); }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .5s; }
+  .bar i.few { background: var(--amber); }
+  .bar i.full { background: var(--red); }
   .names { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 7px; }
   .names li { display: inline-flex; align-items: center; gap: 7px; background: var(--card-2); border: 1px solid var(--line); border-radius: 99px; padding: 4px 11px 4px 4px; font-size: 14px; }
   .names .av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: rgba(91,212,42,.16); color: var(--accent-2); font-family: var(--title); font-weight: 700; font-size: 11px; }
@@ -83,7 +83,7 @@
   .none { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 
   button { font: inherit; font-family: var(--title); font-weight: 600; cursor: pointer; border: 0; border-radius: 16px; min-height: 52px; padding: 0 18px; letter-spacing: .01em; }
-  button.primary { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 18px; font-weight: 700; color: var(--accent-text); background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 10px 26px rgba(91,212,42,.28); }
+  button.primary { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 18px; font-weight: 700; color: var(--accent-text); background: var(--accent); }
   button.primary:active:not(:disabled) { transform: translateY(1px); }
   button.primary svg { width: 20px; height: 20px; }
   button.ghost { background: rgba(255,255,255,.04); color: var(--text); border: 1.5px solid var(--line-2); }
@@ -106,9 +106,9 @@
   .err { color: var(--red); font-weight: 600; margin: 12px 0 0; min-height: 1.2em; font-size: 15px; }
   .rgpd { color: var(--muted); font-size: 12.5px; margin: 14px 0; }
 
-  .ticket { background: linear-gradient(180deg, var(--card), #0c100e); border: 1px solid var(--line-2); border-radius: 26px; overflow: hidden; text-align: center; margin-bottom: 16px; }
-  .ticket .head { padding: 26px 18px 20px; background: radial-gradient(420px 200px at 50% 0, rgba(91,212,42,.25), transparent 75%); }
-  .big-tick { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--accent-text); box-shadow: 0 10px 30px rgba(91,212,42,.4); }
+  .ticket { background: var(--card); border: 1px solid var(--line-2); border-radius: 26px; overflow: hidden; text-align: center; margin-bottom: 16px; }
+  .ticket .head { padding: 26px 18px 20px; }
+  .big-tick { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; background: var(--accent); color: var(--accent-text); }
   .big-tick svg { width: 38px; height: 38px; }
   .ticket h1 { margin: 0 0 4px; font-size: 30px; }
   .ticket .time { font-size: 64px; margin: 8px 0 0; }
