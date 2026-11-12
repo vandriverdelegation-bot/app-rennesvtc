@@ -918,6 +918,16 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
   res.send(pdf);
 });
 
+// Bon de commande de n'importe quelle course (back-office) : celui du chauffeur principal, quel que soit le createur de la course.
+app.get('/admin/rides/:id/bon-commande', requireAdmin, async (req, res) => {
+  const bonData = await fetchBonCommandeData(req.params.id);
+  if (!bonData) return res.status(404).json({ error: 'Course introuvable' });
+  const pdf = await buildBonCommandePdf(bonData);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="bon-commande-${req.params.id.slice(0, 8)}.pdf"`);
+  res.send(pdf);
+});
+
 // Bon de commande ouvert depuis l'e-mail du chauffeur (lien signe, sans connexion).
 app.get('/public/bon-commande/:rideId', async (req, res) => {
   const d = String(req.query.d || '');

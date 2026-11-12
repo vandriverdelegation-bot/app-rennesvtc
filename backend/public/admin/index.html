@@ -2806,7 +2806,12 @@ async function renderRideCourseTab() {
     ${statusBadge(ride.status)}
     <h3 id="ride-modal-heading" class="modal-route">${escapeHtml(ride.pickup_address ?? '')} &rarr; ${escapeHtml(ride.dropoff_address ?? '')}</h3>
     ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
+    <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
   `;
+  document.getElementById('rm-head-bon').addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    window.open('/admin/rides/' + ride.id + '/bon-commande?token=' + encodeURIComponent(session.access_token), '_blank');
+  });
   document.getElementById('rm-head-copy-tracking')?.addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
   el.innerHTML = `
     <div class="rm-section">

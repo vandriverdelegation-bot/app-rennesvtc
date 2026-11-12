@@ -54,6 +54,8 @@ Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tou
 
 - **Note pour le chauffeur** (12/11) : champ à la création d'une réservation dans le back-office (déjà en ligne) et dans l'onglet Notes d'une réservation existante (existait) ; la note est imprimée sur le bon de commande (déjà le cas) et affichée dans l'appli chauffeur (« Note de Rennes VTC », sur la course en cours, les courses disponibles et les réservations à venir). Demande un build pour l'appli.
 
+- **Bon de commande de toute course depuis le back-office** (12/11, déjà en ligne) : bouton « Bon de commande » dans l'en-tête de chaque réservation (créée par un client, le web, le back-office ou un chauffeur) ; PDF du chauffeur principal, ou sans chauffeur si la course n'est pas attribuée. Route `GET /admin/rides/:id/bon-commande` (admin uniquement).
+
 ## Déjà en ligne (backend, pas besoin de build)
 - Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.
