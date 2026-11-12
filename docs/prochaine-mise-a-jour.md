@@ -65,6 +65,8 @@ Déjà en ligne sans build : rappel 1 h, notification « Course attribuée » à
 
 - **Bon de commande de toute course depuis le back-office** (12/11, déjà en ligne) : bouton « Bon de commande » dans l'en-tête de chaque réservation (créée par un client, le web, le back-office ou un chauffeur) ; PDF du chauffeur principal, ou sans chauffeur si la course n'est pas attribuée. Route `GET /admin/rides/:id/bon-commande` (admin uniquement).
 
+- **Tablette d'accueil** (12/11) : image WELCOME avec le nom du client (nom du client, ou « Nom sur la tablette d'accueil » saisi au back-office). Serveur/e-mail/back-office en ligne ; appli chauffeur : bouton « Tablette d'accueil » (course en cours + réservations à venir, plein écran tourné) = demande le build. Migration 049 appliquée.
+
 ## Déjà en ligne (backend, pas besoin de build)
 - Module web de réservation : **choix de la langue avec drapeaux** (FR, EN, ES, DE, IT) ; fichiers `backend/public/reserver/i18n.js` + `index.html`. Les e-mails et messages d'erreur du serveur restent en français.
 - Module web : **email obligatoire** (vérifié aussi côté serveur). Admin : suivi au donneur d'ordre par **WhatsApp** (bouton dans la réservation + lien après création) quand il n'y a pas d'email.

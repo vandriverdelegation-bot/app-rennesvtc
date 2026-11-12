@@ -146,20 +146,6 @@ async function sendAccueil(res, rideId, width) {
     res.status(500).send('Image indisponible');
   }
 }
-// Lien signe (e-mail du chauffeur) : s'ouvre sans connexion.
-app.get('/public/accueil/:rideId', async (req, res) => {
-  const sig = String(req.query.sig || '');
-  const ok = sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(accueilSignature(req.params.rideId)));
-  if (!ok) return res.status(403).send('Lien invalide');
-  await sendAccueil(res, req.params.rideId, req.query.w);
-});
-// Appli chauffeur et back-office : chauffeurs de la course (principal ou supplementaires) et admin.
-app.get('/driver/accueil/:rideId', requireSupabaseUser, async (req, res) => {
-  const { data: ride } = await supabaseAdmin.from('rides').select('driver_id, extra_driver_ids').eq('id', req.params.rideId).single();
-  if (!ride || !(isRideDriver(ride, req.user.id) || (await isDriverOrAdmin(req.user.id, ride)))) return res.status(404).send('Course introuvable');
-  await sendAccueil(res, req.params.rideId, req.query.w);
-});
-
 // E-mail au chauffeur qui vient d'accepter une course : meme design, avec le bon de commande a la place du suivi (PDF aussi en piece jointe).
 async function sendDriverRideMail({ bonData, pdf }) {
   const { ride, driver } = bonData;
@@ -963,6 +949,20 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="bon-commande.pdf"');
   res.send(pdf);
+});
+
+// Lien signe (e-mail du chauffeur) : s'ouvre sans connexion.
+app.get('/public/accueil/:rideId', async (req, res) => {
+  const sig = String(req.query.sig || '');
+  const ok = sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(accueilSignature(req.params.rideId)));
+  if (!ok) return res.status(403).send('Lien invalide');
+  await sendAccueil(res, req.params.rideId, req.query.w);
+});
+// Appli chauffeur et back-office : chauffeurs de la course (principal ou supplementaires) et admin.
+app.get('/driver/accueil/:rideId', requireSupabaseUser, async (req, res) => {
+  const { data: ride } = await supabaseAdmin.from('rides').select('driver_id, extra_driver_ids').eq('id', req.params.rideId).single();
+  if (!ride || !(isRideDriver(ride, req.user.id) || (await isDriverOrAdmin(req.user.id, ride)))) return res.status(404).send('Course introuvable');
+  await sendAccueil(res, req.params.rideId, req.query.w);
 });
 
 // Bon de commande de n'importe quelle course (back-office) : celui du chauffeur principal, quel que soit le createur de la course.

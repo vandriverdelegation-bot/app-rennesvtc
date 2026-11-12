@@ -571,6 +571,7 @@
                 </div>
                 <div class="field wide"><label>Chauffeurs supplementaires (plusieurs chauffeurs sur la meme mission)</label><div id="new-ride-extra-drivers"></div><button type="button" class="secondary" id="new-ride-add-extra-driver">+ Ajouter un chauffeur</button></div>
                 <div class="field wide"><label for="new-ride-tags">Tags (separes par ,)</label><input id="new-ride-tags" placeholder="Facultatif" /></div>
+                <div class="field wide"><label for="new-ride-welcome-name">Nom sur la tablette d'accueil</label><input id="new-ride-welcome-name" placeholder="Facultatif : par defaut, le nom du client" /></div>
                 <div class="field wide"><label for="new-ride-driver-note">Note pour le chauffeur</label><textarea id="new-ride-driver-note" style="min-height:60px" placeholder="Facultatif : visible par le chauffeur dans l'appli et sur le bon de reservation"></textarea></div>
               </div>
             </div>
@@ -1097,6 +1098,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const return_time = document.getElementById('new-ride-return-time').value;
   const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
   const driver_note = document.getElementById('new-ride-driver-note').value.trim() || null;
+  const welcome_name = document.getElementById('new-ride-welcome-name').value.trim() || null;
 
   const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
   if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
@@ -1146,6 +1148,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     return_scheduled_at: round_trip ? new Date(`${return_date}T${return_time}`).toISOString() : null,
     tags,
     driver_note,
+    welcome_name,
     orderer_name: ordererOpen ? document.getElementById('new-ride-orderer-name').value.trim() || null : null,
     orderer_email: ordererOpen ? document.getElementById('new-ride-orderer-email').value.trim() || null : null,
     orderer_phone: ordererOpen ? document.getElementById('new-ride-orderer-phone').value.trim() || null : null,
@@ -1220,6 +1223,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-return-time').value = '';
   document.getElementById('new-ride-tags').value = '';
   document.getElementById('new-ride-driver-note').value = '';
+  document.getElementById('new-ride-welcome-name').value = '';
   document.getElementById('new-ride-passengers').value = '1';
   ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
   document.getElementById('new-ride-child-ages').value = '';
@@ -2933,7 +2937,12 @@ async function renderRideCourseTab() {
       <textarea id="rm-client-note" style="min-height:60px">${escapeHtml(ride.client_note ?? '')}</textarea>
       <label for="rm-driver-note">Note pour le chauffeur</label>
       <textarea id="rm-driver-note" style="min-height:60px">${escapeHtml(ride.driver_note ?? '')}</textarea>
-      <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
+      <label for="rm-welcome-name">Nom sur la tablette d'accueil</label>
+      <input id="rm-welcome-name" value="${escapeHtml(ride.welcome_name ?? '')}" placeholder="Par defaut : le nom du client" />
+      <div class="rm-row" style="margin-top:8px">
+        <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
+        <button class="secondary" id="rm-view-welcome" type="button">Voir la tablette d'accueil</button>
+      </div>
     </div>
 
     <div class="rm-section">
@@ -3049,10 +3058,18 @@ async function renderRideCourseTab() {
     await supabase.from('rides').update({ passenger_count, child_seats, booster_seats, luggage_count, child_ages }).eq('id', ride.id);
     await refreshRideModal();
   });
+  // Apercu de la tablette : enregistre d'abord le nom saisi, puis ouvre l'image.
+  document.getElementById('rm-view-welcome').addEventListener('click', async () => {
+    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
+    await supabase.from('rides').update({ welcome_name }).eq('id', ride.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    window.open('/driver/accueil/' + ride.id + '?token=' + encodeURIComponent(session.access_token) + '&t=' + Date.now(), '_blank');
+  });
   document.getElementById('rm-save-notes').addEventListener('click', async () => {
     const client_note = document.getElementById('rm-client-note').value.trim() || null;
     const driver_note = document.getElementById('rm-driver-note').value.trim() || null;
-    await supabase.from('rides').update({ client_note, driver_note }).eq('id', ride.id);
+    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
+    await supabase.from('rides').update({ client_note, driver_note, welcome_name }).eq('id', ride.id);
     await refreshRideModal();
   });
   el.querySelectorAll('[data-rm-step]').forEach((btn) => {
