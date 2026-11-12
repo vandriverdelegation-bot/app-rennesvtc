@@ -1484,9 +1484,8 @@ async function renderCalendar() {
 
   let query = supabase
     .from('rides')
-    .select('id, created_at, scheduled_at, pickup_address, dropoff_address, driver_id')
-    .gte('created_at', monthStart.toISOString())
-    .lte('created_at', monthEnd.toISOString());
+    .select('id, created_at, scheduled_at, pickup_address, dropoff_address, driver_id, status, client_name')
+    .or(`and(scheduled_at.gte.${monthStart.toISOString()},scheduled_at.lte.${monthEnd.toISOString()}),and(scheduled_at.is.null,created_at.gte.${monthStart.toISOString()},created_at.lte.${monthEnd.toISOString()})`);
   if (calendarDriverFilter) query = query.eq('driver_id', calendarDriverFilter);
   const { data: rides } = await query;
 
@@ -1521,7 +1520,7 @@ async function renderCalendar() {
       if (dayRides.length === 0) { detail.innerHTML = '<p>Aucune course ce jour.</p>'; return; }
       detail.innerHTML = `
         <h3>${day} ${calendarDate.toLocaleDateString('fr-FR', { month: 'long' })}</h3>
-        ${dayRides.map((r) => `<div class="card">${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>`).join('')}
+        ${dayRides.sort((a, b) => new Date(a.scheduled_at ?? a.created_at) - new Date(b.scheduled_at ?? b.created_at)).map((r) => `<div class="card"><strong>${new Date(r.scheduled_at ?? r.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> ${statusBadge(r.status)} ${escapeHtml(r.client_name ?? '')}<br>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>`).join('')}
       `;
     });
   });
@@ -2642,8 +2641,8 @@ function openZoneEditor(zone) {
 async function fetchHistoryRows() {
   let query = supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone, tags, stop_addresses, round_trip')
-    .order('created_at', { ascending: false })
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone, tags, stop_addresses, round_trip, scheduled_at')
+    .order('scheduled_at', { ascending: false, nullsFirst: true })
     .limit(500);
 
   const dateStart = document.getElementById('filter-date-start').value;
@@ -2651,14 +2650,25 @@ async function fetchHistoryRows() {
   const status = document.getElementById('filter-status').value;
   const payment = document.getElementById('filter-payment').value;
   const tag = document.getElementById('filter-tag').value.trim();
-  if (dateStart) query = query.gte('created_at', dateStart);
-  if (dateEnd) query = query.lte('created_at', dateEnd + 'T23:59:59');
+  // Les dates filtrent la date de la course ; une course immediate (sans date) est situee a sa date de saisie.
+  const from = dateStart ? new Date(dateStart + 'T00:00:00').toISOString() : null;
+  const to = dateEnd ? new Date(dateEnd + 'T23:59:59').toISOString() : null;
+  if (from || to) {
+    const rng = (col) => [from ? `${col}.gte.${from}` : null, to ? `${col}.lte.${to}` : null].filter(Boolean).join(',');
+    query = query.or(`and(${rng('scheduled_at')}),and(scheduled_at.is.null,${rng('created_at')})`);
+  }
   if (status) query = query.eq('status', status);
   if (payment) query = query.eq('payment_method', payment);
   if (tag) query = query.contains('tags', [tag]);
 
   const { data } = await query;
-  return data ?? [];
+  // Tri par date de course, les plus recentes d'abord (course immediate : date de saisie).
+  return (data ?? []).sort((a, b) => new Date(b.scheduled_at ?? b.created_at) - new Date(a.scheduled_at ?? a.created_at));
+}
+
+// Date affichee d'une course : celle de la prestation, ou « Des que possible » avec la date de saisie.
+function rideWhenLabel(r) {
+  return r.scheduled_at ? new Date(r.scheduled_at).toLocaleString('fr-FR') : 'Des que possible (saisie le ' + new Date(r.created_at).toLocaleString('fr-FR') + ')';
 }
 
 async function renderHistory() {
@@ -2670,11 +2680,11 @@ async function renderHistory() {
   }
   container.innerHTML = `
     <table>
-      <thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th><th>Tags</th><th></th></tr></thead>
+      <thead><tr><th>Date de la course</th><th>Client</th><th>Trajet</th><th>Gamme</th><th>Statut</th><th>Paiement</th><th>Prix</th><th>Origine</th><th>Tags</th><th></th></tr></thead>
       <tbody>
         ${rides.map((r) => `
           <tr>
-            <td>${new Date(r.created_at).toLocaleString('fr-FR')}</td>
+            <td>${rideWhenLabel(r)}</td>
             <td>${escapeHtml(r.client_name ?? r.client_phone ?? '(compte client)')}</td>
             <td>${escapeHtml(r.pickup_address)}${(r.stop_addresses ?? []).length ? ' (+' + r.stop_addresses.length + ' arret' + (r.stop_addresses.length > 1 ? 's' : '') + ')' : ''} &rarr; ${escapeHtml(r.dropoff_address)}${r.round_trip ? ' (A/R)' : ''}</td>
             <td>${VEHICLE_LABELS[r.vehicle_category]}</td>
@@ -2698,9 +2708,9 @@ document.getElementById('filter-apply').addEventListener('click', renderHistory)
 
 document.getElementById('filter-export').addEventListener('click', async () => {
   const rides = await fetchHistoryRows();
-  const header = ['Date', 'Client', 'Telephone', 'Depart', 'Points d’arret', 'Destination', 'Aller-retour', 'Gamme', 'Statut', 'Paiement', 'Prix', 'Origine', 'Tags'];
+  const header = ['Date de la course', 'Saisie le', 'Client', 'Telephone', 'Depart', 'Points d’arret', 'Destination', 'Aller-retour', 'Gamme', 'Statut', 'Paiement', 'Prix', 'Origine', 'Tags'];
   const rows = rides.map((r) => [
-    new Date(r.created_at).toLocaleString('fr-FR'), r.client_name ?? '', r.client_phone ?? '',
+    r.scheduled_at ? new Date(r.scheduled_at).toLocaleString('fr-FR') : 'Des que possible', new Date(r.created_at).toLocaleString('fr-FR'), r.client_name ?? '', r.client_phone ?? '',
     r.pickup_address, (r.stop_addresses ?? []).join(' | '), r.dropoff_address, r.round_trip ? 'Oui' : 'Non',
     VEHICLE_LABELS[r.vehicle_category], r.status,
     PAYMENT_LABELS[r.payment_method] ?? '', r.price ?? '', r.created_by, (r.tags ?? []).join(' | '),
