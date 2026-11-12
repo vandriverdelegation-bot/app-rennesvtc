@@ -12,6 +12,7 @@ const { registerDriverOnboarding } = require('./driverOnboarding');
 const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
 const { buildRideMail } = require('./mailTemplate');
+const { renderAccueil } = require('./accueil');
 
 const VEHICLE_LABELS = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
@@ -126,6 +127,39 @@ function bonUrl(rideId, driverId) {
   return `${BASE_URL}/public/bon-commande/${rideId}?d=${driverId}&sig=${bonSignature(rideId, driverId)}`;
 }
 
+// Tablette d'accueil : image de bienvenue avec le nom du client (ou le nom choisi dans le back-office).
+function accueilSignature(rideId) {
+  return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev').update(`accueil:${rideId}`).digest('hex').slice(0, 40);
+}
+function accueilUrl(rideId, width) {
+  return `${BASE_URL}/public/accueil/${rideId}?sig=${accueilSignature(rideId)}${width ? `&w=${width}` : ''}`;
+}
+async function sendAccueil(res, rideId, width) {
+  const { data: ride } = await supabaseAdmin.from('rides').select('*').eq('id', rideId).single();
+  if (!ride) return res.status(404).send('Course introuvable');
+  let name = ride.welcome_name || ride.client_name;
+  if (!name && ride.client_id) name = (await supabaseAdmin.from('profiles').select('full_name').eq('id', ride.client_id).single()).data?.full_name;
+  try {
+    res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-cache' }).send(await renderAccueil(name, width));
+  } catch (e) {
+    console.error('tablette accueil :', e.message);
+    res.status(500).send('Image indisponible');
+  }
+}
+// Lien signe (e-mail du chauffeur) : s'ouvre sans connexion.
+app.get('/public/accueil/:rideId', async (req, res) => {
+  const sig = String(req.query.sig || '');
+  const ok = sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(accueilSignature(req.params.rideId)));
+  if (!ok) return res.status(403).send('Lien invalide');
+  await sendAccueil(res, req.params.rideId, req.query.w);
+});
+// Appli chauffeur et back-office : chauffeurs de la course (principal ou supplementaires) et admin.
+app.get('/driver/accueil/:rideId', requireSupabaseUser, async (req, res) => {
+  const { data: ride } = await supabaseAdmin.from('rides').select('driver_id, extra_driver_ids').eq('id', req.params.rideId).single();
+  if (!ride || !(isRideDriver(ride, req.user.id) || (await isDriverOrAdmin(req.user.id, ride)))) return res.status(404).send('Course introuvable');
+  await sendAccueil(res, req.params.rideId, req.query.w);
+});
+
 // E-mail au chauffeur qui vient d'accepter une course : meme design, avec le bon de commande a la place du suivi (PDF aussi en piece jointe).
 async function sendDriverRideMail({ bonData, pdf }) {
   const { ride, driver } = bonData;
@@ -140,6 +174,8 @@ async function sendDriverRideMail({ bonData, pdf }) {
       paxText: `${ride.passenger_count || 1} passager${(ride.passenger_count || 1) > 1 ? 's' : ''}${bags ? ` · ${bags} bagage${bags > 1 ? 's' : ''}` : ''}`,
     },
     bonUrl: bonUrl(ride.id, driver.id),
+    accueilUrl: accueilUrl(ride.id, 1100),
+    accueilFullUrl: accueilUrl(ride.id),
   });
   await sendEmail(driver.email, 'Bon de commande - course acceptee', text, [{ filename: 'bon-commande.pdf', content: pdf.toString('base64') }], html);
 }

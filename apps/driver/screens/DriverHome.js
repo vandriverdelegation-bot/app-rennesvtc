@@ -8,6 +8,7 @@ import CreateRide from './CreateRide';
 import RideMiniMap from './RideMiniMap';
 import RideCalendar, { dayKey } from './RideCalendar';
 import RideChat from './RideChat';
+import WelcomeTablet from './WelcomeTablet';
 import { ActionRow, Btn, Card, LinkRow, Pill, RideHeader, RouteBlock, SectionLabel, TabPill } from '../ui';
 import { Icon } from '../icons';
 
@@ -43,6 +44,16 @@ function formatRideDateTime(scheduledAt) {
 }
 
 export default function DriverHome({ session }) {
+  const [welcomeFor, setWelcomeFor] = useState(null);
+  return (
+    <>
+      <DriverHomeInner session={session} setWelcomeFor={setWelcomeFor} />
+      {welcomeFor ? <WelcomeTablet rideId={welcomeFor} token={session.access_token} onClose={() => setWelcomeFor(null)} /> : null}
+    </>
+  );
+}
+
+function DriverHomeInner({ session, setWelcomeFor }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
   const [permissions, setPermissions] = useState({ can_create_rides: false, is_owner: false });
   const [onlineStatus, setOnlineStatus] = useState(false);
@@ -460,6 +471,7 @@ export default function DriverHome({ session }) {
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                       </View>
                       <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
                       {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
                       {!activeRide ? (
                         <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
@@ -482,6 +494,7 @@ export default function DriverHome({ session }) {
                     <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                   </View>
                   <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                  <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
                   <Btn title="Bon de commande" variant="secondary" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${item.id}?token=${session.access_token}`)} />
                 </Card>
               ))}
@@ -601,6 +614,7 @@ export default function DriverHome({ session }) {
         </Card>
 
         <Btn title="Telecharger le bon de commande" variant="secondary" onPress={handleDownloadBonCommande} />
+        <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(activeRide.id)} />
         {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
         {!releaseOpen ? (
           <Btn title="Me desister / dispatcher la course" variant="secondary" onPress={openRelease} />

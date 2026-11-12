@@ -35,7 +35,7 @@ const ico = (base, name, w, h, mode = 'block', extra = '') => {
 
 // ride : { gamme: 'confort'|'affaires'|'van', passenger, whenText, pickup, dropoff, price?, paymentLabel?, ref?, mad?, durationHours? }
 // driver : { firstName, vehicleName, plate }   trackingUrl : lien de suivi (facultatif)
-function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bonUrl, base = BASE_URL }) {
+function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bonUrl, accueilUrl, accueilFullUrl, base = BASE_URL }) {
   const k = KINDS[kind] ?? KINDS.received;
   const gamme = ['confort', 'affaires', 'van'].includes(ride.gamme) ? ride.gamme : 'affaires';
   const mad = !!ride.mad;
@@ -89,6 +89,9 @@ function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bon
   const tracking = trackingUrl ? actionCard('i_map.png', 70, 62, 'Suivi de votre mission en direct', 'Retrouvez à tout moment les informations relatives à votre prestation et suivez votre chauffeur en temps réel.', 'ACCÉDER AU SUIVI EN DIRECT', trackingUrl, true) : '';
   const bon = bonUrl ? actionCard('i_doc.png', 62, 62, 'Bon de commande', 'Retrouvez tous les détails de la mission : client, trajet, tarif. Le bon de commande est aussi joint à ce message au format PDF.', 'AFFICHER LE BON DE COMMANDE', bonUrl, false) : '';
 
+  // Tablette d'accueil du client : image cliquable (taille reelle), a afficher sur une tablette a l'arrivee.
+  const accueil = accueilUrl ? `<tr><td style="padding:0 20px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0c0d" style="border-radius:14px;overflow:hidden"><tr><td style="padding:14px 16px 6px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-transform:uppercase">Tablette d’accueil</td></tr><tr><td style="padding:0 16px 8px;font-family:${FONT};font-size:13px;color:#d8dcd9;line-height:1.5">À afficher à l’arrivée du client. Touchez l’image pour l’ouvrir en grand.</td></tr><tr><td style="padding:0 0 0"><a href="${esc(accueilFullUrl || accueilUrl)}"><img src="${esc(accueilUrl)}" width="600" alt="Tablette d’accueil - ${esc(ride.passenger || '')}" style="display:block;border:0;width:100%;max-width:600px;height:auto"></a></td></tr></table></td></tr>` : '';
+
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Rennes VTC</title>
 <style>:root{color-scheme:light only;supported-color-schemes:light}
 @media only screen and (max-width:520px){
@@ -121,7 +124,7 @@ function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bon
     ${rows}${infoRow}
   </table></td></tr>
   ${driverCard}${extraRow}
-  ${tracking}${bon}
+  ${tracking}${bon}${accueil}
   <tr><td bgcolor="#0b0c0d" style="${LIGHT('#0b0c0d')}padding:22px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     <td width="66" valign="middle" class="fcol">${ico(base, 'i_headset.png', 50, 50)}</td>
     <td valign="middle" class="fcol" style="font-family:${FONT};padding-right:14px"><div style="color:${GREEN};font-size:15px;font-weight:700;text-transform:uppercase">Une assistance à votre écoute</div><div style="color:#d8dcd9;font-size:13.5px;line-height:1.5;margin-top:3px">Pour toute question ou assistance concernant cette réservation, notre équipe reste à votre disposition.</div></td>
@@ -144,6 +147,7 @@ function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bon
     driver && extraDrivers.length ? `Chauffeur${extraDrivers.length > 1 ? 's' : ''} supplémentaire${extraDrivers.length > 1 ? 's' : ''} : ${extraDrivers.map(extraLabel).join(' ; ')}` : null,
     trackingUrl ? `\nSuivi en direct : ${trackingUrl}` : null,
     bonUrl ? `\nBon de commande : ${bonUrl}` : null,
+    accueilFullUrl ? `\nTablette d’accueil : ${accueilFullUrl}` : null,
     '\nMerci de votre confiance.\nL’équipe Rennes VTC - 07 68 42 52 62 - contact@rennesvtc.com',
   ].filter((l) => l !== null).join('\n');
 
