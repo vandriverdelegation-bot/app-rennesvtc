@@ -1597,13 +1597,27 @@ async function renderChauffeurs() {
               <input class="edit-vtc-card" placeholder="N. carte VTC" value="${escapeHtml(c.vtc_card_number ?? '')}" style="width:120px" />
               <input class="edit-siret" placeholder="SIRET/SIREN" value="${escapeHtml(c.siret ?? '')}" style="width:110px" />
             </td>
-            <td><button class="secondary save-chauffeur">Enregistrer</button><br/><button class="secondary delete-chauffeur" style="color:var(--error)">Supprimer</button></td>
+            <td><button class="secondary save-chauffeur">Enregistrer</button><br/><button class="secondary password-chauffeur">Mot de passe</button><br/><button class="secondary delete-chauffeur" style="color:var(--error)">Supprimer</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
 
+  container.querySelectorAll('.password-chauffeur').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      const name = row.querySelector('td').innerText.split('\n')[0] || 'ce chauffeur';
+      const password = prompt(`Nouveau mot de passe pour ${name} (8 caracteres minimum) :`);
+      if (password === null) return;
+      if (password.length < 8) { alert('Le mot de passe doit faire au moins 8 caracteres.'); return; }
+      if (!confirm(`Changer le mot de passe de ${name} ? L'ancien ne fonctionnera plus. Pensez a communiquer le nouveau au chauffeur.`)) return;
+      try {
+        await adminApi(`/admin/chauffeurs/${row.dataset.chauffeurId}/password`, 'POST', { password });
+        alert('Mot de passe modifie. Communiquez-le au chauffeur.');
+      } catch (e) { alert(e.message); }
+    });
+  });
   container.querySelectorAll('.delete-chauffeur').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const row = btn.closest('tr');

@@ -363,6 +363,17 @@ app.delete('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true, archived: true });
 });
 
+// Definit un nouveau mot de passe pour un chauffeur (reserve a l'admin). Le mot de passe n'est ni journalise ni renvoye.
+app.post('/admin/chauffeurs/:id/password', requireAdmin, async (req, res) => {
+  const password = String(req.body.password ?? '');
+  if (password.length < 8) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caracteres.' });
+  const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', req.params.id).single();
+  if (profile?.role !== 'chauffeur') return res.status(404).json({ error: 'Chauffeur introuvable' });
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { password });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
 // Modifie la gamme/role/permissions/infos legales d'un chauffeur existant.
 app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
   const { driver_role, can_create_rides, can_edit_price, full_name, vtc_card_number, siret } = req.body;
