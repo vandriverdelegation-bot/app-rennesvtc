@@ -828,6 +828,7 @@ function showPage(name) {
   if (name === 'vehicules') renderVehicles();
   if (name === 'chauffeurs') renderInvitations();
   if (name === 'navettes') window.renderNavettes?.();
+  if (name === 'dashboard') window.renderNavettesShortcut?.();
   if (name === 'tarifs' && zoneMap) setTimeout(() => zoneMap.invalidateSize(), 50);
 }
 
@@ -1565,6 +1566,7 @@ async function renderStats() {
       <span class="stat-label">${s.label}</span>
     </button>
   `).join('');
+  window.renderNavettesShortcut?.(); // evenement navettes du jour : acces direct au suivi
 }
 
 async function renderChauffeurs() {

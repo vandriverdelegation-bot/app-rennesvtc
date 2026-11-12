@@ -1,4 +1,5 @@
-// Back-office : navettes evenementielles (liste, evenement, logo, departs). Charge apres le script principal.
+// Back-office : navettes evenementielles. Deux ecrans par evenement : « Suivi de soiree » (voir les departs et cocher
+// les invites a la montee, pense pour le telephone) et « Reglages » (partage, departs, informations, logo).
 (function () {
   const api = (path, method, body) => window.adminApi(path, method, body);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -9,50 +10,180 @@
   const STATUS = { ouvert: 'Ouvert', ferme: 'Ferme', termine: 'Termine', complet: 'Complet' };
   const TYPES = { mariage: 'Mariage', entreprise: 'Soiree d\'entreprise', evenement: 'Evenement' };
   let lookups = null;
-  let current = null; // evenement ouvert (avec ses departs)
+  let current = null;   // evenement ouvert (avec ses departs)
+  let view = 'list';    // list | live | settings
+  let liveData = null;  // { event, signups }
+  let seq = 0;          // un ecran plus recent annule les reponses tardives des precedents
+  let liveTimer = null;
+  let liveBusy = false;
+  const openState = {}; // sections repliables : ouvert / ferme, memorise d'un affichage a l'autre
 
   const fail = (e) => alert(e.message || 'Une erreur est survenue.');
   const options = (list, value, label, selected, empty) => (empty ? `<option value="">${esc(empty)}</option>` : '') + list.map((x) => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${esc(label(x))}</option>`).join('');
   const vehicleLabel = (v) => `${v.display_name}${v.plate ? ' (' + v.plate + ')' : ''} - ${v.seats} places`;
   const driverLabel = (d) => d.full_name || d.email;
+  const stopLive = () => { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } };
+
+  function injectStyle() {
+    if (document.getElementById('nv-style')) return;
+    const st = document.createElement('style');
+    st.id = 'nv-style';
+    st.textContent = `
+      .nv-nav { margin: 0 0 8px; } .nv-nav a { cursor: pointer; }
+      .nv-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 6px; font-size: 24px; }
+      .nv-sub { color: var(--text-muted); margin: 0 0 14px; }
+      .nv-chip { display: inline-block; padding: 3px 11px; border-radius: 99px; font-size: 12px; font-weight: 700; background: var(--card-2, var(--card)); border: 1px solid var(--card-border); }
+      .nv-chip.ok { color: var(--accent); border-color: var(--accent); } .nv-chip.off { color: var(--text-muted); } .nv-chip.full { color: var(--error); border-color: var(--error); }
+      .nv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 16px; max-width: 640px; }
+      .nv-stat { border: 1px solid var(--card-border); background: var(--card); border-radius: 14px; padding: 10px 12px; text-align: center; }
+      .nv-stat b { display: block; font-size: 26px; line-height: 1.1; } .nv-stat span { color: var(--text-muted); font-size: 12.5px; }
+      .nv-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; } .nv-actions button { margin: 0; }
+      .nv-dep { border: 1px solid var(--card-border); background: var(--card); border-radius: 18px; padding: 14px; margin-bottom: 14px; max-width: 640px; }
+      .nv-dep.closed { opacity: .85; }
+      .nv-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+      .nv-time { font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -.02em; } .nv-time small { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-left: 6px; letter-spacing: 0; }
+      .nv-counts { text-align: right; font-size: 14px; color: var(--text-muted); } .nv-counts b { color: var(--text); font-size: 18px; }
+      .nv-who { color: var(--text-muted); font-size: 13px; margin: 2px 0 10px; }
+      .nv-guest { display: flex; align-items: center; gap: 12px; padding: 11px 12px; margin: 0 0 6px; border: 1px solid var(--card-border); border-radius: 12px; cursor: pointer; font-weight: 400; background: var(--bg, transparent); }
+      .nv-guest input { width: 26px; height: 26px; margin: 0; flex: none; accent-color: var(--accent); }
+      .nv-guest .nm { flex: 1; font-size: 17px; } .nv-guest .n { font-weight: 700; color: var(--accent); }
+      .nv-guest.on { border-color: var(--accent); } .nv-guest.on .nm { color: var(--text-muted); text-decoration: line-through; }
+      .nv-none { color: var(--text-muted); margin: 8px 0; }
+      .nv-foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; } .nv-foot button { margin: 0; }
+      details.nv-sec { border: 1px solid var(--card-border); background: var(--card); border-radius: 16px; padding: 0; margin-bottom: 12px; max-width: 900px; }
+      details.nv-sec > summary { cursor: pointer; padding: 14px 16px; font-weight: 700; font-size: 16px; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+      details.nv-sec > summary::after { content: '+'; font-size: 22px; color: var(--text-muted); } details.nv-sec[open] > summary::after { content: '−'; }
+      details.nv-sec > .nv-body { padding: 0 16px 16px; }
+      @media (max-width: 640px) { .nv-time { font-size: 32px; } .nv-stat b { font-size: 22px; } }`;
+    document.head.appendChild(st);
+  }
 
   // ---- Liste des evenements
   async function showList() {
-    current = null;
+    const my = ++seq; stopLive(); injectStyle();
+    current = null; view = 'list';
     root().innerHTML = '<p class="hint">Chargement...</p>';
     try {
       const events = await api('/admin/navettes/events');
+      if (my !== seq) return;
       root().innerHTML = `
         <p class="hint">Les invites s'inscrivent eux-memes a un depart de navette en scannant un QR code ou en ouvrant un lien, sans application ni compte.</p>
         <div class="price-row"><button id="nav-new">Nouvel evenement</button></div>
         ${events.length === 0 ? '<p>Aucun evenement pour le moment.</p>' : `
-        <table><thead><tr><th>Evenement</th><th>Type</th><th>Date</th><th>Etat</th><th>Departs</th><th>Places prises</th><th></th></tr></thead><tbody>
+        <table><thead><tr><th>Evenement</th><th>Date</th><th>Etat</th><th>Departs</th><th>Places prises</th><th></th></tr></thead><tbody>
           ${events.map((e) => `<tr>
-            <td><strong>${esc(e.name)}</strong></td><td>${TYPES[e.type] ?? e.type}</td><td>${esc(frDate(e.event_date))}</td>
+            <td><strong>${esc(e.name)}</strong><br><span class="hint">${TYPES[e.type] ?? e.type}</span></td><td>${esc(frDate(e.event_date))}</td>
             <td>${STATUS[e.status]}</td><td>${e.departures_count}</td><td>${e.seats_taken} / ${e.seats_total}</td>
-            <td><button class="secondary" data-open="${e.id}">Ouvrir</button></td></tr>`).join('')}
+            <td><button data-live="${e.id}">Suivi de soiree</button> <button class="secondary" data-open="${e.id}">Reglages</button></td></tr>`).join('')}
         </tbody></table>`}`;
-      document.getElementById('nav-new').onclick = () => showEvent(null);
-      root().querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => showEvent(b.dataset.open)));
+      document.getElementById('nav-new').onclick = () => showSettings(null);
+      root().querySelectorAll('[data-live]').forEach((b) => (b.onclick = () => showLive(b.dataset.live)));
+      root().querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => showSettings(b.dataset.open)));
     } catch (e) { root().innerHTML = `<p class="error">${esc(e.message)}</p>`; }
   }
 
-  // ---- Fiche d'un evenement (creation si id vide)
-  async function showEvent(id) {
+  // =====================================================================================
+  // SUIVI DE SOIREE : departs, invites, cases a cocher
+  // =====================================================================================
+  async function showLive(id) {
+    const my = ++seq; stopLive(); injectStyle();
     try {
       if (!lookups) lookups = await api('/admin/navettes/lookups');
-      current = id ? await api('/admin/navettes/events/' + id) : null;
-      drawEvent();
+      const d = await api(`/admin/navettes/events/${id}/live`);
+      if (my !== seq) return;
+      liveData = d; current = d.event; view = 'live';
+      drawLive();
+      liveTimer = setInterval(() => refreshLive(false), 8000);
     } catch (e) { fail(e); }
   }
 
-  function drawEvent() {
+  async function refreshLive(force) {
+    if (view !== 'live' || !current || (liveBusy && !force)) return;
+    if (!force && (document.hidden || !root() || root().offsetParent === null)) return; // onglet masque : pas de requete inutile
+    liveBusy = true;
+    try {
+      const d = await api(`/admin/navettes/events/${current.id}/live`);
+      if (view === 'live' && d.event.id === current.id) { liveData = d; current = d.event; drawLive(); }
+    } catch (e) { /* nouvel essai au prochain tour */ } finally { liveBusy = false; }
+  }
+
+  function drawLive() {
+    const { event: ev, signups } = liveData;
+    const by = {};
+    signups.forEach((s) => { (by[s.departure_id] ??= []).push(s); });
+    const pax = signups.reduce((a, s) => a + s.seats, 0);
+    const boarded = signups.filter((s) => s.boarded).reduce((a, s) => a + s.seats, 0);
+    const seatsTotal = ev.departures.reduce((a, d) => a + d.seats, 0);
+    const veh = (id) => lookups?.vehicles.find((v) => v.id === id);
+    const drv = (id) => lookups?.drivers.find((d) => d.id === id);
+    const evChip = ev.status === 'ouvert' ? '<span class="nv-chip ok">Inscriptions ouvertes</span>' : `<span class="nv-chip off">${ev.status === 'ferme' ? 'Inscriptions fermees' : 'Evenement termine'}</span>`;
+    root().innerHTML = `
+      <p class="nv-nav"><a id="lv-back">&larr; Tous les evenements</a></p>
+      <h3 class="nv-title">${esc(ev.name)} ${evChip}</h3>
+      <p class="nv-sub">${esc(frDate(ev.event_date))}${ev.pickup_place ? ' · ' + esc(ev.pickup_place) : ''}${ev.destination ? ' &rarr; ' + esc(ev.destination) : ''}</p>
+      <div class="nv-stats">
+        <div class="nv-stat"><b>${pax}</b><span>passagers inscrits</span></div>
+        <div class="nv-stat"><b>${boarded}</b><span>montes</span></div>
+        <div class="nv-stat"><b>${seatsTotal - pax}</b><span>places libres</span></div>
+      </div>
+      <div class="nv-actions">
+        <button class="secondary" id="lv-settings">Reglages</button>
+        <button class="secondary" id="lv-copy">Copier le lien invite</button>
+        ${ev.status === 'ouvert' ? '<button class="secondary" id="lv-close" style="color:var(--error)">Fermer toutes les inscriptions</button>' : (ev.status === 'ferme' ? '<button class="secondary" id="lv-reopen">Rouvrir les inscriptions</button>' : '')}
+      </div>
+      ${ev.departures.length === 0 ? '<p class="nv-none">Aucun depart : ouvrez les reglages pour en generer.</p>' : ''}
+      ${ev.departures.map((d) => {
+        const list = by[d.id] ?? [];
+        const n = list.reduce((a, s) => a + s.seats, 0);
+        const b = list.filter((s) => s.boarded).reduce((a, s) => a + s.seats, 0);
+        const closed = d.status === 'ferme';
+        const who = [drv(d.driver_id) && driverLabel(drv(d.driver_id)), veh(d.vehicle_id) && veh(d.vehicle_id).display_name].filter(Boolean).join(' · ');
+        return `<section class="nv-dep ${closed ? 'closed' : ''}" data-dep="${d.id}">
+          <div class="nv-head"><div class="nv-time">${hhmm(d.departs_at).replace(':', 'h')}${dayOf(d.departs_at) !== ev.event_date ? '<small>apres minuit</small>' : ''}</div>
+            <div class="nv-counts"><b>${n} / ${d.seats}</b> places<br>montes <b>${b}</b> / ${n} ${closed ? '<br><span class="nv-chip off">ferme</span>' : (d.taken >= d.seats ? '<br><span class="nv-chip full">complet</span>' : '')}</div></div>
+          ${who ? `<p class="nv-who">${esc(who)}</p>` : ''}
+          ${list.length ? list.map((s) => `<label class="nv-guest ${s.boarded ? 'on' : ''}"><input type="checkbox" data-sid="${s.id}" ${s.boarded ? 'checked' : ''} /><span class="nm">${esc(s.first_name)} ${esc(s.last_name)}</span>${s.seats > 1 ? `<span class="n">×${s.seats}</span>` : ''}</label>`).join('') : '<p class="nv-none">Personne d\'inscrit.</p>'}
+          <div class="nv-foot">
+            ${list.length ? `<button class="secondary" data-all="${d.id}" data-val="${b < n ? 'true' : 'false'}">${b < n ? 'Tout cocher' : 'Tout decocher'}</button>` : ''}
+            <button class="secondary" data-toggle="${d.id}" data-next="${closed ? 'ouvert' : 'ferme'}">${closed ? 'Rouvrir ce depart' : 'Fermer ce depart'}</button>
+          </div></section>`;
+      }).join('')}`;
+    document.getElementById('lv-back').onclick = (e) => { e.preventDefault(); showList(); };
+    document.getElementById('lv-settings').onclick = () => showSettings(ev.id);
+    document.getElementById('lv-copy').onclick = async (e) => {
+      try { await Promise.race([navigator.clipboard.writeText(ev.public_url), new Promise((_, no) => setTimeout(no, 1000))]); } catch { prompt('Copiez ce lien :', ev.public_url); return; }
+      e.target.textContent = 'Lien copie ✓'; setTimeout(() => { if (e.target) e.target.textContent = 'Copier le lien invite'; }, 2200);
+    };
+    const act = (fn) => async (...a) => { liveBusy = true; try { await fn(...a); } catch (e) { fail(e); } finally { liveBusy = false; } await refreshLive(true); };
+    root().querySelectorAll('input[data-sid]').forEach((c) => (c.onchange = act(() => api('/admin/navettes/signups/' + c.dataset.sid, 'PATCH', { boarded: c.checked }))));
+    root().querySelectorAll('[data-all]').forEach((b) => (b.onclick = act(() => api(`/admin/navettes/departures/${b.dataset.all}/boarded`, 'POST', { boarded: b.dataset.val === 'true' }))));
+    root().querySelectorAll('[data-toggle]').forEach((b) => (b.onclick = act(() => api('/admin/navettes/departures/' + b.dataset.toggle, 'PATCH', { status: b.dataset.next }))));
+    const close = document.getElementById('lv-close');
+    if (close) close.onclick = act(async () => { if (confirm('Fermer les inscriptions de tout l\'evenement ? Les invites ne pourront plus s\'inscrire.')) await api('/admin/navettes/events/' + ev.id, 'PATCH', { status: 'ferme' }); });
+    const reopen = document.getElementById('lv-reopen');
+    if (reopen) reopen.onclick = act(() => api('/admin/navettes/events/' + ev.id, 'PATCH', { status: 'ouvert' }));
+  }
+
+  // =====================================================================================
+  // REGLAGES : partage, departs, informations, logo
+  // =====================================================================================
+  async function showSettings(id) {
+    const my = ++seq; stopLive(); injectStyle();
+    try {
+      if (!lookups) lookups = await api('/admin/navettes/lookups');
+      const ev = id ? await api('/admin/navettes/events/' + id) : null;
+      if (my !== seq) return;
+      current = ev; view = 'settings';
+      drawSettings();
+    } catch (e) { fail(e); }
+  }
+
+  const section = (key, title, defOpen, html) => `<details class="nv-sec" data-key="${key}" ${(openState[key] ?? defOpen) ? 'open' : ''}><summary>${title}</summary><div class="nv-body">${html}</div></details>`;
+
+  function drawSettings() {
     const e = current ?? { name: '', type: 'evenement', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, max_party: 4, client_id: null, ride_id: null, departures: [] };
     const L = lookups;
-    root().innerHTML = `
-      <p><a href="#" id="nav-back">&larr; Tous les evenements</a></p>
-      <div class="card" style="max-width:760px">
-        <h3>${current ? esc(e.name) : 'Nouvel evenement'}</h3>
+    const info = `
         <div class="form-grid">
           <div class="field wide"><label>Nom affiche aux invites</label><input id="ne-name" value="${esc(e.name)}" placeholder="Mariage de Camille et Hugo" /></div>
           <div class="field"><label>Type</label><select id="ne-type">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${e.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -70,12 +201,29 @@
         <div class="price-row" style="margin-top:12px">
           <button id="ne-save">${current ? 'Enregistrer' : "Creer l'evenement"}</button>
           ${current ? '<button class="secondary" id="ne-delete" style="color:var(--error)">Supprimer l\'evenement</button>' : ''}
-        </div>
-      </div>
-      ${current ? detailHtml(e) : ''}`;
+        </div>`;
+    if (!current) {
+      root().innerHTML = `<p class="nv-nav"><a id="nav-back">&larr; Tous les evenements</a></p><h3 class="nv-title">Nouvel evenement</h3><div class="card" style="max-width:760px">${info}</div>
+        <p class="hint">Apres la creation, vous pourrez generer les departs, copier le lien et imprimer le chevalet.</p>`;
+      document.getElementById('nav-back').onclick = (ev) => { ev.preventDefault(); showList(); };
+      document.getElementById('ne-save').onclick = saveEvent;
+      return;
+    }
+    root().innerHTML = `
+      <p class="nv-nav"><a id="nav-back">&larr; Tous les evenements</a></p>
+      <h3 class="nv-title">${esc(e.name)} <span class="nv-chip">${STATUS[e.status]}</span></h3>
+      <p class="nv-sub">${esc(frDate(e.event_date))} · ${e.departures.length} depart${e.departures.length > 1 ? 's' : ''}</p>
+      <div class="nv-actions"><button id="nav-golive">Ouvrir le suivi de soiree</button></div>
+      ${section('share', 'Lien, QR code et chevalet', true, shareHtml(e))}
+      ${section('deps', `Departs (${e.departures.length})`, true, departuresHtml(e))}
+      ${section('gen', 'Generer ou ajouter des departs', e.departures.length === 0, generateHtml())}
+      ${section('info', 'Informations de l\'evenement', false, info)}
+      ${section('logo', 'Logo de l\'evenement', false, logoHtml(e))}`;
     document.getElementById('nav-back').onclick = (ev) => { ev.preventDefault(); showList(); };
+    document.getElementById('nav-golive').onclick = () => showLive(e.id);
+    root().querySelectorAll('details.nv-sec').forEach((d) => d.addEventListener('toggle', () => { openState[d.dataset.key] = d.open; }));
     document.getElementById('ne-save').onclick = saveEvent;
-    if (current) bindDetail();
+    bindDetail();
   }
 
   async function saveEvent() {
@@ -88,28 +236,15 @@
     if (body.pin && !/^\d{4}$/.test(body.pin)) return alert('Le code PIN doit comporter exactement 4 chiffres (ou rester vide).');
     try {
       current = current ? await api('/admin/navettes/events/' + current.id, 'PATCH', body) : await api('/admin/navettes/events', 'POST', body);
-      drawEvent();
+      drawSettings();
     } catch (e) { fail(e); }
   }
 
-  // ---- Logo, lien et departs d'un evenement existant
-  function detailHtml(e) {
-    const L = lookups;
-    const vehOpts = (sel) => options(L.vehicles, sel, vehicleLabel, sel, 'Aucun');
-    const drvOpts = (sel) => options(L.drivers, sel, driverLabel, sel, 'Aucun');
+  const vehOpts = (sel) => options(lookups.vehicles, sel, vehicleLabel, sel, 'Aucun');
+  const drvOpts = (sel) => options(lookups.drivers, sel, driverLabel, sel, 'Aucun');
+
+  function shareHtml(e) {
     return `
-      <div class="card" style="max-width:760px;margin-top:14px">
-        <h3>Logo de l'evenement (facultatif)</h3>
-        <p class="hint">Logo de l'entreprise ou monogramme des maries (PNG, JPG ou SVG). Il est reduit et allege automatiquement pour s'afficher vite sur telephone.</p>
-        <div class="price-row">
-          ${e.logo_url ? `<img src="${esc(e.logo_url)}" alt="Logo" style="max-height:90px;max-width:220px;background:#fff;border-radius:10px;padding:6px" />` : '<span class="hint">Aucun logo : seul le logo Rennes VTC apparaitra.</span>'}
-          <input type="file" id="nl-file" accept="image/png,image/jpeg,image/svg+xml" />
-          <button class="secondary" id="nl-send">${e.logo_url ? 'Remplacer le logo' : 'Envoyer le logo'}</button>
-          ${e.logo_url ? '<button class="secondary" id="nl-del" style="color:var(--error)">Supprimer le logo</button>' : ''}
-        </div>
-      </div>
-      <div class="card" style="max-width:760px;margin-top:14px">
-        <h3>Lien public et QR code</h3>
         <p class="hint">Les invites ouvrent ce lien (ou scannent le QR code) : aucune application, aucun compte.</p>
         <div class="price-row">
           <input readonly id="sh-url" value="${esc(e.public_url)}" style="flex:1;min-width:260px" onclick="this.select()" />
@@ -124,13 +259,13 @@
             <button class="secondary" id="sh-a6">Telecharger le chevalet A6</button>
             <p class="hint" id="sh-msg" style="min-height:1.2em"></p>
           </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>Departs de navette (${e.departures.length})</h3>
-        <p class="hint">Les heures sont celles de Rennes. Un depart apres minuit (00h15, 01h30...) se coche « apres minuit ».</p>
-        ${e.departures.length === 0 ? '<p>Aucun depart. Generez-les ci-dessous ou ajoutez-en un a la main.</p>' : `
-        <table><thead><tr><th>Heure</th><th>Places</th><th>Vehicule</th><th>Chauffeur</th><th>Etat</th><th></th></tr></thead><tbody>
+        </div>`;
+  }
+
+  function departuresHtml(e) {
+    if (e.departures.length === 0) return '<p>Aucun depart. Generez-les ou ajoutez-en un a la main dans la section suivante.</p>';
+    return `<p class="hint">Les heures sont celles de Rennes. Un depart apres minuit (00h15, 01h30...) se coche « apres minuit ».</p>
+        <div style="overflow-x:auto"><table><thead><tr><th>Heure</th><th>Places</th><th>Vehicule</th><th>Chauffeur</th><th>Etat</th><th></th></tr></thead><tbody>
           ${e.departures.map((d) => `<tr data-dep="${d.id}">
             <td><input type="time" class="dp-time" value="${hhmm(d.departs_at)}" style="width:110px" /><br><label style="font-weight:400"><input type="checkbox" class="dp-next" ${dayOf(d.departs_at) !== e.event_date ? 'checked' : ''} /> apres minuit</label></td>
             <td><input type="number" class="dp-seats" min="1" max="500" value="${d.seats}" style="width:80px" /><br><span class="hint">${d.taken} prise(s)</span></td>
@@ -138,11 +273,13 @@
             <td><select class="dp-drv">${drvOpts(d.driver_id)}</select></td>
             <td><select class="dp-status">${['ouvert', 'complet', 'ferme'].map((s) => `<option value="${s}" ${d.status === s ? 'selected' : ''}>${STATUS[s]}</option>`).join('')}</select></td>
             <td><button class="secondary dp-save">Enregistrer</button><br><button class="secondary dp-del" style="color:var(--error)">Supprimer</button></td></tr>`).join('')}
-        </tbody></table>
-        <div class="price-row" style="margin-top:10px"><input id="sh-min" type="number" placeholder="Minutes (ex. 15 ou -10)" style="width:210px" /><button class="secondary" id="sh-go">Decaler tous les departs</button></div>`}
-      </div>
-      <div class="card" style="max-width:760px;margin-top:14px">
-        <h3>Generer les departs automatiquement</h3>
+        </tbody></table></div>
+        <div class="price-row" style="margin-top:10px"><input id="sh-min" type="number" placeholder="Minutes (ex. 15 ou -10)" style="width:210px" /><button class="secondary" id="sh-go">Decaler tous les departs</button></div>`;
+  }
+
+  function generateHtml() {
+    return `
+        <h4 style="margin:0 0 8px">Generer automatiquement</h4>
         <div class="form-grid">
           <div class="field"><label>Premier depart</label><input id="gn-start" type="time" value="23:00" /></div>
           <div class="field"><label>Dernier depart au plus tard</label><input id="gn-end" type="time" value="03:00" /></div>
@@ -153,20 +290,28 @@
         </div>
         <p class="hint">Exemple : 23h00 a 03h00 toutes les 75 minutes = 23h00, 00h15, 01h30, 02h45. Le passage apres minuit est gere. Les departs deja presents a la meme heure sont conserves.</p>
         <button id="gn-go">Generer les departs</button>
-      </div>
-      <div class="card" style="max-width:760px;margin-top:14px">
-        <h3>Ajouter un depart a la main</h3>
+        <h4 style="margin:18px 0 8px">Ajouter un depart a la main</h4>
         <div class="price-row">
           <input id="ad-time" type="time" /><label style="font-weight:400"><input type="checkbox" id="ad-next" /> apres minuit</label>
           <input id="ad-seats" type="number" min="1" max="500" placeholder="Places" style="width:100px" />
           <select id="ad-veh">${vehOpts(null)}</select><select id="ad-drv">${drvOpts(null)}</select>
           <button id="ad-go">Ajouter</button>
-        </div>
-      </div>`;
+        </div>`;
+  }
+
+  function logoHtml(e) {
+    return `
+        <p class="hint">Logo de l'entreprise ou monogramme des maries (PNG, JPG ou SVG). Il est reduit et allege automatiquement pour s'afficher vite sur telephone.</p>
+        <div class="price-row">
+          ${e.logo_url ? `<img src="${esc(e.logo_url)}" alt="Logo" style="max-height:90px;max-width:220px;background:#fff;border-radius:10px;padding:6px" />` : '<span class="hint">Aucun logo : seul le logo Rennes VTC apparaitra.</span>'}
+          <input type="file" id="nl-file" accept="image/png,image/jpeg,image/svg+xml" />
+          <button class="secondary" id="nl-send">${e.logo_url ? 'Remplacer le logo' : 'Envoyer le logo'}</button>
+          ${e.logo_url ? '<button class="secondary" id="nl-del" style="color:var(--error)">Supprimer le logo</button>' : ''}
+        </div>`;
   }
 
   // Toutes les routes de departs renvoient l'evenement complet a jour.
-  const apply = (promise) => promise.then((ev) => { current = ev; drawEvent(); }).catch(fail);
+  const apply = (promise) => promise.then((ev) => { current = ev; drawSettings(); }).catch(fail);
 
   function bindDetail() {
     const id = current.id;
@@ -214,10 +359,10 @@
       const res = await fetch('/admin/navettes/events/' + id + '/logo', { method: 'POST', headers: { 'Content-Type': file.type, Authorization: 'Bearer ' + session.access_token }, body: file });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) return alert(json.error || "Envoi impossible.");
-      showEvent(id);
+      showSettings(id);
     };
     const del = document.getElementById('nl-del');
-    if (del) del.onclick = async () => { if (confirm('Supprimer le logo de cet evenement ?')) { try { await api('/admin/navettes/events/' + id + '/logo', 'DELETE'); showEvent(id); } catch (e) { fail(e); } } };
+    if (del) del.onclick = async () => { if (confirm('Supprimer le logo de cet evenement ?')) { try { await api('/admin/navettes/events/' + id + '/logo', 'DELETE'); showSettings(id); } catch (e) { fail(e); } } };
     // departs existants
     root().querySelectorAll('tr[data-dep]').forEach((row) => {
       const depId = row.dataset.dep;
@@ -245,5 +390,32 @@
     }));
   }
 
-  window.renderNavettes = () => (current ? showEvent(current.id) : showList());
+  // Quand on revient sur l'onglet Navettes : meme ecran qu'avant.
+  window.renderNavettes = () => {
+    if (current && view === 'live') return showLive(current.id);
+    if (current && view === 'settings') return showSettings(current.id);
+    return showList();
+  };
+  window.openNavetteLive = (id) => showLive(id);
+
+  // Raccourci sur le tableau de bord (et donc dans le back-office de l'app chauffeur proprietaire) : evenement du jour ou de la veille.
+  window.renderNavettesShortcut = async () => {
+    try {
+      injectStyle();
+      const host = document.getElementById('page-dashboard');
+      if (!host) return;
+      const events = await api('/admin/navettes/events');
+      const day = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+      const live = events.filter((e) => e.status !== 'termine' && [day(-1), day(0), day(1)].includes(e.event_date));
+      document.getElementById('nav-shortcut')?.remove();
+      if (!live.length) return;
+      const box = document.createElement('div');
+      box.id = 'nav-shortcut';
+      box.className = 'card';
+      box.style.cssText = 'margin:0 0 18px;max-width:640px';
+      box.innerHTML = `<h3 style="margin:0 0 8px">Navettes de soiree</h3>${live.map((e) => `<div class="price-row" style="align-items:center;margin:6px 0"><div style="flex:1;min-width:200px"><strong>${esc(e.name)}</strong><br><span class="hint">${esc(frDate(e.event_date))} · ${e.seats_taken} / ${e.seats_total} places prises</span></div><button data-nv-live="${e.id}">Ouvrir le suivi</button></div>`).join('')}`;
+      host.insertBefore(box, host.children[1] ?? null);
+      box.querySelectorAll('[data-nv-live]').forEach((b) => (b.onclick = () => { document.querySelector('[data-page=navettes]').click(); showLive(b.dataset.nvLive); }));
+    } catch (e) { /* le raccourci est facultatif */ }
+  };
 })();

@@ -282,6 +282,33 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     res.json({ ok: true });
   });
 
+  // ---- Suivi de soirée : evenement, departs et invites (noms complets), avec la case « monte ».
+  app.get('/admin/navettes/events/:id/live', requireAdmin, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const event = isUuid(req.params.id) ? await loadEvent(req.params.id) : null;
+    if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
+    const ids = event.departures.map((d) => d.id);
+    const { data: signups } = ids.length ? await supabaseAdmin.from('navette_signups').select('id, departure_id, first_name, last_name, seats, boarded, created_at').in('departure_id', ids).order('created_at', { ascending: true }) : { data: [] };
+    res.json({ event, signups: signups ?? [] });
+  });
+
+  // Coche / decoche un invite a la montee.
+  app.patch('/admin/navettes/signups/:id', requireAdmin, async (req, res) => {
+    if (!isUuid(req.params.id) || typeof req.body.boarded !== 'boolean') return res.status(400).json({ error: 'Demande invalide.' });
+    const { data, error } = await supabaseAdmin.from('navette_signups').update({ boarded: req.body.boarded }).eq('id', req.params.id).select('id, boarded');
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data?.length) return res.status(404).json({ error: 'Inscription introuvable' });
+    res.json(data[0]);
+  });
+
+  // Coche / decoche tous les invites d'un depart.
+  app.post('/admin/navettes/departures/:id/boarded', requireAdmin, async (req, res) => {
+    if (!isUuid(req.params.id) || typeof req.body.boarded !== 'boolean') return res.status(400).json({ error: 'Demande invalide.' });
+    const { error } = await supabaseAdmin.from('navette_signups').update({ boarded: req.body.boarded }).eq('departure_id', req.params.id);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ ok: true });
+  });
+
   // ---- Partage : QR code du lien public et chevalet imprimable (PDF A5 ou A6).
   const qrPng = (url) => require('qrcode').toBuffer(url, { type: 'png', errorCorrectionLevel: 'M', margin: 1, width: 900 });
   // Image distante (logo) -> PNG pour le PDF ; null si indisponible.
