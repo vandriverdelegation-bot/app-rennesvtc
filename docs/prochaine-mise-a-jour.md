@@ -2,6 +2,15 @@
 
 Quota de builds Expo gratuit épuisé jusqu'au 01/11/2026 (ou plan Starter). Tout ce qui suit est **déjà dans le code (GitHub, branche main)** mais **pas dans les APK installés**.
 
+## Récapitulatif du prochain build (mis à jour le 12/11/2026) : à lancer seulement sur ordre de Jim
+Consigne de Jim (12/11) : ne pas cumuler les builds, regrouper ses demandes. Derniers APK installés : client v5, chauffeur v9 (06/11). Production Play Store : .aab déjà envoyés (client en test fermé, chauffeur en brouillon de test interne).
+Dans le code mais PAS dans les APK installés (demandent le build) :
+- Les deux apps : modes clair / sombre (interrupteur), clé Google Maps retirée (adresses via le serveur).
+- Chauffeur : bouton « Passager absent (no show) », sonnerie wav (canal courses_v3), réservations à venir en pleine course, pastilles Trajet aller / retour, note de Rennes VTC affichée.
+- Client : pastilles Trajet aller / retour, bouton « Se connecter avec Apple » (iPhone seulement).
+- Migration 048 (aller-retour scindé) : APPLIQUÉE le 12/11. Migration 047 (no show, rappel) : appliquée.
+Déjà en ligne sans build : rappel 1 h, notification « Course attribuée » à la création admin, moyen de paiement modifiable, bon de commande de toute course (back-office), réservations en cours triées, historique et calendrier sur la date de course, mot de passe chauffeur modifiable, note chauffeur à la création.
+
 ## Design (choisi le 01/11/2026)
 - **Appli chauffeur : Nuit verte** (noir et vert, identité actuelle affinée). Palette dans `apps/driver/applyTheme.js`.
 - **Appli client : refaite le 03/11 d'après la maquette de Jim** (`Accueil client-html.zip`) : noir chaud #0B0C0B, vert #5BD42A, titres Outfit, texte Inter. Remplace « Jour ivoire ». Détail dans la section Appli client.
