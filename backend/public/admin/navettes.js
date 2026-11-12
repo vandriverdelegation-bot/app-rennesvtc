@@ -109,9 +109,22 @@
         </div>
       </div>
       <div class="card" style="max-width:760px;margin-top:14px">
-        <h3>Lien public des invites</h3>
-        <input readonly value="${esc(e.public_url)}" style="width:100%" onclick="this.select()" />
-        <p class="hint">La page invite, le bouton « Copier », le QR code et le chevalet arrivent aux etapes suivantes.</p>
+        <h3>Lien public et QR code</h3>
+        <p class="hint">Les invites ouvrent ce lien (ou scannent le QR code) : aucune application, aucun compte.</p>
+        <div class="price-row">
+          <input readonly id="sh-url" value="${esc(e.public_url)}" style="flex:1;min-width:260px" onclick="this.select()" />
+          <button id="sh-copy">Copier le lien</button>
+          <button class="secondary" id="sh-open">Ouvrir la page invite</button>
+        </div>
+        <div class="price-row" style="margin-top:14px;align-items:flex-start">
+          <img id="sh-qr" alt="QR code du lien public" style="width:190px;height:190px;background:#fff;border-radius:14px;padding:8px" />
+          <div>
+            <p class="hint" style="margin-top:0">Chevalet a imprimer : logo Rennes VTC, logo de l'evenement, nom, QR code et « Scannez pour reserver votre navette retour »${e.pin ? ' (avec le code PIN)' : ''}.</p>
+            <button id="sh-a5">Telecharger le chevalet A5</button>
+            <button class="secondary" id="sh-a6">Telecharger le chevalet A6</button>
+            <p class="hint" id="sh-msg" style="min-height:1.2em"></p>
+          </div>
+        </div>
       </div>
       <div class="card" style="margin-top:14px">
         <h3>Departs de navette (${e.departures.length})</h3>
@@ -161,6 +174,36 @@
       if (!confirm(`Supprimer definitivement l'evenement « ${current.name} », ses departs et ses inscriptions ?`)) return;
       try { await api('/admin/navettes/events/' + id, 'DELETE'); showList(); } catch (e) { fail(e); }
     };
+    // partage : lien, QR code, chevalet (le navigateur envoie la session dans l'en-tete, jamais dans l'adresse)
+    const msg = (t) => { const m = document.getElementById('sh-msg'); if (m) m.textContent = t; };
+    const authed = async (path) => {
+      const { data: { session } } = await window.adminSession();
+      const res = await fetch(path, { headers: { Authorization: 'Bearer ' + session.access_token } });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur');
+      return res.blob();
+    };
+    authed('/admin/navettes/events/' + id + '/qr.png').then((b) => { document.getElementById('sh-qr').src = URL.createObjectURL(b); }).catch(() => {});
+    document.getElementById('sh-open').onclick = () => window.open(current.public_url, '_blank');
+    document.getElementById('sh-copy').onclick = async () => {
+      const input = document.getElementById('sh-url');
+      try { await navigator.clipboard.writeText(current.public_url); } catch { input.select(); document.execCommand('copy'); }
+      msg('Lien copie ✓');
+      document.getElementById('sh-copy').textContent = 'Lien copie ✓';
+      setTimeout(() => { const b = document.getElementById('sh-copy'); if (b) b.textContent = 'Copier le lien'; }, 2500);
+    };
+    for (const f of ['a5', 'a6']) {
+      document.getElementById('sh-' + f).onclick = async () => {
+        msg('Preparation du chevalet ' + f.toUpperCase() + '...');
+        try {
+          const blob = await authed('/admin/navettes/events/' + id + '/chevalet.pdf?format=' + f);
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'chevalet-navette-' + current.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + f + '.pdf';
+          document.body.appendChild(a); a.click(); a.remove();
+          msg('Chevalet ' + f.toUpperCase() + ' telecharge ✓');
+        } catch (e) { msg(e.message); }
+      };
+    }
     // logo
     document.getElementById('nl-send').onclick = async () => {
       const file = document.getElementById('nl-file').files[0];

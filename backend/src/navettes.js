@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const { supabaseAdmin } = require('./supabaseAdmin');
+const { buildChevaletPdf } = require('./chevalet');
 
 const LOGO_BUCKET = 'navette-logos';
 const LOGO_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' };
@@ -279,6 +280,39 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     if (event.logo_url) await removeLogoFile(event.logo_url);
     await supabaseAdmin.from('navette_events').update({ logo_url: null }).eq('id', event.id);
     res.json({ ok: true });
+  });
+
+  // ---- Partage : QR code du lien public et chevalet imprimable (PDF A5 ou A6).
+  const qrPng = (url) => require('qrcode').toBuffer(url, { type: 'png', errorCorrectionLevel: 'M', margin: 1, width: 900 });
+  // Image distante (logo) -> PNG pour le PDF ; null si indisponible.
+  async function logoPng(url) {
+    if (!url) return null;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await require('sharp')(Buffer.from(await res.arrayBuffer())).png().toBuffer();
+    } catch { return null; }
+  }
+
+  app.get('/admin/navettes/events/:id/qr.png', requireAdmin, async (req, res) => {
+    const event = isUuid(req.params.id) ? await loadEvent(req.params.id) : null;
+    if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }).send(await qrPng(event.public_url));
+  });
+
+  app.get('/admin/navettes/events/:id/chevalet.pdf', requireAdmin, async (req, res) => {
+    const event = isUuid(req.params.id) ? await loadEvent(req.params.id) : null;
+    if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
+    const format = String(req.query.format).toLowerCase() === 'a6' ? 'a6' : 'a5';
+    try {
+      const { data: settings } = await supabaseAdmin.from('app_settings').select('logo_url').eq('id', true).single();
+      const [qr, rvtcLogo, eventLogo] = await Promise.all([qrPng(event.public_url), logoPng(settings?.logo_url), logoPng(event.logo_url)]);
+      const pdf = await buildChevaletPdf({ event, format, qrPng: qr, rvtcLogo, eventLogo });
+      res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="chevalet-navette-${format}.pdf"`, 'Cache-Control': 'no-store' }).send(pdf);
+    } catch (e) {
+      console.error('chevalet navette :', e.message);
+      res.status(500).json({ error: 'Impossible de generer le chevalet.' });
+    }
   });
 
   registerGuest(app);
