@@ -177,7 +177,7 @@
   .ride-actions button, .ride-actions select { margin: 0; }
   .ride-actions .grow { flex: 1 1 220px; }
 
-  /* Formulaire de creation */
+  /* Formulaire de creation (regles communes aux autres pages) */
   .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px 18px; }
   .field > label { display: block; font-weight: 600; margin-bottom: 2px; }
   .field input, .field select { width: 100%; margin: 4px 0 0; }
@@ -187,6 +187,56 @@
   .field .row { display: flex; gap: 10px; }
   .form-section { margin-bottom: 18px; }
   .form-section h3 { margin-bottom: 12px; }
+
+  /* Formulaire de creation : cinq blocs numerotes, champs alignes, pied de page avec le bouton */
+  .resa-create { display: grid; gap: 16px; max-width: 1080px; }
+  .resa-create .form-section { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 22px 24px 24px; }
+  .resa-create .fs-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .resa-create .fs-head h3 { margin: 0; font-size: 17px; }
+  .resa-create .fs-head p { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }
+  .resa-create .fs-num { width: 32px; height: 32px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; font-size: 14px; font-weight: 800; color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .resa-create .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px 18px; align-items: start; }
+  .resa-create .form-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resa-create .form-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .resa-create .form-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .resa-create .field { min-width: 0; }
+  .resa-create .field > label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .resa-create .field input, .resa-create .field select, .resa-create .field textarea { width: 100%; margin: 0; height: 44px; }
+  .resa-create .field textarea { height: auto; min-height: 84px; resize: vertical; }
+  .resa-create .field select { display: block; margin: 0; }
+  .resa-create .field input[type=checkbox] { height: 18px; width: 18px; }
+  .resa-create .field.wide { grid-column: 1 / -1; }
+  .resa-create .field.span2 { grid-column: span 2; }
+  .resa-create .field .help { display: block; margin-top: 6px; color: var(--text-muted); font-size: 12.5px; line-height: 1.35; }
+  .resa-create .field .help:empty { display: none; }
+  .resa-create .field .row { display: flex; gap: 10px; }
+  .resa-create .field .row > * { flex: 1; min-width: 0; }
+  .resa-create .field .row > button { flex: 0 0 44px; height: 44px; padding: 0; margin: 0; font-size: 20px; line-height: 1; }
+  .resa-create #new-ride-stops > div, .resa-create #new-ride-extra-drivers > .row { margin-bottom: 10px; }
+  .resa-create #new-ride-stops .suggestions { margin-top: 6px; }
+  .resa-create .add-btn { display: block; margin: 14px 0 0; border-style: dashed; color: var(--accent); font-weight: 700; }
+  .resa-create .field .add-btn { margin-top: 0; width: 100%; }
+  .resa-create .field.inline { display: flex; align-items: center; }
+  .resa-create .field.inline label { display: flex; align-items: center; width: 100%; height: 44px; margin: 0; padding: 0 14px; font-size: 14px; font-weight: 700; color: var(--text); border: 1px solid var(--input-border); border-radius: 10px; background: var(--input); cursor: pointer; }
+  .resa-create .field.inline label:hover { border-color: #43504A; }
+  .resa-create .field.inline label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--input)); }
+  .resa-create .inset { margin-top: 14px; padding: 16px 18px 18px; background: var(--card-2); border: 1px solid var(--card-border); border-radius: 12px; }
+  .resa-create .inset > .hint { margin: 0 0 14px; }
+  .resa-create .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; padding: 16px 24px; position: sticky; bottom: 0; z-index: 5; background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--card-border); border-radius: var(--radius); }
+  .resa-create .form-actions button { margin: 0; padding: 13px 30px; font-size: 15px; order: 2; }
+  .resa-create .form-msgs { order: 1; flex: 1 1 260px; min-width: 0; }
+  .resa-create .form-msgs p { margin: 0; }
+  .resa-create .form-msgs p:empty { display: none; }
+  @media (max-width: 900px) {
+    .resa-create .form-grid.cols-3, .resa-create .form-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .resa-create .form-grid.cols-2, .resa-create .form-grid.cols-3, .resa-create .form-grid.cols-4 { grid-template-columns: minmax(0, 1fr); }
+    .resa-create .field.span2 { grid-column: auto; }
+    .resa-create .form-section { padding: 18px 16px 20px; }
+    .resa-create .form-actions { padding: 12px 16px; }
+    .resa-create .form-actions button { width: 100%; }
+  }
 
   /* Tableaux */
   table { width: 100%; border-collapse: collapse; }
@@ -488,21 +538,21 @@
         </section>
 
         <section class="resa-panel" data-resa-panel="create">
-          <div class="card">
+          <div class="resa-create">
             <div class="form-section">
-              <h3>Client</h3>
-              <div class="form-grid">
+              <div class="fs-head"><span class="fs-num">1</span><div><h3>Client</h3><p>Qui voyage, et comment le joindre.</p></div></div>
+              <div class="form-grid cols-3">
                 <div class="field"><label for="new-ride-client-firstname">Prenom</label><input id="new-ride-client-firstname" placeholder="Prenom" /></div>
                 <div class="field"><label for="new-ride-client-name">Nom</label><input id="new-ride-client-name" placeholder="Nom" /></div>
-                <div class="field"><label for="new-ride-client-company">Societe (client professionnel : nom et prenom alors facultatifs)</label><input id="new-ride-client-company" placeholder="Nom de la societe" /></div>
+                <div class="field"><label for="new-ride-client-company">Societe</label><input id="new-ride-client-company" placeholder="Nom de la societe" /><small class="help">Client professionnel : nom et prenom alors facultatifs.</small></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
-                <div class="field"><label for="new-ride-client-email">Email (facultatif, recoit la confirmation)</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /></div>
+                <div class="field"><label for="new-ride-client-email">Email</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /><small class="help">Facultatif : le client recoit la confirmation.</small></div>
                 <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
               </div>
-              <button type="button" class="secondary" id="new-ride-orderer-toggle" style="margin-top:14px">+ Suivi au donneur d'ordre</button>
-              <div id="new-ride-orderer-block" style="display:none;margin-top:10px">
-                <p class="hint" style="margin:0 0 8px">Hotel, entreprise... Le client ci-dessus est alors le passager, et le donneur d'ordre recoit un email a chaque etape avec le lien de suivi du chauffeur.</p>
-                <div class="form-grid">
+              <button type="button" class="secondary add-btn" id="new-ride-orderer-toggle">+ Suivi au donneur d'ordre</button>
+              <div id="new-ride-orderer-block" class="inset" style="display:none">
+                <p class="hint">Hotel, entreprise... Le client ci-dessus est alors le passager, et le donneur d'ordre recoit un email a chaque etape avec le lien de suivi du chauffeur.</p>
+                <div class="form-grid cols-3">
                   <div class="field"><label for="new-ride-orderer-name">Donneur d'ordre</label><input id="new-ride-orderer-name" placeholder="Hotel, entreprise..." /></div>
                   <div class="field"><label for="new-ride-orderer-email">Email (recoit le suivi)</label><input id="new-ride-orderer-email" type="email" placeholder="reception@hotel.fr" /></div>
                   <div class="field"><label for="new-ride-orderer-phone">Telephone</label><input id="new-ride-orderer-phone" placeholder="0200000000" /></div>
@@ -511,11 +561,11 @@
             </div>
 
             <div class="form-section">
-              <h3>Trajet</h3>
-              <div class="form-grid">
+              <div class="fs-head"><span class="fs-num">2</span><div><h3>Trajet</h3><p>Type de service, adresses et arrets.</p></div></div>
+              <div class="form-grid cols-2">
                 <div class="field">
                   <label for="new-ride-service">Type de service</label>
-                  <select id="new-ride-service" style="width:100%">
+                  <select id="new-ride-service">
                     <option value="trajet_simple">Trajet simple</option>
                     <option value="mise_a_disposition">Mise a disposition</option>
                   </select>
@@ -534,7 +584,7 @@
                   <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
                   <div class="suggestions" id="new-ride-dropoff-suggestions" style="display:none"></div>
                 </div>
-                <div class="field wide"><label>Points d'arret (autant que necessaire)</label><div id="new-ride-stops"></div><button type="button" class="secondary" id="new-ride-add-stop">+ Ajouter un point d'arret</button></div>
+                <div class="field wide"><label>Points d'arret</label><div id="new-ride-stops"></div><button type="button" class="secondary add-btn" id="new-ride-add-stop">+ Ajouter un point d'arret</button></div>
                 <div class="field inline" id="new-ride-round-trip-field"><label><input type="checkbox" id="new-ride-round-trip" /> Aller-retour</label></div>
                 <div class="field wide" id="new-ride-return-row" style="display:none">
                   <label>Date et heure du retour</label>
@@ -544,20 +594,20 @@
             </div>
 
             <div class="form-section">
-              <h3>Passagers et bagages</h3>
-              <div class="form-grid">
+              <div class="fs-head"><span class="fs-num">3</span><div><h3>Passagers et bagages</h3><p>Pour preparer le vehicule (sieges enfants compris).</p></div></div>
+              <div class="form-grid cols-4">
                 <div class="field"><label for="new-ride-passengers">Passagers</label><input id="new-ride-passengers" type="number" min="1" value="1" /></div>
                 <div class="field"><label for="new-ride-luggage">Bagages</label><input id="new-ride-luggage" type="number" min="0" value="0" /></div>
                 <div class="field"><label for="new-ride-child-seats">Sieges auto</label><input id="new-ride-child-seats" type="number" min="0" value="0" /></div>
                 <div class="field"><label for="new-ride-booster-seats">Rehausseurs</label><input id="new-ride-booster-seats" type="number" min="0" value="0" /></div>
-                <div class="field wide"><label for="new-ride-child-ages">Age des enfants (si siege auto ou rehausseur)</label><input id="new-ride-child-ages" placeholder="Ex : 3 ans, ou 3 et 7 ans" /></div>
+                <div class="field wide"><label for="new-ride-child-ages">Age des enfants</label><input id="new-ride-child-ages" placeholder="Si siege auto ou rehausseur. Ex : 3 ans, ou 3 et 7 ans" /></div>
               </div>
             </div>
 
             <div class="form-section">
-              <h3>Date, prix et dispatch</h3>
-              <div class="form-grid">
-                <div class="field">
+              <div class="fs-head"><span class="fs-num">4</span><div><h3>Date, prix et dispatch</h3><p>Quand, combien, et qui conduit.</p></div></div>
+              <div class="form-grid cols-4">
+                <div class="field span2">
                   <label>Date et heure</label>
                   <div class="row"><input id="new-ride-date" type="date" /><input id="new-ride-time" type="time" /></div>
                 </div>
@@ -568,20 +618,30 @@
                     <option value="compte">En compte</option>
                   </select>
                 </div>
-                <div class="field"><label for="new-ride-price">Prix (€)</label><input id="new-ride-price" type="number" step="0.01" placeholder="0.00" /><small id="new-ride-price-hint" style="color:#666"></small></div>
-                <div class="field"><label for="new-ride-driver">Chauffeur</label>
+                <div class="field"><label for="new-ride-price">Prix (€)</label><input id="new-ride-price" type="number" step="0.01" placeholder="0.00" /><small id="new-ride-price-hint" class="help"></small></div>
+                <div class="field wide"><label for="new-ride-driver">Chauffeur</label>
                   <select id="new-ride-driver"><option value="">Laisser en attente (dispatch normal)</option></select>
                 </div>
-                <div class="field wide"><label>Chauffeurs supplementaires (plusieurs chauffeurs sur la meme mission)</label><div id="new-ride-extra-drivers"></div><button type="button" class="secondary" id="new-ride-add-extra-driver">+ Ajouter un chauffeur</button></div>
-                <div class="field wide"><label for="new-ride-tags">Tags (separes par ,)</label><input id="new-ride-tags" placeholder="Facultatif" /></div>
-                <div class="field wide"><label for="new-ride-welcome-name">Nom sur la tablette d'accueil</label><input id="new-ride-welcome-name" placeholder="Facultatif : par defaut, le nom du client" /></div>
-                <div class="field wide"><label for="new-ride-driver-note">Note pour le chauffeur</label><textarea id="new-ride-driver-note" style="min-height:60px" placeholder="Facultatif : visible par le chauffeur dans l'appli et sur le bon de reservation"></textarea></div>
+                <div class="field wide"><label>Chauffeurs supplementaires</label><div id="new-ride-extra-drivers"></div><button type="button" class="secondary add-btn" id="new-ride-add-extra-driver">+ Ajouter un chauffeur</button><small class="help">Plusieurs chauffeurs sur la meme mission.</small></div>
               </div>
             </div>
 
-            <button id="add-ride">Creer la reservation</button>
-            <p id="new-ride-error" class="error"></p>
-            <p id="new-ride-created" class="hint" style="font-weight:700"></p>
+            <div class="form-section">
+              <div class="fs-head"><span class="fs-num">5</span><div><h3>Details facultatifs</h3><p>Tags, tablette d'accueil et consignes au chauffeur.</p></div></div>
+              <div class="form-grid cols-2">
+                <div class="field"><label for="new-ride-tags">Tags</label><input id="new-ride-tags" placeholder="Separes par des virgules" /></div>
+                <div class="field"><label for="new-ride-welcome-name">Nom sur la tablette d'accueil</label><input id="new-ride-welcome-name" placeholder="Par defaut, le nom du client" /></div>
+                <div class="field wide"><label for="new-ride-driver-note">Note pour le chauffeur</label><textarea id="new-ride-driver-note" placeholder="Visible par le chauffeur dans l'appli et sur le bon de reservation"></textarea></div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <div class="form-msgs">
+                <p id="new-ride-error" class="error"></p>
+                <p id="new-ride-created" class="hint" style="font-weight:700"></p>
+              </div>
+              <button id="add-ride">Creer la reservation</button>
+            </div>
           </div>
         </section>
 
