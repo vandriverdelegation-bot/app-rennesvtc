@@ -324,6 +324,15 @@
   @media (max-width: 900px) { .rm-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rm-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .rm-summary { grid-template-columns: 1fr; } .modal-head, .modal-tabs, .modal-body { padding-left: 16px; padding-right: 16px; } }
 
+  /* Calendrier : liste du jour, chauffeur a droite de chaque course */
+  .cal-ride { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .cal-ride-main { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+  .cal-driver { flex: 0 0 auto; text-align: right; max-width: 40%; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 9%, var(--card-2)); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--card-border)); }
+  .cal-driver.none { background: color-mix(in srgb, var(--amber) 9%, var(--card-2)); border-color: color-mix(in srgb, var(--amber) 32%, var(--card-border)); }
+  .cal-driver small { display: block; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+  .cal-driver strong { font-size: 15px; }
+  @media (max-width: 560px) { .cal-ride { flex-direction: column; align-items: stretch; } .cal-driver { max-width: none; text-align: left; } }
+
   /* Courses en cours : barre de tri / filtres et ligne chauffeur */
   .filters-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; padding: 16px 18px; margin-bottom: 14px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); }
   .filters-bar .field { flex: 1 1 200px; min-width: 0; margin: 0; }
@@ -1642,10 +1651,25 @@ async function renderCalendar() {
 
   let query = supabase
     .from('rides')
-    .select('id, created_at, scheduled_at, pickup_address, dropoff_address, driver_id, status, client_name')
+    .select('id, created_at, scheduled_at, pickup_address, dropoff_address, driver_id, dispatched_to, extra_driver_ids, status, client_name')
     .or(`and(scheduled_at.gte.${monthStart.toISOString()},scheduled_at.lte.${monthEnd.toISOString()}),and(scheduled_at.is.null,created_at.gte.${monthStart.toISOString()},created_at.lte.${monthEnd.toISOString()})`);
   if (calendarDriverFilter) query = query.eq('driver_id', calendarDriverFilter);
   const { data: rides } = await query;
+
+  // Noms des chauffeurs (principal, dispatche ou supplementaires) pour la liste du jour.
+  const driverIds = [...new Set((rides ?? []).flatMap((r) => [r.driver_id, r.dispatched_to, ...(r.extra_driver_ids ?? [])]).filter(Boolean))];
+  const driverNames = {};
+  if (driverIds.length) {
+    const { data: people } = await supabase.from('profiles').select('id, full_name, email').in('id', driverIds);
+    (people ?? []).forEach((p) => { driverNames[p.id] = p.full_name || p.email || 'Chauffeur'; });
+  }
+  const driverCell = (r) => {
+    const extra = (r.extra_driver_ids ?? []).map((id) => driverNames[id] || 'Chauffeur');
+    const extraTxt = extra.length ? `<small>+ ${extra.map(escapeHtml).join(', ')}</small>` : '';
+    if (r.driver_id) return `<div class="cal-driver"><small>Chauffeur</small><strong>${escapeHtml(driverNames[r.driver_id] || 'Chauffeur')}</strong>${extraTxt}</div>`;
+    const txt = r.status === 'dispatched' ? (r.dispatched_to ? `Dispatchee a ${escapeHtml(driverNames[r.dispatched_to] || 'Chauffeur')}` : 'Dispatchee a tous') : 'Non attribue';
+    return `<div class="cal-driver none"><small>Chauffeur</small><strong>${txt}</strong></div>`;
+  };
 
   const countsByDay = {};
   (rides ?? []).forEach((r) => {
@@ -1678,7 +1702,7 @@ async function renderCalendar() {
       if (dayRides.length === 0) { detail.innerHTML = '<p>Aucune course ce jour.</p>'; return; }
       detail.innerHTML = `
         <h3>${day} ${calendarDate.toLocaleDateString('fr-FR', { month: 'long' })}</h3>
-        ${dayRides.sort((a, b) => new Date(a.scheduled_at ?? a.created_at) - new Date(b.scheduled_at ?? b.created_at)).map((r) => `<div class="card"><strong>${new Date(r.scheduled_at ?? r.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> ${statusBadge(r.status)} ${escapeHtml(r.client_name ?? '')}<br>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>`).join('')}
+        ${dayRides.sort((a, b) => new Date(a.scheduled_at ?? a.created_at) - new Date(b.scheduled_at ?? b.created_at)).map((r) => `<div class="card cal-ride"><div class="cal-ride-main"><strong>${new Date(r.scheduled_at ?? r.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> ${statusBadge(r.status)} ${escapeHtml(r.client_name ?? '')}<br>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>${driverCell(r)}</div>`).join('')}
       `;
     });
   });
