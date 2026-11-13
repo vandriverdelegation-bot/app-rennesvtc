@@ -154,130 +154,193 @@ function describeFilters(f) {
   ];
 }
 
-const DARK = 'FF0E0F10', GREEN = 'FF47C415', GREY = 'FFF3F5F4', LINE = 'FFD9DEDB';
+const DARK = 'FF0E0F10', GREEN = 'FF47C415', GREEN_SOFT = 'FFE8F7DD', GREY = 'FFF7F9F8', GREY2 = 'FFEEF1EF', LINE = 'FFDDE2DF', MUTED = 'FF6B7570', TEXT = 'FF1B1F1D';
 const EURO = '#,##0.00 "€"';
+const fill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+const FONT = (o = {}) => ({ name: 'Calibri', size: 10.5, color: { argb: TEXT }, ...o });
+// Couleur de chaque statut : texte fonce sur fond clair, comme une pastille.
+const STATUS_STYLE = {
+  'Terminée': ['FF1B7F3A', 'FFE3F5E8'], 'Acceptée': ['FF1D5FA8', 'FFE4EFFB'], 'Dispatchée': ['FF9A6A00', 'FFFFF3D6'],
+  'En attente': ['FF5B6560', 'FFECEFED'], 'Annulée': ['FFB3261E', 'FFFCE4E2'],
+};
 
 async function buildWorkbook(rows, f, driverName) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Rennes VTC';
   wb.created = new Date();
+  wb.title = 'Extraction des réservations';
   const info = describeFilters(f);
   if (f.driver) info[2][1] = driverName || 'Chauffeur choisi';
   const stats = summarize(rows);
+  rows.sort((a, b) => a.sortKey - b.sortKey);
+  const generated = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' }).format(new Date());
+  const euroText = (n) => `${new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} €`;
+  // Resume des filtres actifs, pour l'en-tete (ce qui n'est pas filtre n'apparait pas).
+  const active = info.filter(([, v]) => !/^(Tous|Toutes|Aucun|Toutes les dates)$/.test(v)).map(([k, v]) => `${k} : ${v}`);
 
-  // ---- Feuille 1 : le detail, une ligne par reservation ----
-  const ws = wb.addWorksheet('Réservations', { views: [{ state: 'frozen', ySplit: 1, xSplit: 3 }], properties: { tabColor: { argb: GREEN } } });
+  // ================= Feuille 1 : le detail, une ligne par reservation =================
+  // [titre, cle, largeur, format, alignement]
   const cols = [
-    ['N° dossier', 'ref', 12], ['Date', 'day', 12, 'dd/mm/yyyy'], ['Heure', 'time', 10],
-    ['Client', 'client', 26], ['Téléphone client', 'clientPhone', 17], ['Email client', 'clientEmail', 28],
-    ['Donneur d’ordre', 'orderer', 22], ['Contact donneur d’ordre', 'ordererContact', 28],
-    ['Chauffeur', 'driver', 24], ['Téléphone chauffeur', 'driverPhone', 17], ['Email chauffeur', 'driverEmail', 28], ['Chauffeurs supplémentaires', 'extras', 26],
-    ['Départ', 'pickup', 38], ['Arrêts', 'stops', 30], ['Destination', 'dropoff', 38], ['Aller-retour', 'roundTrip', 11],
-    ['Type de service', 'service', 18], ['Durée (h)', 'duration', 10, '0.0'], ['Gamme', 'category', 11],
-    ['Passagers', 'passengers', 11, '0'], ['Bagages', 'luggage', 10, '0'],
-    ['Statut', 'status', 14], ['Étape', 'step', 18], ['Paiement', 'payment', 13],
-    ['Prix (€)', 'price', 13, EURO], ['Majoration (€)', 'surcharge', 14, EURO],
-    ['Tags', 'tags', 18], ['Note chauffeur', 'driverNote', 32], ['Note client', 'clientNote', 32],
-    ['Saisie le', 'createdAt', 17, 'dd/mm/yyyy hh:mm'], ['Origine', 'origin', 15],
+    ['N° dossier', 'ref', 13, null, 'center'], ['Date', 'day', 13, 'dd/mm/yyyy', 'center'], ['Heure', 'time', 17, null, 'center'],
+    ['Client', 'client', 28, null, 'left'], ['Téléphone client', 'clientPhone', 18, null, 'left'],
+    ['Chauffeur', 'driver', 26, null, 'left'], ['Téléphone chauffeur', 'driverPhone', 18, null, 'left'],
+    ['Départ', 'pickup', 40, null, 'left'], ['Arrêts', 'stops', 30, null, 'left'], ['Destination', 'dropoff', 40, null, 'left'],
+    ['Gamme', 'category', 12, null, 'center'], ['Passagers', 'passengers', 11, '0', 'center'],
+    ['Statut', 'status', 14, null, 'center'], ['Paiement', 'payment', 14, null, 'center'], ['Prix', 'price', 14, EURO, 'right'],
+    ['Note chauffeur', 'driverNote', 36, null, 'left'],
   ];
-  ws.columns = cols.map(([header, key, width, numFmt]) => ({ header, key, width, style: numFmt ? { numFmt } : {} }));
-  rows.sort((a, b) => a.sortKey - b.sortKey).forEach((r) => ws.addRow(r));
+  const N = cols.length;
+  const HEAD = 5; // lignes 1 a 4 : bandeau ; ligne 5 : titres des colonnes
+  const ws = wb.addWorksheet('Réservations', {
+    views: [{ state: 'frozen', xSplit: 4, ySplit: HEAD, showGridLines: false }],
+    properties: { tabColor: { argb: GREEN }, defaultRowHeight: 20 },
+  });
+  ws.columns = cols.map(([, key, width]) => ({ key, width }));
 
-  const head = ws.getRow(1);
-  head.height = 32;
-  head.eachCell((cell) => {
-    cell.font = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } };
-    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+  // Bandeau : titre, filtres, chiffres, filet vert.
+  const band = (r, height, text, font) => {
+    const row = ws.getRow(r);
+    row.height = height;
+    for (let c = 1; c <= N; c++) row.getCell(c).fill = fill(DARK);
+    if (text) { const cell = row.getCell(1); cell.value = text; cell.font = font; cell.alignment = { vertical: 'middle', indent: 1 }; }
+  };
+  band(1, 40, 'Rennes VTC — Réservations', { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } });
+  band(2, 22, active.length ? active.join('   ·   ') : 'Toutes les réservations', { name: 'Calibri', size: 11, color: { argb: 'FFC9D1CC' } });
+  band(3, 22, `${stats.count} réservation${stats.count > 1 ? 's' : ''}${stats.cancelled ? ` dont ${stats.cancelled} annulée${stats.cancelled > 1 ? 's' : ''}` : ''}   ·   ${euroText(stats.total)} hors annulées   ·   généré le ${generated}`, { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF7BE04A' } });
+  const strip = ws.getRow(4); strip.height = 5; for (let c = 1; c <= N; c++) strip.getCell(c).fill = fill(GREEN);
+
+  // Titres des colonnes.
+  const head = ws.getRow(HEAD);
+  head.height = 34;
+  cols.forEach(([title, , , , align], i) => {
+    const cell = head.getCell(i + 1);
+    cell.value = title;
+    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = fill('FF1F2623');
+    cell.alignment = { vertical: 'middle', horizontal: align, wrapText: true, indent: align === 'left' ? 1 : 0 };
     cell.border = { bottom: { style: 'medium', color: { argb: GREEN } } };
   });
+
+  // Lignes : hauteur ajustee au texte, alternance de fond, statut en pastille de couleur.
+  const wrapKeys = new Set(['client', 'driver', 'pickup', 'stops', 'dropoff', 'driverNote']);
+  rows.forEach((r, idx) => {
+    const rowNum = HEAD + 1 + idx;
+    const row = ws.getRow(rowNum);
+    const cancelled = r.statusKey === 'cancelled';
+    let lines = 1;
+    cols.forEach(([, key, width, fmt, align], i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = r[key] === '' || r[key] === undefined ? null : r[key];
+      if (fmt) cell.numFmt = fmt;
+      cell.font = FONT(cancelled ? { color: { argb: 'FF8A938E' }, strike: key !== 'status' } : {});
+      cell.alignment = { vertical: 'middle', horizontal: align, wrapText: wrapKeys.has(key), indent: align === 'left' ? 1 : 0 };
+      cell.fill = fill(idx % 2 ? GREY : 'FFFFFFFF');
+      cell.border = { bottom: { style: 'thin', color: { argb: LINE } } };
+      if (wrapKeys.has(key) && typeof cell.value === 'string') lines = Math.max(lines, Math.ceil(cell.value.length / (width * 1.05)));
+    });
+    row.height = Math.max(22, lines * 14.5 + 8);
+    const st = STATUS_STYLE[r.status];
+    const statusCell = row.getCell(cols.findIndex((c) => c[1] === 'status') + 1);
+    if (st) { statusCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: st[0] } }; statusCell.fill = fill(st[1]); }
+    row.getCell(cols.findIndex((c) => c[1] === 'price') + 1).font = FONT({ bold: true, ...(cancelled ? { color: { argb: 'FF8A938E' }, strike: true } : {}) });
+    row.getCell(1).font = FONT({ color: { argb: MUTED }, ...(cancelled ? { strike: true } : {}) });
+  });
+  const lastData = Math.max(HEAD + rows.length, HEAD + 1);
+  ws.autoFilter = { from: { row: HEAD, column: 1 }, to: { row: lastData, column: N } };
+
+  // Total : SUBTOTAL suit les filtres appliques dans Excel (les lignes masquees ne comptent pas).
   const priceCol = cols.findIndex((c) => c[1] === 'price') + 1;
-  const last = rows.length + 1;
-  for (let i = 2; i <= last; i++) {
-    const row = ws.getRow(i);
-    row.alignment = { vertical: 'top', wrapText: true };
-    row.font = { name: 'Calibri', size: 10.5 };
-    if (i % 2 === 1) row.eachCell({ includeEmpty: true }, (c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
-    row.eachCell({ includeEmpty: true }, (c) => { c.border = { bottom: { style: 'hair', color: { argb: LINE } } }; });
-    if (row.getCell('status').value === 'Annulée') row.font = { name: 'Calibri', size: 10.5, color: { argb: 'FF8A938E' }, strike: true };
-  }
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(last, 1), column: cols.length } };
-  // Ligne de total : SUBTOTAL suit les filtres appliques dans Excel (les lignes masquees ne comptent pas).
-  const total = ws.getRow(last + 1);
   const L = ws.getColumn(priceCol).letter;
-  total.getCell(priceCol - 1).value = 'Total affiché';
-  total.getCell(priceCol).value = { formula: `SUBTOTAL(109,${L}2:${L}${Math.max(last, 2)})`, result: rows.reduce((t, r) => t + (r.price ?? 0), 0) };
-  total.getCell(priceCol).numFmt = EURO;
-  total.eachCell((c) => { c.font = { name: 'Calibri', bold: true, size: 11 }; c.border = { top: { style: 'medium', color: { argb: GREEN } } }; });
-  total.getCell(priceCol - 1).alignment = { horizontal: 'right' };
-  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9, margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
-  ws.headerFooter = { oddFooter: '&LRennes VTC - Extraction des réservations&RPage &P / &N' };
-  ws.pageSetup.printTitlesRow = '1:1';
+  const totalRow = ws.getRow(lastData + 1);
+  totalRow.height = 28;
+  for (let c = 1; c <= N; c++) { const cell = totalRow.getCell(c); cell.fill = fill(GREEN_SOFT); cell.border = { top: { style: 'medium', color: { argb: GREEN } } }; cell.font = FONT({ bold: true, size: 11 }); cell.alignment = { vertical: 'middle' }; }
+  const labelCell = totalRow.getCell(priceCol - 1);
+  labelCell.value = 'Total affiché';
+  labelCell.alignment = { vertical: 'middle', horizontal: 'right' };
+  const totalCell = totalRow.getCell(priceCol);
+  totalCell.value = { formula: `SUBTOTAL(109,${L}${HEAD + 1}:${L}${lastData})`, result: rows.reduce((t, r) => t + (r.price ?? 0), 0) };
+  totalCell.numFmt = EURO;
+  totalCell.alignment = { vertical: 'middle', horizontal: 'right' };
+  const note = ws.getRow(lastData + 3).getCell(1);
+  note.value = 'Le total suit les filtres Excel : filtrez une colonne (client, chauffeur, statut...) et il se recalcule. Les réservations annulées sont barrées ; elles comptent dans le total de cette feuille mais pas dans la synthèse.';
+  note.font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: MUTED } };
 
-  // ---- Feuille 2 : synthese ----
-  const sy = wb.addWorksheet('Synthèse', { views: [{ showGridLines: false }], properties: { tabColor: { argb: DARK } } });
-  sy.columns = [{ width: 32 }, { width: 18 }, { width: 18 }, { width: 4 }, { width: 30 }];
-  const generated = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' }).format(new Date());
-  sy.mergeCells('A1:E1');
-  sy.getCell('A1').value = 'Rennes VTC — Extraction des réservations';
-  sy.getCell('A1').font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
-  sy.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } };
-  sy.getCell('A1').alignment = { vertical: 'middle', indent: 1 };
-  sy.getRow(1).height = 44;
-  sy.mergeCells('A2:E2');
-  sy.getCell('A2').value = `Généré le ${generated}`;
-  sy.getCell('A2').font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF6B7570' } };
-  sy.getCell('A2').alignment = { indent: 1 };
+  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9, horizontalCentered: true, margins: { left: 0.35, right: 0.35, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: `${HEAD}:${HEAD}` };
+  ws.headerFooter = { oddFooter: '&L&9Rennes VTC — Extraction des réservations&R&9Page &P / &N' };
 
-  let r = 4;
-  const title = (text) => {
-    sy.mergeCells(`A${r}:E${r}`);
-    const c = sy.getCell(`A${r}`);
-    c.value = text; c.font = { name: 'Calibri', size: 13, bold: true, color: { argb: DARK } };
-    c.border = { bottom: { style: 'medium', color: { argb: GREEN } } };
+  // ================= Feuille 2 : synthese =================
+  const sy = wb.addWorksheet('Synthèse', { views: [{ showGridLines: false }], properties: { tabColor: { argb: DARK }, defaultRowHeight: 20 } });
+  sy.columns = [{ width: 34 }, { width: 18 }, { width: 20 }, { width: 18 }];
+  const bandSy = (r, height, text, font) => {
+    const row = sy.getRow(r); row.height = height;
+    for (let c = 1; c <= 4; c++) row.getCell(c).fill = fill(DARK);
+    if (text) { sy.mergeCells(r, 1, r, 4); const cell = row.getCell(1); cell.value = text; cell.font = font; cell.alignment = { vertical: 'middle', indent: 1 }; }
+  };
+  bandSy(1, 44, 'Rennes VTC — Synthèse', { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } });
+  bandSy(2, 22, `Généré le ${generated}`, { name: 'Calibri', size: 11, color: { argb: 'FFC9D1CC' } });
+  const stripSy = sy.getRow(3); stripSy.height = 5; for (let c = 1; c <= 4; c++) stripSy.getCell(c).fill = fill(GREEN);
+
+  // Chiffres cles : quatre tuiles (titre en petit, valeur en grand).
+  const tiles = [['RÉSERVATIONS', stats.count, '0'], ['DONT ANNULÉES', stats.cancelled, '0'], ['MONTANT TOTAL (HORS ANNULÉES)', stats.total, EURO], ['MONTANT MOYEN PAR COURSE', stats.average, EURO]];
+  sy.getRow(5).height = 22; sy.getRow(6).height = 36;
+  tiles.forEach(([label, value, fmt], i) => {
+    const a = sy.getCell(5, i + 1), b = sy.getCell(6, i + 1);
+    a.value = label; a.font = { name: 'Calibri', size: 8.5, bold: true, color: { argb: MUTED } }; a.fill = fill(GREY2); a.alignment = { vertical: 'bottom', horizontal: 'left', indent: 1, wrapText: true };
+    a.border = { top: { style: 'medium', color: { argb: GREEN } }, left: { style: 'medium', color: { argb: 'FFFFFFFF' } } };
+    b.value = value; b.numFmt = fmt; b.font = { name: 'Calibri', size: 20, bold: true, color: { argb: TEXT } }; b.fill = fill(GREY2); b.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    b.border = { left: { style: 'medium', color: { argb: 'FFFFFFFF' } } };
+  });
+
+  let r = 8;
+  const section = (text) => {
+    sy.mergeCells(r, 1, r, 4);
+    const c = sy.getCell(r, 1); c.value = text; c.font = { name: 'Calibri', size: 13, bold: true, color: { argb: TEXT } };
+    for (let k = 1; k <= 4; k++) sy.getCell(r, k).border = { bottom: { style: 'medium', color: { argb: GREEN } } };
+    sy.getRow(r).height = 26; r += 1;
+  };
+  const tableHead = (labels) => {
+    labels.forEach((t, i) => { const c = sy.getCell(r, i + 1); c.value = t; c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill('FF1F2623'); c.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'right', indent: i === 0 ? 1 : 0 }; });
+    sy.getRow(r).height = 24; r += 1;
+  };
+  let zebra = 0;
+  const dataRow = (values, fmts = []) => {
+    values.forEach((v, i) => {
+      const c = sy.getCell(r, i + 1); c.value = v; if (fmts[i]) c.numFmt = fmts[i];
+      c.font = FONT({ size: 11 }); c.fill = fill(zebra % 2 ? GREY : 'FFFFFFFF');
+      c.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'right', indent: i === 0 ? 1 : 0 };
+      c.border = { bottom: { style: 'thin', color: { argb: LINE } } };
+    });
+    sy.getRow(r).height = 22; zebra += 1; r += 1;
+  };
+  const table = (heading, labels, list, totalLabel) => {
+    section(heading); tableHead(labels); zebra = 0;
+    const withShare = labels.length === 4;
+    const sum = list.reduce((t, g) => t + (g.total ?? 0), 0);
+    list.forEach((g) => dataRow(withShare ? [g.name, g.count, g.total, sum ? g.total / sum : 0] : labels.length === 3 ? [g.name, g.count, g.total] : [g.name, g.count], [null, '0', EURO, '0%']));
+    if (totalLabel && list.length > 1) {
+      const vals = withShare ? [totalLabel, list.reduce((t, g) => t + g.count, 0), sum, 1] : [totalLabel, list.reduce((t, g) => t + g.count, 0), sum];
+      vals.forEach((v, i) => { const c = sy.getCell(r, i + 1); c.value = v; c.numFmt = [null, '0', EURO, '0%'][i]; c.font = FONT({ bold: true, size: 11 }); c.fill = fill(GREEN_SOFT); c.border = { top: { style: 'medium', color: { argb: GREEN } } }; c.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'right', indent: i === 0 ? 1 : 0 }; });
+      sy.getRow(r).height = 24; r += 1;
+    }
     r += 1;
   };
-  const line = (a, b, c, fmt) => {
-    sy.getCell(`A${r}`).value = a; sy.getCell(`B${r}`).value = b;
-    if (c !== undefined) sy.getCell(`C${r}`).value = c;
-    if (fmt) { sy.getCell(`B${r}`).numFmt = fmt; sy.getCell(`C${r}`).numFmt = fmt; }
-    ['A', 'B', 'C'].forEach((col) => { sy.getCell(`${col}${r}`).font = { name: 'Calibri', size: 11 }; sy.getCell(`${col}${r}`).border = { bottom: { style: 'hair', color: { argb: LINE } } }; });
-    sy.getCell(`B${r}`).alignment = { horizontal: 'left' }; sy.getCell(`C${r}`).alignment = { horizontal: 'right' };
-    r += 1;
-  };
-  const tableHead = (a, b, c) => {
-    [[`A${r}`, a], [`B${r}`, b], [`C${r}`, c]].forEach(([addr, v]) => { const cell = sy.getCell(addr); cell.value = v; cell.font = { name: 'Calibri', bold: true, size: 10.5, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } }; cell.alignment = { horizontal: addr[0] === 'A' ? 'left' : addr[0] === 'B' ? 'left' : 'right' }; });
-    r += 1;
-  };
+  table('Par chauffeur (hors annulées)', ['Chauffeur', 'Courses', 'Montant', 'Part du montant'], stats.byDriver, 'Total');
+  table('Par statut', ['Statut', 'Réservations'], stats.byStatus);
+  table('Par moyen de paiement (hors annulées)', ['Paiement', 'Courses', 'Montant'], stats.byPayment, 'Total');
+  table('Par gamme (hors annulées)', ['Gamme', 'Courses', 'Montant'], stats.byCategory, 'Total');
 
-  title('Filtres appliqués');
-  info.forEach(([k, v]) => { sy.getCell(`A${r}`).value = k; sy.getCell(`A${r}`).font = { name: 'Calibri', bold: true, size: 11 }; sy.mergeCells(`B${r}:E${r}`); sy.getCell(`B${r}`).value = v; sy.getCell(`B${r}`).font = { name: 'Calibri', size: 11 }; r += 1; });
-  r += 1;
-  title('Chiffres clés');
-  line('Réservations', stats.count);
-  line('dont annulées', stats.cancelled);
-  line('Montant total (hors annulées)', stats.total, undefined, EURO);
-  line('Montant moyen par course', stats.average, undefined, EURO);
-  r += 1;
-  title('Par chauffeur (hors annulées)');
-  tableHead('Chauffeur', 'Courses', 'Montant');
-  stats.byDriver.forEach((g) => line(g.name, g.count, g.total, undefined)) ;
-  stats.byDriver.forEach((_, i) => { sy.getCell(`C${r - stats.byDriver.length + i}`).numFmt = EURO; });
-  r += 1;
-  title('Par statut');
-  tableHead('Statut', 'Réservations', '');
-  stats.byStatus.forEach((g) => line(g.name, g.count));
-  r += 1;
-  title('Par moyen de paiement (hors annulées)');
-  tableHead('Paiement', 'Courses', 'Montant');
-  stats.byPayment.forEach((g) => line(g.name, g.count, g.total));
-  stats.byPayment.forEach((_, i) => { sy.getCell(`C${r - stats.byPayment.length + i}`).numFmt = EURO; });
-  r += 1;
-  title('Par gamme (hors annulées)');
-  tableHead('Gamme', 'Courses', 'Montant');
-  stats.byCategory.forEach((g) => line(g.name, g.count, g.total));
-  stats.byCategory.forEach((_, i) => { sy.getCell(`C${r - stats.byCategory.length + i}`).numFmt = EURO; });
-  sy.pageSetup = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+  // Filtres utilises pour cette extraction.
+  section('Filtres appliqués');
+  info.forEach(([k, v], i) => {
+    const a = sy.getCell(r, 1), b = sy.getCell(r, 2);
+    a.value = k; a.font = FONT({ bold: true, size: 11, color: { argb: MUTED } }); a.alignment = { indent: 1, vertical: 'middle' };
+    sy.mergeCells(r, 2, r, 4);
+    b.value = v; b.font = FONT({ size: 11 }); b.alignment = { vertical: 'middle', wrapText: true };
+    for (let k2 = 1; k2 <= 4; k2++) sy.getCell(r, k2).border = { bottom: { style: 'thin', color: { argb: LINE } } };
+    sy.getRow(r).height = Math.max(22, Math.ceil(String(v).length / 52) * 15 + 7); r += 1;
+  });
+  sy.pageSetup = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9, horizontalCentered: true };
+  sy.headerFooter = { oddFooter: '&L&9Rennes VTC — Synthèse&R&9Page &P / &N' };
   wb.views = [{ activeTab: 0 }];
   return wb;
 }
