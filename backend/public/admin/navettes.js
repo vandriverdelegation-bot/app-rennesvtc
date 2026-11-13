@@ -133,13 +133,13 @@
       const list = signups.filter((x) => x.departure_id === d.id);
       const n = list.reduce((a, x) => a + x.seats, 0);
       const who = [drv(d.driver_id) && driverLabel(drv(d.driver_id)), veh(d.vehicle_id) && veh(d.vehicle_id).display_name].filter(Boolean).join(' - ');
-      return `<section><h1>${esc(ev.name)}</h1><h2>Depart de ${hhmm(d.departs_at).replace(':', 'h')}${dayOf(d.departs_at) !== ev.event_date ? ' (apres minuit)' : ''} - ${esc(frDate(dayOf(d.departs_at)))}</h2>
+      return `<section><h1>${esc(ev.name)}</h1><h2>Départ de ${hhmm(d.departs_at).replace(':', 'h')}${dayOf(d.departs_at) !== ev.event_date ? ' (après minuit)' : ''} - ${esc(frDate(dayOf(d.departs_at)))}</h2>
         <p>${esc([ev.pickup_place, ev.destination].filter(Boolean).join(' > '))}${who ? ' | ' + esc(who) : ''}</p>
         <p><b>${n}</b> passager(s) inscrit(s) pour ${d.seats} place(s)</p>
         <table>${list.map((x) => `<tr><td class="c">${x.boarded ? '&#9745;' : '&#9744;'}</td><td>${esc(x.last_name.toUpperCase())} ${esc(x.first_name)}</td><td class="r">${x.seats > 1 ? x.seats + ' places' : '1 place'}</td></tr>`).join('') || '<tr><td colspan="3">Aucun inscrit</td></tr>'}
         ${Array.from({ length: 3 }, () => '<tr class="blank"><td class="c">&#9744;</td><td></td><td></td></tr>').join('')}</table></section>`;
     }).join('');
-    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste de montee - ${esc(ev.name)}</title><style>
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste de montée - ${esc(ev.name)}</title><style>
       body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:24px} section{page-break-after:always} section:last-child{page-break-after:auto}
       h1{font-size:22px;margin:0 0 4px} h2{font-size:30px;margin:0 0 6px} p{margin:2px 0 10px;font-size:14px}
       table{width:100%;border-collapse:collapse;margin-top:10px} td{border-bottom:1px solid #999;padding:9px 6px;font-size:18px} td.c{width:38px;font-size:26px;text-align:center} td.r{width:110px;text-align:right;font-size:15px} tr.blank td{height:34px}

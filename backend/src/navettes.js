@@ -209,7 +209,7 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     for (const d of event.departures) {
       const next = new Date(new Date(d.departs_at).getTime() + minutes * 60000).toISOString();
       await supabaseAdmin.from('navette_departures').update({ departs_at: next }).eq('id', d.id);
-      if (d.taken > 0) await notifySignups(d.id, `Votre navette a change : le depart est maintenant a ${hmParis(next)}.`);
+      if (d.taken > 0) await notifySignups(d.id, `Votre navette a changé : le départ est maintenant à ${hmParis(next)}.`);
     }
     res.json(await loadEvent(event.id));
   });
@@ -247,7 +247,7 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     const { error } = await supabaseAdmin.from('navette_departures').update(patch).eq('id', dep.id);
     if (error) return res.status(400).json({ error: error.message });
     if (patch.departs_at && new Date(patch.departs_at).getTime() !== new Date(dep.departs_at).getTime() && dep.taken > 0) {
-      await notifySignups(dep.id, `Votre navette a change : le depart est maintenant a ${hmParis(patch.departs_at)}.`);
+      await notifySignups(dep.id, `Votre navette a changé : le départ est maintenant à ${hmParis(patch.departs_at)}.`);
     }
     res.json(await loadEvent(dep.event_id));
   });
@@ -330,7 +330,7 @@ function registerNavettes(app, requireAdmin, baseUrl) {
       if (!data.ok) return adminFail(res, data);
       if (!data.unchanged) {
         const { data: dep } = await supabaseAdmin.from('navette_departures').select('departs_at').eq('id', req.body.departure_id).single();
-        await notifySignups([req.params.id], `Votre navette a change : nouveau depart a ${hmParis(dep.departs_at)}.`);
+        await notifySignups([req.params.id], `Votre navette a changé : nouveau départ à ${hmParis(dep.departs_at)}.`);
       }
     }
     if (typeof req.body.boarded === 'boolean') {
@@ -368,7 +368,7 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     if (error) { console.error('navette_merge :', error.message); return res.status(500).json({ error: 'Regroupement impossible pour le moment.' }); }
     if (!data.ok) return adminFail(res, data);
     const { data: dep } = await supabaseAdmin.from('navette_departures').select('departs_at').eq('id', req.body.to).single();
-    if (moved?.length) await notifySignups(moved.map((m) => m.id), `Votre navette a change : nouveau depart a ${hmParis(dep.departs_at)}.`);
+    if (moved?.length) await notifySignups(moved.map((m) => m.id), `Votre navette a changé : nouveau départ à ${hmParis(dep.departs_at)}.`);
     res.json({ ok: true, moved: data.moved, passengers: data.passengers });
   });
 
@@ -429,13 +429,13 @@ function allow(key, max, windowMs) {
 setInterval(() => { const n = Date.now(); for (const [k, v] of windows) if (v.reset < n) windows.delete(k); }, 60000).unref();
 
 const MESSAGES = {
-  departure_not_found: 'Ce depart n\'existe plus. Actualisez la page.',
-  event_closed: 'Les inscriptions sont fermees pour cet evenement.',
-  departure_closed: 'Les inscriptions pour ce depart sont fermees. Choisissez un autre depart.',
+  departure_not_found: 'Ce départ n\'existe plus. Actualisez la page.',
+  event_closed: 'Les inscriptions sont fermées pour cet événement.',
+  departure_closed: 'Les inscriptions pour ce départ sont fermées. Choisissez un autre départ.',
   bad_seats: 'Nombre de places invalide.',
   device_limit: 'Vous avez atteint le nombre maximum d\'inscriptions depuis cet appareil.',
-  full: 'Ce depart vient d\'etre complete (ou n\'a plus assez de places). Choisissez un autre depart.',
-  signup_not_found: 'Inscription introuvable : elle a peut-etre deja ete annulee.',
+  full: 'Ce départ vient d\'être complété (ou n\'a plus assez de places). Choisissez un autre départ.',
+  signup_not_found: 'Inscription introuvable : elle a peut-être déjà été annulée.',
 };
 const STATUS_HTTP = { full: 409, departure_closed: 403, event_closed: 403, signup_not_found: 404, departure_not_found: 404 };
 
@@ -471,16 +471,16 @@ function registerGuest(app) {
     if (!ev.pin || ev.status === 'termine') return { ok: true };
     if (!given) return { ok: false, status: 401, body: { needPin: true } };
     if (samePin(given, ev.pin)) return { ok: true };
-    if (!allow('pin:' + req.ip + ':' + ev.id, 10, 600000)) return { ok: false, status: 429, body: { error: 'Trop d\'essais. Reessayez dans quelques minutes.' } };
+    if (!allow('pin:' + req.ip + ':' + ev.id, 10, 600000)) return { ok: false, status: 429, body: { error: 'Trop d\'essais. Réessayez dans quelques minutes.' } };
     return { ok: false, status: 401, body: { needPin: true, wrong: true } };
   }
   const header = (ev, b) => ({ name: ev.name, logo_url: ev.logo_url, rvtc_logo: b.logo_url ?? null });
 
   app.get('/public/navette/:code', async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    if (!allow('read:' + req.ip, 600, 60000)) return res.status(429).json({ error: 'Trop de requetes, patientez un instant.' });
+    if (!allow('read:' + req.ip, 600, 60000)) return res.status(429).json({ error: 'Trop de requêtes, patientez un instant.' });
     const ev = await eventByCode(req.params.code);
-    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou événement introuvable.' });
     const b = await brand();
     const gate = pinGate(req, ev, req.get('x-navette-pin'));
     if (!gate.ok) return res.status(gate.status).json({ ...gate.body, event: header(ev, b) });
@@ -520,15 +520,15 @@ function registerGuest(app) {
     res.set('Cache-Control', 'no-store');
     if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
     const ev = await eventByCode(req.params.code);
-    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou événement introuvable.' });
     const gate = pinGate(req, ev, req.body?.pin);
     if (!gate.ok) return res.status(gate.status).json(gate.body);
     const first = cleanName(req.body?.first_name), last = cleanName(req.body?.last_name);
-    if (!first || !last) return res.status(400).json({ error: 'Indiquez votre prenom et votre nom (lettres uniquement).' });
+    if (!first || !last) return res.status(400).json({ error: 'Indiquez votre prénom et votre nom (lettres uniquement).' });
     const seats = parseInt(req.body?.seats, 10);
     if (!(seats >= 1)) return res.status(400).json({ error: 'Indiquez le nombre de places.' });
     const device = /^[A-Za-z0-9-]{8,64}$/.test(String(req.body?.device ?? '')) ? req.body.device : null;
-    if (!/^[0-9a-f-]{36}$/i.test(String(req.body?.departure_id ?? ''))) return res.status(400).json({ error: 'Depart invalide.' });
+    if (!/^[0-9a-f-]{36}$/i.test(String(req.body?.departure_id ?? ''))) return res.status(400).json({ error: 'Départ invalide.' });
     const { data, error } = await supabaseAdmin.rpc('navette_signup', { p_event: ev.id, p_departure: req.body.departure_id, p_first: first, p_last: last, p_seats: seats, p_phone: null, p_device: device });
     if (error) { console.error('navette_signup :', error.message); return res.status(500).json({ error: 'Inscription impossible pour le moment.' }); }
     if (!data.ok) return fail(res, data);
@@ -540,7 +540,7 @@ function registerGuest(app) {
     res.set('Cache-Control', 'no-store');
     if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
     const ev = await eventByCode(req.params.code);
-    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou événement introuvable.' });
     const gate = pinGate(req, ev, req.body?.pin);
     if (!gate.ok) return res.status(gate.status).json(gate.body);
     const seats = parseInt(req.body?.seats, 10);
@@ -556,7 +556,7 @@ function registerGuest(app) {
     res.set('Cache-Control', 'no-store');
     if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
     const ev = await eventByCode(req.params.code);
-    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou événement introuvable.' });
     const { data: deps } = await supabaseAdmin.from('navette_departures').select('id').eq('event_id', ev.id);
     await supabaseAdmin.from('navette_signups').update({ notice: null }).eq('token', req.params.token).in('departure_id', (deps ?? []).map((d) => d.id));
     res.json({ ok: true });
@@ -566,7 +566,7 @@ function registerGuest(app) {
     res.set('Cache-Control', 'no-store');
     if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
     const ev = await eventByCode(req.params.code);
-    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou événement introuvable.' });
     const { data: deps } = await supabaseAdmin.from('navette_departures').select('id').eq('event_id', ev.id);
     const { data } = await supabaseAdmin.from('navette_signups').delete().eq('token', req.params.token).in('departure_id', (deps ?? []).map((d) => d.id)).select('id');
     if (!data?.length) return res.status(404).json({ error: MESSAGES.signup_not_found });
