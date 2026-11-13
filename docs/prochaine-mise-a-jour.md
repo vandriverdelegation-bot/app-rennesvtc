@@ -99,3 +99,8 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - Heure d'arrivée = Google Directions au départ de la course, puis recalculée depuis le GPS du chauffeur quand sa position est fraîche (appli au premier plan). Sinon (Waze au premier plan…) on se fie à l'heure estimée.
 - Ignoré : mise à disposition, trajets de 6 min ou moins. Données rangées dans `rides.step_times` (`eta_at`, `pos`, `near`) : pas de migration.
 - Page de suivi : nouvelle étape « Arrivée proche » + « Arrivée prévue vers HHhMM ».
+
+## À builder (13/11) : arrêts et étapes des mises à disposition (appli chauffeur)
+- Mise à disposition : boutons adaptés « Démarrer la mission » → « Fin de la mission » → « Terminer la mission ».
+- Course avec arrêts (`stop_addresses`), passager à bord : carte « Arrêts » (`apps/driver/screens/StopsCard.js`) — pour chaque arrêt : « Je suis arrivé à l'arrêt », « Je repars de l'arrêt » ou « Passer cet arrêt ». Ne bloque jamais la fin de course. Le GPS guide vers le prochain arrêt (par adresse), puis la destination.
+- Serveur déjà en ligne : route `POST /rides/:id/stop`, heures rangées dans `step_times.stops` ; la page de suivi du donneur d'ordre affiche « arrivé 14h20, reparti 14h35 » ou « passé » à côté de chaque arrêt.

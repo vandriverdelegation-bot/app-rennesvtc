@@ -9,6 +9,7 @@ import RideMiniMap from './RideMiniMap';
 import RideCalendar, { dayKey } from './RideCalendar';
 import RideChat from './RideChat';
 import WelcomeTablet from './WelcomeTablet';
+import StopsCard, { nextStopIndex } from './StopsCard';
 import { ActionRow, Btn, Card, LinkRow, Pill, RideHeader, RouteBlock, SectionLabel, TabPill } from '../ui';
 import { Icon } from '../icons';
 
@@ -83,7 +84,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   async function refresh() {
     const { data: mine } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, vehicle_category, leg')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, vehicle_category, leg, stop_addresses, step_times')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -358,15 +359,23 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   }
 
   // Apres "Je suis sur place" on guide vers la destination ; avant, vers le depart.
+  // En course avec des arrets : on guide d'abord vers le prochain arret (par son adresse), puis vers la destination.
   function navTarget() {
+    const stop = activeRide.ride_step === 'on_board' ? nextStopIndex(activeRide) : -1;
+    if (stop >= 0) return { query: activeRide.stop_addresses[stop], label: `l'arret ${stop + 1}` };
     return ['on_site', 'on_board'].includes(activeRide.ride_step)
       ? { lat: activeRide.dropoff_lat, lng: activeRide.dropoff_lng, label: 'la destination' }
       : { lat: activeRide.pickup_lat, lng: activeRide.pickup_lng, label: 'le depart' };
   }
 
   function handleNavigate(app) {
-    const { lat, lng } = navTarget();
-    const urls = {
+    const { lat, lng, query } = navTarget();
+    const q = encodeURIComponent(query ?? '');
+    const urls = query ? {
+      waze: `https://waze.com/ul?q=${q}&navigate=yes`,
+      google: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+      other: `geo:0,0?q=${q}`,
+    } : {
       waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
       google: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
       other: `geo:${lat},${lng}?q=${lat},${lng}`, // Android propose alors tous les GPS installes
@@ -503,6 +512,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
 
   if (activeRide) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
+    const mad = activeRide.service_type === 'mise_a_disposition';
     const upcomingCount = myRides.filter((r) => r.id !== activeRide.id).length + sharedRides.length;
     const topTabs = (
       <View style={[styles.tabRow, { paddingHorizontal: 16, paddingTop: 8 }]}>
@@ -591,6 +601,8 @@ function DriverHomeInner({ session, setWelcomeFor }) {
           )}
         </Card>
 
+        {(activeRide.stop_addresses ?? []).length && activeRide.ride_step === 'on_board' ? <StopsCard ride={activeRide} session={session} onChanged={refresh} /> : null}
+
         {clientInfo ? (
           <Card>
             <SectionLabel>Client</SectionLabel>
@@ -635,10 +647,10 @@ function DriverHomeInner({ session, setWelcomeFor }) {
         {activeRide.ride_step === 'on_site' && clientInfo?.phone ? <Btn title="Prevenir le client par SMS" variant="secondary" onPress={handleArrivalSms} /> : null}
         {(activeRide.ride_step ?? 'not_started') === 'not_started' && <Btn title="Je suis en route" onPress={() => handleAdvanceStep('en_route')} />}
         {activeRide.ride_step === 'en_route' && <Btn title="Je suis arrive" onPress={() => handleAdvanceStep('on_site')} />}
-        {activeRide.ride_step === 'on_site' && <Btn title="Passager a bord" onPress={() => handleAdvanceStep('on_board')} />}
+        {activeRide.ride_step === 'on_site' && <Btn title={mad ? 'Demarrer la mission' : 'Passager a bord'} onPress={() => handleAdvanceStep('on_board')} />}
         {activeRide.ride_step === 'on_site' && <Btn title="Passager absent (no show)" variant="secondary" onPress={handleNoShow} />}
-        {activeRide.ride_step === 'on_board' && <Btn title="Passager depose" onPress={() => handleAdvanceStep('dropped')} />}
-        {activeRide.ride_step === 'dropped' && <Btn title="Terminer la course" onPress={handleComplete} />}
+        {activeRide.ride_step === 'on_board' && <Btn title={mad ? 'Fin de la mission' : 'Passager depose'} onPress={() => handleAdvanceStep('dropped')} />}
+        {activeRide.ride_step === 'dropped' && <Btn title={mad ? 'Terminer la mission' : 'Terminer la course'} onPress={handleComplete} />}
       </View>
       </View>
     );

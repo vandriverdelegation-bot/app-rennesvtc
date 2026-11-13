@@ -166,7 +166,14 @@ function render(r) {
   const when = r.scheduled_at ? fmtTime(r.scheduled_at) : 'Des que possible';
   const driver = r.driver;
   const live = !!r.driverPosition;
-  const stopsHtml = (r.stop_addresses || []).map((s) => `<div class="stop"><i class="mid"></i><div><small>Arret</small>${esc(s)}</div></div>`).join('');
+  const stopState = (i) => {
+    const s = (times.stops && times.stops[i]) || {};
+    if (s.skipped) return ' - passe';
+    if (s.left) return ' - arrive ' + hhmm(s.arrived) + ', reparti ' + hhmm(s.left);
+    if (s.arrived) return ' - le chauffeur est sur place depuis ' + hhmm(s.arrived);
+    return '';
+  };
+  const stopsHtml = (r.stop_addresses || []).map((s, i) => `<div class="stop"><i class="mid"></i><div><small>Arret${esc(stopState(i))}</small>${esc(s)}</div></div>`).join('');
 
   document.getElementById('root').innerHTML = `
     <header>

@@ -1018,6 +1018,33 @@ async function isDriverOrAdmin(userId, ride) {
   return profile?.role === 'admin' || !!profile?.is_owner;
 }
 
+// Arrets d'une course (mise a disposition, trajet a etapes) : le chauffeur marque chaque arret « arrive », « reparti » ou « passe ».
+// Range dans rides.step_times.stops[index] = { arrived, left, skipped } (dates ISO).
+// shortcut: lecture puis ecriture (pas atomique) : suffisant tant qu'un seul chauffeur pilote la course ; a passer en RPC sinon.
+app.post('/rides/:id/stop', requireSupabaseUser, async (req, res) => {
+  const index = Number(req.body.index), action = req.body.action;
+  if (!['arrived', 'left', 'skipped'].includes(action)) return res.status(400).json({ error: 'Action inconnue' });
+  const { data: ride } = await supabaseAdmin.from('rides').select('driver_id, status, ride_step, stop_addresses, step_times').eq('id', req.params.id).single();
+  if (!ride || !(await isDriverOrAdmin(req.user.id, ride))) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
+  if (!Number.isInteger(index) || index < 0 || index >= (ride.stop_addresses ?? []).length) return res.status(400).json({ error: 'Arret inconnu' });
+  if (ride.status !== 'accepted' || !['on_site', 'on_board'].includes(ride.ride_step)) return res.status(409).json({ error: 'La course n\'est pas en cours' });
+  const st = ride.step_times ?? {};
+  const s = { ...(st.stops?.[index] ?? {}) };
+  const now = new Date().toISOString();
+  if (action === 'skipped') {
+    if (s.arrived) return res.status(409).json({ error: 'Vous etes deja arrive a cet arret' });
+    s.skipped = s.skipped ?? now;
+  } else {
+    if (s.skipped) return res.status(409).json({ error: 'Cet arret a ete passe' });
+    s.arrived = s.arrived ?? now;
+    if (action === 'left') s.left = s.left ?? now;
+  }
+  const stops = { ...(st.stops ?? {}), [index]: s };
+  const { error } = await supabaseAdmin.from('rides').update({ step_times: { ...st, stops } }).eq('id', req.params.id).eq('status', 'accepted');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ stops });
+});
+
 // Previent le client a chaque etape de la course (en route, arrive, terminee).
 const STEP_PUSH = {
   en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],
