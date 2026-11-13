@@ -93,3 +93,9 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 1. Chauffeur : saisir une mise à disposition ; calendrier + heure ; onglet « à venir » avec 2-3 réservations futures ; changer la gamme d'une course.
 2. Client : « Continuer avec Google » (retour dans l'app, demande du téléphone) ; inscription par e-mail (plus d'« email rate limit »).
 3. Notifications chauffeur : activer ; lire le message d'erreur s'il persiste ; réservation test → alerte propriétaire.
+
+## Déjà en ligne (13/11) : « Arrivée proche » pour le donneur d'ordre
+- Serveur seul, aucun build d'appli nécessaire. Toutes les minutes, `checkNearArrival()` (backend/src/index.js) regarde les courses « passager à bord » : quand l'arrivée est estimée à 5 min ou moins, le donneur d'ordre reçoit un e-mail « Arrivée proche » et le client une notification, une seule fois.
+- Heure d'arrivée = Google Directions au départ de la course, puis recalculée depuis le GPS du chauffeur quand sa position est fraîche (appli au premier plan). Sinon (Waze au premier plan…) on se fie à l'heure estimée.
+- Ignoré : mise à disposition, trajets de 6 min ou moins. Données rangées dans `rides.step_times` (`eta_at`, `pos`, `near`) : pas de migration.
+- Page de suivi : nouvelle étape « Arrivée proche » + « Arrivée prévue vers HHhMM ».

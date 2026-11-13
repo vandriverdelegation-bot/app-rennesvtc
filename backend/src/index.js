@@ -67,6 +67,7 @@ function trackingTexts(step, mad) {
       ? ['La mission commence', 'Le chauffeur est sur place : la mise a disposition debute.']
       : ['Le chauffeur est arrive', 'Il est sur place, au point de prise en charge.'],
     on_board: ['Passager a bord', 'Le passager est a bord : la course est en cours. Suivez-la en direct avec le lien ci-dessous.'],
+    near: ['Arrivée proche', 'Le passager est à environ 5 minutes de la destination : vous pouvez prévenir l\'accueil.'],
     dropped: ['Passager depose', 'Le passager a ete depose a destination.'],
     no_show: ['Passager absent', 'Le chauffeur a attendu sur place : la course est cloturee pour non-presentation du passager.'],
     completed: [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'],
@@ -1022,6 +1023,7 @@ const STEP_PUSH = {
   en_route: ['Votre chauffeur est en route', 'Il se dirige vers votre point de depart.'],
   on_site: ['Votre chauffeur est arrive', 'Il vous attend au point de prise en charge.'],
   on_board: ['Bon trajet', 'Vous etes a bord : votre course est en cours.'],
+  near: ['Arrivée proche', 'Vous arrivez dans environ 5 minutes.'],
   dropped: ['Vous etes arrive', 'Vous avez ete depose a destination.'],
   no_show: ['Course cloturee', 'Votre chauffeur vous a attendu sur place sans vous rencontrer : la course est cloturee pour non-presentation.'],
   completed: ['Course terminee', 'Merci de votre confiance, a bientot avec Rennes VTC.'],
@@ -1330,6 +1332,63 @@ async function remindUpcomingRides() {
     await sendPush((drivers ?? []).map((d) => d.push_token), `Rappel : course dans ${minutes} min (${heure})`, `${ride.client_name ? ride.client_name + ' - ' : ''}${ride.pickup_address} -> ${ride.dropoff_address}`, { channelId: 'courses_v2' });
   }
 }
+// Arrivee proche : quand le passager (a bord) est a 5 minutes ou moins de la destination, le donneur d'ordre (e-mail) et le client
+// (notification) sont prevenus une seule fois. Les temps sont ranges dans rides.step_times : eta_at (arrivee estimee), pos (derniere position vue), near (alerte envoyee).
+// Position fraiche = le chauffeur a bouge depuis moins de 3 min ; sinon (appli en arriere-plan, Waze au premier plan...) on se fie a l'heure d'arrivee estimee.
+const NEAR_MINUTES = 5;
+const kmBetween = (a, b) => {
+  const rad = (d) => (d * Math.PI) / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+let nearRunning = false;
+async function checkNearArrival() {
+  if (nearRunning) return;
+  nearRunning = true;
+  try {
+    const { data: rides } = await supabaseAdmin.from('rides')
+      .select('id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_lat, driver_lng, step_times, client_id')
+      .eq('status', 'accepted').eq('ride_step', 'on_board').neq('service_type', 'mise_a_disposition');
+    for (const r of rides ?? []) {
+      const st = r.step_times ?? {};
+      if (st.near || r.dropoff_lat == null || r.pickup_lat == null) continue;
+      const now = Date.now();
+      const next = { ...st };
+      const drop = { lat: r.dropoff_lat, lng: r.dropoff_lng };
+      const cur = r.driver_lat != null ? { lat: r.driver_lat, lng: r.driver_lng } : null;
+      if (!next.eta_at) {
+        const total = await getRouteServer({ lat: r.pickup_lat, lng: r.pickup_lng }, drop).catch(() => null);
+        if (!total) continue;
+        if (total.durationMin <= NEAR_MINUTES + 1) { await supabaseAdmin.from('rides').update({ step_times: { ...st, near: 'ignore' } }).eq('id', r.id); continue; } // trajet trop court pour une alerte utile
+        next.eta_at = new Date((st.on_board ? new Date(st.on_board).getTime() : now) + total.durationMin * 60000).toISOString();
+      }
+      let fresh = false;
+      if (cur) {
+        const moved = !st.pos || kmBetween(st.pos, cur) > 0.03;
+        if (moved) next.pos = { lat: cur.lat, lng: cur.lng, at: new Date(now).toISOString() };
+        fresh = moved || now - new Date(st.pos.at).getTime() < 3 * 60000;
+      }
+      let remaining = (new Date(next.eta_at).getTime() - now) / 60000;
+      if (fresh && kmBetween(cur, drop) <= 12) {
+        const left = await getRouteServer(cur, drop).catch(() => null);
+        if (left) { remaining = left.durationMin; next.eta_at = new Date(now + left.durationMin * 60000).toISOString(); }
+      }
+      if (remaining <= NEAR_MINUTES) {
+        next.near = new Date(now).toISOString();
+        const { data: claimed } = await supabaseAdmin.from('rides').update({ step_times: next }).eq('id', r.id).eq('ride_step', 'on_board').select('id');
+        if (!claimed?.length) continue;
+        await sendTrackingEmail(r.id, 'near').catch((e) => console.error('arrivee proche (e-mail) :', e.message));
+        if (r.client_id) {
+          const { data: client } = await supabaseAdmin.from('profiles').select('push_token').eq('id', r.client_id).single();
+          await sendPush([client?.push_token], STEP_PUSH.near[0], STEP_PUSH.near[1]).catch(() => {});
+        }
+      } else {
+        await supabaseAdmin.from('rides').update({ step_times: next }).eq('id', r.id).eq('ride_step', 'on_board');
+      }
+    }
+  } finally { nearRunning = false; }
+}
+setInterval(() => checkNearArrival().catch((e) => console.error('arrivee-proche', e)), 60000);
 setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
 setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
 

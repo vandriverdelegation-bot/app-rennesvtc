@@ -112,9 +112,14 @@ async function sendChat(e) {
   loadChat();
 }
 
+// near : heure de l'alerte « arrivee proche » (ou 'ignore' pour un trajet trop court : l'etape n'est alors pas affichee).
+const nearOf = (r) => (r.step_times && r.step_times.near && r.step_times.near !== 'ignore' ? r.step_times.near : null);
+const hhmm = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+
 function progress(r) {
-  if (r.status === 'completed') return 6;
-  if (r.ride_step === 'dropped') return 5;
+  if (r.status === 'completed') return 7;
+  if (r.ride_step === 'dropped') return 6;
+  if (r.ride_step === 'on_board' && nearOf(r)) return 5;
   if (r.ride_step === 'on_board') return 4;
   if (r.ride_step === 'on_site') return 3;
   if (r.ride_step === 'en_route') return 2;
@@ -127,7 +132,11 @@ function headline(r, mad) {
   if (r.ride_step === 'no_show') return ['Passager absent', 'Le chauffeur a attendu sur place : la course est cloturee pour non-presentation.'];
   if (r.status === 'completed') return [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'];
   if (r.ride_step === 'dropped') return ['Passager depose', 'Il a ete depose a destination.'];
-  if (r.ride_step === 'on_board') return ['Passager a bord', 'La course est en cours. Suivez sa position en direct ci-dessous.'];
+  if (r.ride_step === 'on_board' && nearOf(r)) return ['Arrivee proche', 'Le passager arrive dans quelques minutes : l\'accueil est prevenu.'];
+  if (r.ride_step === 'on_board') {
+    const eta = r.step_times && r.step_times.eta_at;
+    return ['Passager a bord', eta && new Date(eta) > new Date() ? 'Arrivee prevue vers ' + hhmm(eta) + '. Suivez sa position en direct ci-dessous.' : 'La course est en cours. Suivez sa position en direct ci-dessous.'];
+  }
   if (r.ride_step === 'on_site') return mad ? ['Mission en cours', 'Le chauffeur est a votre disposition.'] : ['Le chauffeur est arrive', 'Il vous attend au point de prise en charge.'];
   if (r.ride_step === 'en_route') return ['Le chauffeur est en route', 'Suivez sa position en direct ci-dessous.'];
   if (r.status === 'accepted') return ['Chauffeur attribue', 'Il se mettra en route a l\'heure prevue. Cette page se met a jour toute seule.'];
@@ -150,6 +159,7 @@ function render(r) {
     ['Chauffeur en route', times.en_route],
     [mad ? 'Mission en cours' : 'Chauffeur sur place', times.on_site],
     ['Passager a bord', times.on_board],
+    ...(times.near !== 'ignore' ? [['Arrivee proche', nearOf(r)]] : []),
     ['Passager depose', times.dropped],
     [mad ? 'Mission terminee' : 'Course terminee', times.completed],
   ];

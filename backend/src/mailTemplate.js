@@ -18,6 +18,7 @@ const KINDS = {
   en_route: { title: ['Votre chauffeur', 'est en route'], intro: 'Votre chauffeur se dirige vers le point de prise en charge.' },
   on_site: { title: ['Votre chauffeur', 'est arrivé'], intro: 'Votre chauffeur est sur place et vous attend.' },
   on_board: { title: ['Passager', 'à bord'], intro: 'Le passager est à bord : la course est en cours.' },
+  near: { title: ['Arrivée', 'proche'], intro: 'Le passager est à environ 5 minutes de la destination : vous pouvez prévenir l’accueil.' },
   dropped: { title: ['Passager', 'déposé'], intro: 'Le passager a été déposé à destination.' },
   driver_accepted: { title: ['Course', 'confirmée'], intro: 'Vous avez accepté cette course. Retrouvez ci-dessous ses détails et votre bon de commande.' },
   no_show: { title: ['Passager', 'absent'], intro: 'Le chauffeur a attendu sur place : la course est clôturée pour non-présentation du passager.' },
