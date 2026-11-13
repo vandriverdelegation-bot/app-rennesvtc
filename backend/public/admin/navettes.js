@@ -49,6 +49,11 @@
       .nv-guest .nm { flex: 1; font-size: 17px; } .nv-guest .n { font-weight: 700; color: var(--accent); }
       .nv-guest.on { border-color: var(--accent); } .nv-guest.on .nm { color: var(--text-muted); text-decoration: line-through; }
       .nv-none { color: var(--text-muted); margin: 8px 0; }
+      .nv-alert { border: 1px solid var(--amber); background: rgba(245,184,61,.1); color: var(--amber); border-radius: 12px; padding: 10px 14px; margin: 0 0 10px; max-width: 640px; font-weight: 600; }
+      .nv-g { display: flex; align-items: stretch; gap: 6px; } .nv-g .nv-guest { flex: 1; } .nv-dots { margin: 0 0 6px; min-width: 44px; font-size: 20px; padding: 0 10px; }
+      .nv-edit { display: none; gap: 8px; margin: -2px 0 8px; flex-wrap: wrap; } .nv-edit.open { display: flex; } .nv-edit select { flex: 1; min-width: 150px; margin: 0; } .nv-edit button { margin: 0; }
+      details.nv-more { margin-top: 10px; border-top: 1px dashed var(--card-border); padding-top: 8px; } details.nv-more > summary { cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 6px 0; }
+      .nv-tool { margin: 10px 0; } .nv-tool .price-row { margin-top: 6px; }
       .nv-foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; } .nv-foot button { margin: 0; }
       details.nv-sec { border: 1px solid var(--card-border); background: var(--card); border-radius: 16px; padding: 0; margin-bottom: 12px; max-width: 900px; }
       details.nv-sec > summary { cursor: pointer; padding: 14px 16px; font-weight: 700; font-size: 16px; list-style: none; display: flex; align-items: center; justify-content: space-between; }
@@ -100,11 +105,46 @@
   async function refreshLive(force) {
     if (view !== 'live' || !current || (liveBusy && !force)) return;
     if (!force && (document.hidden || !root() || root().offsetParent === null)) return; // onglet masque : pas de requete inutile
+    if (!force && editingNow()) return; // saisie ou menu ouvert : on ne remplace pas l'ecran
     liveBusy = true;
     try {
       const d = await api(`/admin/navettes/events/${current.id}/live`);
       if (view === 'live' && d.event.id === current.id) { liveData = d; current = d.event; drawLive(); }
     } catch (e) { /* nouvel essai au prochain tour */ } finally { liveBusy = false; }
+  }
+
+  const editingNow = () => {
+    const r = root();
+    if (!r) return false;
+    if (r.querySelector('details.nv-more[open], .nv-edit.open')) return true;
+    const a = document.activeElement;
+    return !!(a && r.contains(a) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(a.tagName) && a.type !== 'checkbox');
+  };
+
+  // Liste imprimable (une page par depart) avec une case a cocher a la montee.
+  function printLists(depIds) {
+    const { event: ev, signups } = liveData;
+    const deps = ev.departures.filter((d) => depIds.includes(d.id));
+    const w = window.open('', '_blank');
+    if (!w) return alert('Autorisez les fenetres surgissantes pour imprimer la liste.');
+    const veh = (id) => lookups?.vehicles.find((v) => v.id === id);
+    const drv = (id) => lookups?.drivers.find((d) => d.id === id);
+    const pages = deps.map((d) => {
+      const list = signups.filter((x) => x.departure_id === d.id);
+      const n = list.reduce((a, x) => a + x.seats, 0);
+      const who = [drv(d.driver_id) && driverLabel(drv(d.driver_id)), veh(d.vehicle_id) && veh(d.vehicle_id).display_name].filter(Boolean).join(' - ');
+      return `<section><h1>${esc(ev.name)}</h1><h2>Depart de ${hhmm(d.departs_at).replace(':', 'h')}${dayOf(d.departs_at) !== ev.event_date ? ' (apres minuit)' : ''} - ${esc(frDate(dayOf(d.departs_at)))}</h2>
+        <p>${esc([ev.pickup_place, ev.destination].filter(Boolean).join(' > '))}${who ? ' | ' + esc(who) : ''}</p>
+        <p><b>${n}</b> passager(s) inscrit(s) pour ${d.seats} place(s)</p>
+        <table>${list.map((x) => `<tr><td class="c">${x.boarded ? '&#9745;' : '&#9744;'}</td><td>${esc(x.last_name.toUpperCase())} ${esc(x.first_name)}</td><td class="r">${x.seats > 1 ? x.seats + ' places' : '1 place'}</td></tr>`).join('') || '<tr><td colspan="3">Aucun inscrit</td></tr>'}
+        ${Array.from({ length: 3 }, () => '<tr class="blank"><td class="c">&#9744;</td><td></td><td></td></tr>').join('')}</table></section>`;
+    }).join('');
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste de montee - ${esc(ev.name)}</title><style>
+      body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:24px} section{page-break-after:always} section:last-child{page-break-after:auto}
+      h1{font-size:22px;margin:0 0 4px} h2{font-size:30px;margin:0 0 6px} p{margin:2px 0 10px;font-size:14px}
+      table{width:100%;border-collapse:collapse;margin-top:10px} td{border-bottom:1px solid #999;padding:9px 6px;font-size:18px} td.c{width:38px;font-size:26px;text-align:center} td.r{width:110px;text-align:right;font-size:15px} tr.blank td{height:34px}
+      </style></head><body>${pages}<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
+    w.document.close();
   }
 
   function drawLive() {
@@ -116,6 +156,7 @@
     const seatsTotal = ev.departures.reduce((a, d) => a + d.seats, 0);
     const veh = (id) => lookups?.vehicles.find((v) => v.id === id);
     const drv = (id) => lookups?.drivers.find((d) => d.id === id);
+    const others = (d) => ev.departures.filter((o) => o.id !== d.id);
     const evChip = ev.status === 'ouvert' ? '<span class="nv-chip ok">Inscriptions ouvertes</span>' : `<span class="nv-chip off">${ev.status === 'ferme' ? 'Inscriptions fermees' : 'Evenement termine'}</span>`;
     root().innerHTML = `
       <p class="nv-nav"><a id="lv-back">&larr; Tous les evenements</a></p>
@@ -126,8 +167,10 @@
         <div class="nv-stat"><b>${boarded}</b><span>montes</span></div>
         <div class="nv-stat"><b>${seatsTotal - pax}</b><span>places libres</span></div>
       </div>
+      ${(liveData.alerts ?? []).map((a) => `<div class="nv-alert">&#9888; Depart de ${esc(a.time.replace(':', 'h'))} : ${a.taken} / ${a.seats} inscrit(s), moins de 25 % a moins d'une heure du depart. Pensez a le regrouper avec un autre depart.</div>`).join('')}
       <div class="nv-actions">
         <button class="secondary" id="lv-settings">Reglages</button>
+        <button class="secondary" id="lv-print-all">Imprimer toutes les listes</button>
         <button class="secondary" id="lv-copy">Copier le lien invite</button>
         ${ev.status === 'ouvert' ? '<button class="secondary" id="lv-close" style="color:var(--error)">Fermer toutes les inscriptions</button>' : (ev.status === 'ferme' ? '<button class="secondary" id="lv-reopen">Rouvrir les inscriptions</button>' : '')}
       </div>
@@ -142,11 +185,19 @@
           <div class="nv-head"><div class="nv-time">${hhmm(d.departs_at).replace(':', 'h')}${dayOf(d.departs_at) !== ev.event_date ? '<small>apres minuit</small>' : ''}</div>
             <div class="nv-counts"><b>${n} / ${d.seats}</b> places<br>montes <b>${b}</b> / ${n} ${closed ? '<br><span class="nv-chip off">ferme</span>' : (d.taken >= d.seats ? '<br><span class="nv-chip full">complet</span>' : '')}</div></div>
           ${who ? `<p class="nv-who">${esc(who)}</p>` : ''}
-          ${list.length ? list.map((s) => `<label class="nv-guest ${s.boarded ? 'on' : ''}"><input type="checkbox" data-sid="${s.id}" ${s.boarded ? 'checked' : ''} /><span class="nm">${esc(s.first_name)} ${esc(s.last_name)}</span>${s.seats > 1 ? `<span class="n">×${s.seats}</span>` : ''}</label>`).join('') : '<p class="nv-none">Personne d\'inscrit.</p>'}
+          ${list.length ? list.map((s) => `<div class="nv-g"><label class="nv-guest ${s.boarded ? 'on' : ''}"><input type="checkbox" data-sid="${s.id}" ${s.boarded ? 'checked' : ''} /><span class="nm">${esc(s.first_name)} ${esc(s.last_name)}</span>${s.seats > 1 ? `<span class="n">×${s.seats}</span>` : ''}</label><button class="secondary nv-dots" data-more="${s.id}" aria-label="Actions">&#8943;</button></div>
+            <div class="nv-edit" id="ed-${s.id}"><select class="ed-dest">${others(d).map((o) => `<option value="${o.id}">${hhmm(o.departs_at).replace(':', 'h')} (${o.seats - o.taken} libre${o.seats - o.taken > 1 ? 's' : ''})</option>`).join('') || '<option value="">Aucun autre depart</option>'}</select><button class="secondary" data-move="${s.id}">Deplacer</button><button class="secondary" data-del="${s.id}" style="color:var(--error)">Retirer</button></div>`).join('') : '<p class="nv-none">Personne d\'inscrit.</p>'}
           <div class="nv-foot">
             ${list.length ? `<button class="secondary" data-all="${d.id}" data-val="${b < n ? 'true' : 'false'}">${b < n ? 'Tout cocher' : 'Tout decocher'}</button>` : ''}
             <button class="secondary" data-toggle="${d.id}" data-next="${closed ? 'ouvert' : 'ferme'}">${closed ? 'Rouvrir ce depart' : 'Fermer ce depart'}</button>
-          </div></section>`;
+            <button class="secondary" data-print="${d.id}">Imprimer la liste</button>
+          </div>
+          <details class="nv-more"><summary>Plus d'actions sur ce depart</summary>
+            <div class="nv-tool"><b>Ajouter un passager</b><div class="price-row"><input class="ad-first" placeholder="Prenom" /><input class="ad-last" placeholder="Nom" /><select class="ad-seats">${[1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}">${n} place${n > 1 ? 's' : ''}</option>`).join('')}</select><button data-add="${d.id}">Ajouter</button></div></div>
+            <div class="nv-tool"><b>Regrouper vers un autre depart</b><p class="hint" style="margin:2px 0 6px">Tous les passagers de ce depart partent sur le depart choisi (refuse s'il manque de la place) et en sont prevenus sur leur page.</p><div class="price-row"><select class="mg-dest">${others(d).map((o) => `<option value="${o.id}">${hhmm(o.departs_at).replace(':', 'h')} (${o.seats - o.taken} libre${o.seats - o.taken > 1 ? 's' : ''})</option>`).join('') || '<option value="">Aucun autre depart</option>'}</select><button class="secondary" data-merge="${d.id}" ${list.length ? '' : 'disabled'}>Regrouper</button></div></div>
+            <div class="nv-tool"><b>Modifier l'heure ou les places</b><p class="hint" style="margin:2px 0 6px">Les inscrits sont prevenus d'un changement d'heure. Les places ne peuvent pas descendre sous le nombre d'inscrits (${n}).</p><div class="price-row"><input type="time" class="ed-time" value="${hhmm(d.departs_at)}" /><label style="font-weight:400"><input type="checkbox" class="ed-next" ${dayOf(d.departs_at) !== ev.event_date ? 'checked' : ''} /> apres minuit</label><input type="number" class="ed-seats" min="1" max="500" value="${d.seats}" style="width:90px" /><button class="secondary" data-edit="${d.id}">Enregistrer</button></div></div>
+            ${list.length === 0 ? `<div class="nv-tool"><button class="secondary" data-rmdep="${d.id}" style="color:var(--error)">Supprimer ce depart (vide)</button></div>` : ''}
+          </details></section>`;
       }).join('')}`;
     document.getElementById('lv-back').onclick = (e) => { e.preventDefault(); showList(); };
     document.getElementById('lv-settings').onclick = () => showSettings(ev.id);
@@ -160,6 +211,17 @@
     root().querySelectorAll('[data-toggle]').forEach((b) => (b.onclick = act(() => api('/admin/navettes/departures/' + b.dataset.toggle, 'PATCH', { status: b.dataset.next }))));
     const close = document.getElementById('lv-close');
     if (close) close.onclick = act(async () => { if (confirm('Fermer les inscriptions de tout l\'evenement ? Les invites ne pourront plus s\'inscrire.')) await api('/admin/navettes/events/' + ev.id, 'PATCH', { status: 'ferme' }); });
+    document.getElementById('lv-print-all').onclick = () => printLists(ev.departures.map((d) => d.id));
+    root().querySelectorAll('[data-print]').forEach((b) => (b.onclick = () => printLists([b.dataset.print])));
+    // actions par invite : menu « ... » puis deplacer / retirer
+    root().querySelectorAll('[data-more]').forEach((b) => (b.onclick = () => document.getElementById('ed-' + b.dataset.more).classList.toggle('open')));
+    root().querySelectorAll('[data-move]').forEach((b) => (b.onclick = act(() => { const dest = b.parentElement.querySelector('.ed-dest').value; if (!dest) throw new Error('Aucun autre depart disponible.'); return api('/admin/navettes/signups/' + b.dataset.move, 'PATCH', { departure_id: dest }); })));
+    root().querySelectorAll('[data-del]').forEach((b) => (b.onclick = act(async () => { if (confirm('Retirer cet invite de la navette ?')) await api('/admin/navettes/signups/' + b.dataset.del, 'DELETE'); })));
+    // outils par depart
+    root().querySelectorAll('[data-add]').forEach((b) => (b.onclick = act(() => { const t = b.closest('.nv-tool'); return api('/admin/navettes/departures/' + b.dataset.add + '/passengers', 'POST', { first_name: t.querySelector('.ad-first').value, last_name: t.querySelector('.ad-last').value, seats: t.querySelector('.ad-seats').value }); })));
+    root().querySelectorAll('[data-merge]').forEach((b) => (b.onclick = act(async () => { const dest = b.parentElement.querySelector('.mg-dest').value; if (!dest) throw new Error('Aucun autre depart disponible.'); if (confirm('Deplacer tous les passagers de ce depart vers le depart choisi ?')) { const r = await api('/admin/navettes/departures/' + b.dataset.merge + '/merge', 'POST', { to: dest }); alert(r.passengers + ' passager(s) deplace(s). Ils en sont prevenus sur leur page. Vous pouvez maintenant supprimer ce depart vide.'); } })));
+    root().querySelectorAll('[data-edit]').forEach((b) => (b.onclick = act(() => { const t = b.closest('.nv-tool'); return api('/admin/navettes/departures/' + b.dataset.edit, 'PATCH', { time: t.querySelector('.ed-time').value, next_day: t.querySelector('.ed-next').checked, seats: t.querySelector('.ed-seats').value }); })));
+    root().querySelectorAll('[data-rmdep]').forEach((b) => (b.onclick = act(async () => { if (confirm('Supprimer ce depart ?')) await api('/admin/navettes/departures/' + b.dataset.rmdep, 'DELETE'); })));
     const reopen = document.getElementById('lv-reopen');
     if (reopen) reopen.onclick = act(() => api('/admin/navettes/events/' + ev.id, 'PATCH', { status: 'ouvert' }));
   }
@@ -413,7 +475,7 @@
       box.id = 'nav-shortcut';
       box.className = 'card';
       box.style.cssText = 'margin:0 0 18px;max-width:640px';
-      box.innerHTML = `<h3 style="margin:0 0 8px">Navettes de soiree</h3>${live.map((e) => `<div class="price-row" style="align-items:center;margin:6px 0"><div style="flex:1;min-width:200px"><strong>${esc(e.name)}</strong><br><span class="hint">${esc(frDate(e.event_date))} · ${e.seats_taken} / ${e.seats_total} places prises</span></div><button data-nv-live="${e.id}">Ouvrir le suivi</button></div>`).join('')}`;
+      box.innerHTML = `<h3 style="margin:0 0 8px">Navettes de soiree</h3>${live.map((e) => `<div class="price-row" style="align-items:center;margin:6px 0"><div style="flex:1;min-width:200px"><strong>${esc(e.name)}</strong><br><span class="hint">${esc(frDate(e.event_date))} · ${e.seats_taken} / ${e.seats_total} places prises</span>${e.alerts_count ? `<br><span style="color:var(--amber);font-weight:700">&#9888; ${e.alerts_count} depart(s) peu rempli(s) a moins d'une heure</span>` : ''}</div><button data-nv-live="${e.id}">Ouvrir le suivi</button></div>`).join('')}`;
       host.insertBefore(box, host.children[1] ?? null);
       box.querySelectorAll('[data-nv-live]').forEach((b) => (b.onclick = () => { document.querySelector('[data-page=navettes]').click(); showLive(b.dataset.nvLive); }));
     } catch (e) { /* le raccourci est facultatif */ }

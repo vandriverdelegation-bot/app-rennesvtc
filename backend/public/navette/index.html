@@ -229,6 +229,9 @@
       <div class="infos">${ev.pickup_place ? `<div class="info"><span class="ico">${I.pin}</span><div><small>Rendez-vous</small><span class="v">${esc(ev.pickup_place)}</span></div></div>` : ''}${ev.destination ? `<div class="info"><span class="ico">${I.flag}</span><div><small>Destination</small><span class="v">${esc(ev.destination)}</span></div></div>` : ''}</div>
       ${ev.welcome_message ? `<div class="welcome">${esc(ev.welcome_message)}</div>` : ''}`;
     if (ev.status !== 'ouvert') html += '<div class="banner warn">Les inscriptions sont fermées pour cet événement.</div>';
+    if (me && me.notice) {
+      html += `<div class="banner warn" style="align-items:flex-start"><span class="ico" style="background:var(--amber);color:#1a1200">!</span><div class="txt">${esc(me.notice)}<div class="row"><button class="ghost" id="b-ack">J'ai compris</button></div></div></div>`;
+    }
     if (me && myDep) {
       html += `<div class="banner ok"><span class="ico">${I.check}</span><div class="txt">Vous êtes inscrit(e), <strong>${esc(me.first_name)}</strong> : navette de <strong>${esc(hh(myDep.time))}</strong>${myDep.next_day ? ' (après minuit)' : ''} · ${me.seats} place${me.seats > 1 ? 's' : ''}.
         ${changing ? '<br>Choisissez ci-dessous votre nouveau départ.' : ''}
@@ -257,6 +260,7 @@
     document.querySelectorAll('[data-dep]').forEach((b) => (b.onclick = () => openSheet(b.dataset.dep)));
     const bc = $('b-change'); if (bc) bc.onclick = () => { changing = !changing; draw(); };
     const bx = $('b-cancel'); if (bx) bx.onclick = cancelMine;
+    const ack = $('b-ack'); if (ack) ack.onclick = async () => { ack.disabled = true; await api('/signup/' + encodeURIComponent(data.me.token) + '/ack', { method: 'POST', body: '{}' }); await load(); };
   }
 
   function openSheet(depId) {

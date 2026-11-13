@@ -35,6 +35,20 @@ function departureMinutes(start, end, every) {
   return list;
 }
 
+const hmParis = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+// Message affiche a l'invite sur sa page (jusqu'a ce qu'il l'ait lu).
+async function notifySignups(filter, text) {
+  let q = supabaseAdmin.from('navette_signups').update({ notice: text });
+  q = Array.isArray(filter) ? q.in('id', filter) : q.eq('departure_id', filter);
+  await q;
+}
+// Departs a moins de 25 % de remplissage a moins d'une heure du depart (et encore ouverts).
+function lowFill(departures, taken, now = Date.now()) {
+  return departures.filter((d) => {
+    const mins = (new Date(d.departs_at).getTime() - now) / 60000;
+    return d.status !== 'ferme' && mins > 0 && mins <= 60 && (taken[d.id] ?? 0) < d.seats * 0.25;
+  }).map((d) => ({ departure_id: d.id, time: hmParis(d.departs_at), taken: taken[d.id] ?? 0, seats: d.seats }));
+}
 const newCode = () => crypto.randomBytes(9).toString('base64url'); // 12 caracteres, non devinable
 const isUuid = (v) => /^[0-9a-f-]{36}$/i.test(String(v ?? ''));
 const clean = (v, max = 300) => { const s = String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max); return s || null; };
@@ -86,14 +100,14 @@ function registerNavettes(app, requireAdmin, baseUrl) {
   app.get('/admin/navettes/events', requireAdmin, async (req, res) => {
     const { data: events } = await supabaseAdmin.from('navette_events').select('*').order('event_date', { ascending: false });
     const ids = (events ?? []).map((e) => e.id);
-    const { data: deps } = ids.length ? await supabaseAdmin.from('navette_departures').select('id, event_id, seats').in('event_id', ids) : { data: [] };
+    const { data: deps } = ids.length ? await supabaseAdmin.from('navette_departures').select('id, event_id, seats, departs_at, status').in('event_id', ids) : { data: [] };
     const depIds = (deps ?? []).map((d) => d.id);
     const { data: signups } = depIds.length ? await supabaseAdmin.from('navette_signups').select('departure_id, seats').in('departure_id', depIds) : { data: [] };
     const takenByDep = {};
     (signups ?? []).forEach((s) => { takenByDep[s.departure_id] = (takenByDep[s.departure_id] ?? 0) + s.seats; });
     res.json((events ?? []).map((e) => {
       const mine = (deps ?? []).filter((d) => d.event_id === e.id);
-      return { ...e, public_url: publicUrl(e.code), departures_count: mine.length, seats_total: mine.reduce((a, d) => a + d.seats, 0), seats_taken: mine.reduce((a, d) => a + (takenByDep[d.id] ?? 0), 0) };
+      return { ...e, public_url: publicUrl(e.code), departures_count: mine.length, seats_total: mine.reduce((a, d) => a + d.seats, 0), seats_taken: mine.reduce((a, d) => a + (takenByDep[d.id] ?? 0), 0), alerts_count: e.status === 'ouvert' ? lowFill(mine, takenByDep).length : 0 };
     }));
   });
 
@@ -193,7 +207,9 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     const event = await loadEvent(req.params.id);
     if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
     for (const d of event.departures) {
-      await supabaseAdmin.from('navette_departures').update({ departs_at: new Date(new Date(d.departs_at).getTime() + minutes * 60000).toISOString() }).eq('id', d.id);
+      const next = new Date(new Date(d.departs_at).getTime() + minutes * 60000).toISOString();
+      await supabaseAdmin.from('navette_departures').update({ departs_at: next }).eq('id', d.id);
+      if (d.taken > 0) await notifySignups(d.id, `Votre navette a change : le depart est maintenant a ${hmParis(next)}.`);
     }
     res.json(await loadEvent(event.id));
   });
@@ -230,6 +246,9 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     }
     const { error } = await supabaseAdmin.from('navette_departures').update(patch).eq('id', dep.id);
     if (error) return res.status(400).json({ error: error.message });
+    if (patch.departs_at && new Date(patch.departs_at).getTime() !== new Date(dep.departs_at).getTime() && dep.taken > 0) {
+      await notifySignups(dep.id, `Votre navette a change : le depart est maintenant a ${hmParis(patch.departs_at)}.`);
+    }
     res.json(await loadEvent(dep.event_id));
   });
 
@@ -289,16 +308,68 @@ function registerNavettes(app, requireAdmin, baseUrl) {
     if (!event) return res.status(404).json({ error: 'Evenement introuvable' });
     const ids = event.departures.map((d) => d.id);
     const { data: signups } = ids.length ? await supabaseAdmin.from('navette_signups').select('id, departure_id, first_name, last_name, seats, boarded, created_at').in('departure_id', ids).order('created_at', { ascending: true }) : { data: [] };
-    res.json({ event, signups: signups ?? [] });
+    const taken = {};
+    (signups ?? []).forEach((x) => { taken[x.departure_id] = (taken[x.departure_id] ?? 0) + x.seats; });
+    res.json({ event, signups: signups ?? [], alerts: event.status === 'ouvert' ? lowFill(event.departures, taken) : [] });
   });
 
-  // Coche / decoche un invite a la montee.
+  const ADMIN_ERRORS = {
+    full: (r) => `Plus assez de places sur ce depart (${r.remaining ?? 0} restante(s)).`,
+    no_room: (r) => `Impossible de regrouper : ${r.needed} passager(s) a deplacer, mais seulement ${r.remaining} place(s) libre(s) sur l'autre depart.`,
+    departure_not_found: () => 'Depart introuvable.', signup_not_found: () => 'Inscription introuvable.', same_departure: () => 'Choisissez un autre depart.', bad_seats: () => 'Nombre de places invalide.',
+  };
+  const adminFail = (res, r) => res.status(r.error === 'signup_not_found' || r.error === 'departure_not_found' ? 404 : 409).json({ error: (ADMIN_ERRORS[r.error] ?? (() => 'Operation impossible.'))(r), code: r.error });
+
+  // Modifie un invite : case « monte » et/ou deplacement vers un autre depart (l'invite en est prevenu sur sa page).
   app.patch('/admin/navettes/signups/:id', requireAdmin, async (req, res) => {
-    if (!isUuid(req.params.id) || typeof req.body.boarded !== 'boolean') return res.status(400).json({ error: 'Demande invalide.' });
-    const { data, error } = await supabaseAdmin.from('navette_signups').update({ boarded: req.body.boarded }).eq('id', req.params.id).select('id, boarded');
-    if (error) return res.status(400).json({ error: error.message });
+    const moving = req.body.departure_id !== undefined;
+    if (!isUuid(req.params.id) || (typeof req.body.boarded !== 'boolean' && !moving) || (moving && !isUuid(req.body.departure_id))) return res.status(400).json({ error: 'Demande invalide.' });
+    if (moving) {
+      const { data, error } = await supabaseAdmin.rpc('navette_admin_move', { p_signup: req.params.id, p_departure: req.body.departure_id });
+      if (error) { console.error('navette_admin_move :', error.message); return res.status(500).json({ error: 'Deplacement impossible pour le moment.' }); }
+      if (!data.ok) return adminFail(res, data);
+      if (!data.unchanged) {
+        const { data: dep } = await supabaseAdmin.from('navette_departures').select('departs_at').eq('id', req.body.departure_id).single();
+        await notifySignups([req.params.id], `Votre navette a change : nouveau depart a ${hmParis(dep.departs_at)}.`);
+      }
+    }
+    if (typeof req.body.boarded === 'boolean') {
+      const { error } = await supabaseAdmin.from('navette_signups').update({ boarded: req.body.boarded }).eq('id', req.params.id);
+      if (error) return res.status(400).json({ error: error.message });
+    }
+    const { data } = await supabaseAdmin.from('navette_signups').select('id, boarded, departure_id').eq('id', req.params.id).single();
+    if (!data) return res.status(404).json({ error: 'Inscription introuvable' });
+    res.json(data);
+  });
+
+  app.delete('/admin/navettes/signups/:id', requireAdmin, async (req, res) => {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Demande invalide.' });
+    const { data } = await supabaseAdmin.from('navette_signups').delete().eq('id', req.params.id).select('id');
     if (!data?.length) return res.status(404).json({ error: 'Inscription introuvable' });
-    res.json(data[0]);
+    res.json({ ok: true });
+  });
+
+  // Ajoute un passager a la main sur un depart.
+  app.post('/admin/navettes/departures/:id/passengers', requireAdmin, async (req, res) => {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Demande invalide.' });
+    const first = cleanName(req.body.first_name), last = cleanName(req.body.last_name), seats = parseInt(req.body.seats, 10) || 1;
+    if (!first || !last) return res.status(400).json({ error: 'Indiquez un prenom et un nom (lettres uniquement).' });
+    const { data, error } = await supabaseAdmin.rpc('navette_admin_add', { p_departure: req.params.id, p_first: first, p_last: last, p_seats: seats });
+    if (error) { console.error('navette_admin_add :', error.message); return res.status(500).json({ error: 'Ajout impossible pour le moment.' }); }
+    if (!data.ok) return adminFail(res, data);
+    res.status(201).json({ id: data.id, remaining: data.remaining });
+  });
+
+  // Regroupe : tous les passagers d'un depart partent sur un autre depart (refuse si la place manque) ; ils en sont prevenus.
+  app.post('/admin/navettes/departures/:id/merge', requireAdmin, async (req, res) => {
+    if (!isUuid(req.params.id) || !isUuid(req.body.to)) return res.status(400).json({ error: 'Demande invalide.' });
+    const { data: moved } = await supabaseAdmin.from('navette_signups').select('id').eq('departure_id', req.params.id);
+    const { data, error } = await supabaseAdmin.rpc('navette_merge', { p_from: req.params.id, p_to: req.body.to });
+    if (error) { console.error('navette_merge :', error.message); return res.status(500).json({ error: 'Regroupement impossible pour le moment.' }); }
+    if (!data.ok) return adminFail(res, data);
+    const { data: dep } = await supabaseAdmin.from('navette_departures').select('departs_at').eq('id', req.body.to).single();
+    if (moved?.length) await notifySignups(moved.map((m) => m.id), `Votre navette a change : nouveau depart a ${hmParis(dep.departs_at)}.`);
+    res.json({ ok: true, moved: data.moved, passengers: data.passengers });
   });
 
   // Coche / decoche tous les invites d'un depart.
@@ -419,7 +490,7 @@ function registerGuest(app) {
 
     const { data: deps } = await supabaseAdmin.from('navette_departures').select('id, departs_at, seats, status').eq('event_id', ev.id).order('departs_at', { ascending: true });
     const ids = (deps ?? []).map((d) => d.id);
-    const { data: signups } = ids.length ? await supabaseAdmin.from('navette_signups').select('departure_id, first_name, last_name, seats, token').in('departure_id', ids).order('created_at', { ascending: true }) : { data: [] };
+    const { data: signups } = ids.length ? await supabaseAdmin.from('navette_signups').select('departure_id, first_name, last_name, seats, token, notice').in('departure_id', ids).order('created_at', { ascending: true }) : { data: [] };
     const myToken = String(req.get('x-navette-token') ?? '');
     const now = Date.now();
     const evDay = ev.event_date;
@@ -438,7 +509,7 @@ function registerGuest(app) {
       };
     });
     const me = myToken ? (signups ?? []).find((x) => x.token === myToken) : null;
-    res.json({ ...base, departures, me: me ? { token: me.token, departure_id: me.departure_id, first_name: me.first_name, last_name: me.last_name, seats: me.seats } : null });
+    res.json({ ...base, departures, me: me ? { token: me.token, departure_id: me.departure_id, first_name: me.first_name, last_name: me.last_name, seats: me.seats, notice: me.notice ?? null } : null });
   });
 
   function fail(res, result) {
@@ -480,6 +551,17 @@ function registerGuest(app) {
     res.json({ token: data.token, remaining: data.remaining });
   });
 
+  // L'invite a lu le message de changement : il disparait de sa page.
+  app.post('/public/navette/:code/signup/:token/ack', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
+    const ev = await eventByCode(req.params.code);
+    if (!ev) return res.status(404).json({ error: 'Lien invalide ou evenement introuvable.' });
+    const { data: deps } = await supabaseAdmin.from('navette_departures').select('id').eq('event_id', ev.id);
+    await supabaseAdmin.from('navette_signups').update({ notice: null }).eq('token', req.params.token).in('departure_id', (deps ?? []).map((d) => d.id));
+    res.json({ ok: true });
+  });
+
   app.delete('/public/navette/:code/signup/:token', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (!allow('write:' + req.ip, 40, 300000)) return res.status(429).json({ error: 'Trop de tentatives, patientez quelques minutes.' });
@@ -492,4 +574,17 @@ function registerGuest(app) {
   });
 }
 
-module.exports = { registerNavettes, parisToUtc, departureMinutes, toMinutes };
+// Suppression automatique des inscriptions 30 jours apres le jour de l'evenement (verifiee au demarrage puis toutes les 6 h).
+async function purgeOldSignups() {
+  const cutoff = new Date(Date.now() - 30 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+  const { data: events } = await supabaseAdmin.from('navette_events').select('id').lt('event_date', cutoff);
+  if (!events?.length) return 0;
+  const { data: deps } = await supabaseAdmin.from('navette_departures').select('id').in('event_id', events.map((e) => e.id));
+  if (!deps?.length) return 0;
+  const { data: gone } = await supabaseAdmin.from('navette_signups').delete().in('departure_id', deps.map((d) => d.id)).select('id');
+  return gone?.length ?? 0;
+}
+setTimeout(() => purgeOldSignups().then((n) => n && console.log('navettes : ' + n + ' inscription(s) de plus de 30 jours supprimee(s)')).catch((e) => console.error('purge navettes :', e.message)), 60000).unref();
+setInterval(() => purgeOldSignups().catch((e) => console.error('purge navettes :', e.message)), 6 * 3600000).unref();
+
+module.exports = { purgeOldSignups, registerNavettes, parisToUtc, departureMinutes, toMinutes };
