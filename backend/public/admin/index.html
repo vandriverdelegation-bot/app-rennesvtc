@@ -113,8 +113,8 @@
   /* Onglets de la gestion des reservations */
   .subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; padding: 6px; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; }
   .subtab {
-    flex: 1 1 190px; display: flex; align-items: center; justify-content: center; gap: 10px;
-    margin: 0; padding: 14px 18px; font-size: 16px; font-weight: 700; color: var(--text-muted);
+    flex: 1 1 150px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 0; padding: 14px 10px; font-size: 15px; font-weight: 700; color: var(--text-muted);
     background: transparent; border: 1px solid transparent; border-radius: 12px;
   }
   .subtab:hover:not(:disabled) { color: var(--text); background: var(--card-2); filter: none; }
@@ -327,11 +327,25 @@
   /* Calendrier : liste du jour, chauffeur a droite de chaque course */
   .cal-ride { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .cal-ride-main { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+  .cal-ride[data-view-ride] { cursor: pointer; transition: border-color .15s, background-color .15s; }
+  .cal-ride[data-view-ride]:hover, .cal-ride[data-view-ride]:focus-visible { border-color: var(--accent); background: var(--card-2); }
+  .cal-open { flex: 0 0 auto; color: var(--accent); font-weight: 700; font-size: 13px; white-space: nowrap; }
   .cal-driver { flex: 0 0 auto; text-align: right; max-width: 40%; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 9%, var(--card-2)); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--card-border)); }
   .cal-driver.none { background: color-mix(in srgb, var(--amber) 9%, var(--card-2)); border-color: color-mix(in srgb, var(--amber) 32%, var(--card-border)); }
   .cal-driver small { display: block; color: var(--text-muted); font-size: 12px; font-weight: 600; }
   .cal-driver strong { font-size: 15px; }
   @media (max-width: 560px) { .cal-ride { flex-direction: column; align-items: stretch; } .cal-driver { max-width: none; text-align: left; } }
+
+  /* Extraction Excel */
+  .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .preset-row button { margin: 0; padding: 8px 14px; font-size: 13px; }
+  .status-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .resa-create .status-chips label { display: inline-flex; align-items: center; height: 40px; margin: 0; padding: 0 14px; font-weight: 700; color: var(--text); background: var(--input); border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer; }
+  .resa-create .status-chips label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--input)); }
+  .ex-table-wrap { overflow-x: auto; border: 1px solid var(--card-border); border-radius: 12px; }
+  .ex-table th.r, .ex-table td.r { text-align: right; white-space: nowrap; }
+  .ex-table td small { color: var(--text-muted); }
+  .ex-table td { max-width: 320px; overflow-wrap: anywhere; }
 
   /* Courses en cours : barre de tri / filtres et ligne chauffeur */
   .filters-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; padding: 16px 18px; margin-bottom: 14px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); }
@@ -592,6 +606,7 @@
           <button class="subtab" data-resa-tab="active">En cours <span class="count zero" id="count-active">0</span></button>
           <button class="subtab" data-resa-tab="create">+ Creer une reservation</button>
           <button class="subtab" data-resa-tab="history">Historique</button>
+          <button class="subtab" data-resa-tab="export">Extraction Excel</button>
         </div>
 
         <section class="resa-panel active" data-resa-panel="pending">
@@ -722,6 +737,66 @@
                 <p id="new-ride-created" class="hint" style="font-weight:700"></p>
               </div>
               <button id="add-ride">Creer la reservation</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="resa-panel" data-resa-panel="export">
+          <div class="resa-create">
+            <div class="form-section">
+              <div class="fs-head"><span class="fs-num">1</span><div><h3>Période</h3><p>Quelles réservations extraire. Laissez les dates vides pour tout prendre.</p></div></div>
+              <div class="form-grid cols-3">
+                <div class="field"><label for="ex-from">Du</label><input type="date" id="ex-from" /></div>
+                <div class="field"><label for="ex-to">Au</label><input type="date" id="ex-to" /></div>
+                <div class="field"><label for="ex-basis">Date utilisée</label>
+                  <select id="ex-basis"><option value="course">Date de la course</option><option value="creation">Date de saisie de la réservation</option></select>
+                </div>
+              </div>
+              <div class="preset-row">
+                <button type="button" class="secondary" data-ex-preset="month">Ce mois-ci</button>
+                <button type="button" class="secondary" data-ex-preset="lastmonth">Mois dernier</button>
+                <button type="button" class="secondary" data-ex-preset="30d">30 derniers jours</button>
+                <button type="button" class="secondary" data-ex-preset="year">Cette année</button>
+                <button type="button" class="secondary" data-ex-preset="all">Toutes les dates</button>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="fs-head"><span class="fs-num">2</span><div><h3>Filtres</h3><p>Affinez par client, chauffeur, statut, type de service...</p></div></div>
+              <div class="form-grid cols-3">
+                <div class="field"><label for="ex-client">Client</label><input id="ex-client" placeholder="Nom, téléphone, e-mail ou donneur d'ordre" autocomplete="off" /></div>
+                <div class="field"><label for="ex-driver">Chauffeur</label><select id="ex-driver"><option value="">Tous les chauffeurs</option></select></div>
+                <div class="field"><label for="ex-service">Type de service</label>
+                  <select id="ex-service"><option value="">Tous</option><option value="trajet_simple">Trajet simple</option><option value="mise_a_disposition">Mise à disposition</option></select>
+                </div>
+                <div class="field"><label for="ex-category">Gamme</label>
+                  <select id="ex-category"><option value="">Toutes</option><option value="confort">Confort</option><option value="affaires">Affaires</option><option value="van">Van</option></select>
+                </div>
+                <div class="field"><label for="ex-payment">Paiement</label>
+                  <select id="ex-payment"><option value="">Tous</option><option value="carte_a_bord">CB à bord</option><option value="especes">Espèces</option><option value="compte">En compte</option></select>
+                </div>
+                <div class="field"><label for="ex-tag">Tag</label><input id="ex-tag" placeholder="Ex : hotel" autocomplete="off" /></div>
+                <div class="field wide"><label>Statut</label>
+                  <div class="status-chips">
+                    <label><input type="checkbox" class="ex-status" value="pending" checked /> En attente</label>
+                    <label><input type="checkbox" class="ex-status" value="dispatched" checked /> Dispatchée</label>
+                    <label><input type="checkbox" class="ex-status" value="accepted" checked /> Acceptée</label>
+                    <label><input type="checkbox" class="ex-status" value="completed" checked /> Terminée</label>
+                    <label><input type="checkbox" class="ex-status" value="cancelled" checked /> Annulée</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="fs-head"><span class="fs-num">3</span><div><h3>Aperçu</h3><p id="ex-count-line">Calcul en cours...</p></div></div>
+              <div id="ex-preview"></div>
+              <p class="hint" style="margin:12px 0 0">Le fichier Excel contient une ligne par réservation avec toutes les colonnes : client et téléphone, chauffeur et téléphone, adresses, arrêts, gamme, paiement, prix, notes... plus une feuille « Synthèse » (totaux par chauffeur, statut, paiement et gamme).</p>
+            </div>
+
+            <div class="form-actions">
+              <div class="form-msgs"><p id="ex-error" class="error"></p></div>
+              <button type="button" id="ex-download">Télécharger l'Excel</button>
             </div>
           </div>
         </section>
@@ -930,6 +1005,7 @@ function statusBadge(status) {
 function showResaTab(name) {
   document.querySelectorAll('.subtab').forEach((t) => t.classList.toggle('active', t.dataset.resaTab === name));
   document.querySelectorAll('.resa-panel').forEach((p) => p.classList.toggle('active', p.dataset.resaPanel === name));
+  if (name === 'export') exportInit();
 }
 document.querySelectorAll('.subtab').forEach((t) => t.addEventListener('click', () => showResaTab(t.dataset.resaTab)));
 function setCount(key, n) {
@@ -1623,6 +1699,7 @@ async function renderAvailability() {
 
 let calendarDate = new Date();
 let calendarDriverFilter = '';
+let calendarSelectedDay = null; // jour ouvert : il reste affiche apres une modification dans la fiche
 
 async function populateCalendarDriverFilter() {
   const { data: drivers } = await supabase.from('profiles').select('id, email').eq('role', 'chauffeur');
@@ -1632,9 +1709,9 @@ async function populateCalendarDriverFilter() {
   select.value = calendarDriverFilter;
 }
 
-document.getElementById('calendar-prev').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); });
-document.getElementById('calendar-next').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); });
-document.getElementById('calendar-today').addEventListener('click', () => { calendarDate = new Date(); renderCalendar(); });
+document.getElementById('calendar-prev').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); calendarSelectedDay = null; renderCalendar(); });
+document.getElementById('calendar-next').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); calendarSelectedDay = null; renderCalendar(); });
+document.getElementById('calendar-today').addEventListener('click', () => { calendarDate = new Date(); calendarSelectedDay = null; renderCalendar(); });
 document.getElementById('calendar-driver-filter').addEventListener('change', (e) => { calendarDriverFilter = e.target.value; renderCalendar(); });
 
 async function renderCalendar() {
@@ -1684,7 +1761,7 @@ async function renderCalendar() {
   for (let day = 1; day <= daysInMonth; day++) {
     const count = countsByDay[day] ?? 0;
     cells.push(`
-      <div data-calendar-day="${day}" style="cursor:pointer;border:1px solid var(--card-border);border-radius:8px;padding:8px;min-height:60px;background:var(--card)">
+      <div data-calendar-day="${day}" style="cursor:pointer;border:1px solid ${day === calendarSelectedDay ? 'var(--accent)' : 'var(--card-border)'};border-radius:8px;padding:8px;min-height:60px;background:var(--card)">
         <div style="color:var(--text-muted);font-size:12px">${day}</div>
         ${count > 0 ? `<div style="color:var(--accent);font-weight:700">${count} course${count > 1 ? 's' : ''}</div>` : ''}
       </div>
@@ -1694,18 +1771,27 @@ async function renderCalendar() {
     DAY_LABELS.slice(1).concat(DAY_LABELS[0]).map((l) => `<div style="color:var(--text-muted);font-size:12px;text-align:center">${l}</div>`).join('') +
     cells.join('');
 
-  document.querySelectorAll('[data-calendar-day]').forEach((cell) => {
-    cell.addEventListener('click', () => {
-      const day = parseInt(cell.dataset.calendarDay, 10);
-      const dayRides = (rides ?? []).filter((r) => new Date(r.scheduled_at ?? r.created_at).getDate() === day);
-      const detail = document.getElementById('calendar-day-detail');
-      if (dayRides.length === 0) { detail.innerHTML = '<p>Aucune course ce jour.</p>'; return; }
-      detail.innerHTML = `
-        <h3>${day} ${calendarDate.toLocaleDateString('fr-FR', { month: 'long' })}</h3>
-        ${dayRides.sort((a, b) => new Date(a.scheduled_at ?? a.created_at) - new Date(b.scheduled_at ?? b.created_at)).map((r) => `<div class="card cal-ride"><div class="cal-ride-main"><strong>${new Date(r.scheduled_at ?? r.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> ${statusBadge(r.status)} ${escapeHtml(r.client_name ?? '')}<br>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>${driverCell(r)}</div>`).join('')}
-      `;
+  // Liste du jour : un clic sur une course ouvre sa fiche (meme fiche que dans Reservations : affichage et modification).
+  function showCalendarDay(day) {
+    calendarSelectedDay = day;
+    document.querySelectorAll('[data-calendar-day]').forEach((c) => { c.style.borderColor = parseInt(c.dataset.calendarDay, 10) === day ? 'var(--accent)' : 'var(--card-border)'; });
+    const dayRides = (rides ?? []).filter((r) => new Date(r.scheduled_at ?? r.created_at).getDate() === day);
+    const detail = document.getElementById('calendar-day-detail');
+    if (dayRides.length === 0) { detail.innerHTML = '<p>Aucune course ce jour.</p>'; return; }
+    detail.innerHTML = `
+      <h3>${day} ${calendarDate.toLocaleDateString('fr-FR', { month: 'long' })}</h3>
+      ${dayRides.sort((a, b) => new Date(a.scheduled_at ?? a.created_at) - new Date(b.scheduled_at ?? b.created_at)).map((r) => `<div class="card cal-ride" data-view-ride="${r.id}" role="button" tabindex="0" title="Ouvrir la fiche de la reservation"><div class="cal-ride-main"><strong>${new Date(r.scheduled_at ?? r.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> ${statusBadge(r.status)} ${escapeHtml(r.client_name ?? '')}<br>${escapeHtml(r.pickup_address)} &rarr; ${escapeHtml(r.dropoff_address)}</div>${driverCell(r)}<span class="cal-open">Voir la fiche &rsaquo;</span></div>`).join('')}
+    `;
+    detail.querySelectorAll('[data-view-ride]').forEach((card) => {
+      const open = () => openRideModal(card.dataset.viewRide);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     });
+  }
+  document.querySelectorAll('[data-calendar-day]').forEach((cell) => {
+    cell.addEventListener('click', () => showCalendarDay(parseInt(cell.dataset.calendarDay, 10)));
   });
+  if (calendarSelectedDay) showCalendarDay(calendarSelectedDay);
 }
 
 async function renderStats() {
@@ -2978,6 +3064,110 @@ document.getElementById('filter-export').addEventListener('click', async () => {
   link.click();
 });
 
+// ---- Extraction Excel des reservations ----
+let exportReady = false;
+let exportTimer = null;
+let exportSeq = 0;
+const dayStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const frDay = (iso) => iso.split('-').reverse().join('/');
+const euro = (n) => (n == null ? '' : Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }));
+
+function exportParams() {
+  const p = new URLSearchParams();
+  const val = (id) => document.getElementById(id).value.trim();
+  [['from', 'ex-from'], ['to', 'ex-to'], ['client', 'ex-client'], ['driver', 'ex-driver'], ['service', 'ex-service'], ['category', 'ex-category'], ['payment', 'ex-payment'], ['tag', 'ex-tag']]
+    .forEach(([k, id]) => { if (val(id)) p.set(k, val(id)); });
+  if (val('ex-basis') === 'creation') p.set('basis', 'creation');
+  const boxes = [...document.querySelectorAll('.ex-status')];
+  const checked = boxes.filter((b) => b.checked).map((b) => b.value);
+  if (checked.length && checked.length < boxes.length) p.set('status', checked.join(','));
+  return p;
+}
+
+async function exportInit() {
+  if (exportReady) { refreshExportPreview(); return; }
+  exportReady = true;
+  const { data: drivers } = await supabase.from('profiles').select('id, full_name, email, role').in('role', ['chauffeur', 'ancien']).order('full_name', { ascending: true });
+  document.getElementById('ex-driver').innerHTML = '<option value="">Tous les chauffeurs</option>' +
+    (drivers ?? []).map((d) => `<option value="${d.id}">${escapeHtml(d.full_name || d.email)}${d.role === 'ancien' ? ' (ancien)' : ''}</option>`).join('');
+  setExportPreset('month');
+}
+
+function setExportPreset(kind) {
+  const now = new Date();
+  let from = '', to = '';
+  if (kind === 'month') { from = dayStr(new Date(now.getFullYear(), now.getMonth(), 1)); to = dayStr(new Date(now.getFullYear(), now.getMonth() + 1, 0)); }
+  if (kind === 'lastmonth') { from = dayStr(new Date(now.getFullYear(), now.getMonth() - 1, 1)); to = dayStr(new Date(now.getFullYear(), now.getMonth(), 0)); }
+  if (kind === '30d') { from = dayStr(new Date(now.getTime() - 29 * 864e5)); to = dayStr(now); }
+  if (kind === 'year') { from = `${now.getFullYear()}-01-01`; to = `${now.getFullYear()}-12-31`; }
+  document.getElementById('ex-from').value = from;
+  document.getElementById('ex-to').value = to;
+  refreshExportPreview();
+}
+
+async function exportFetch(path) {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch(path + '?' + exportParams().toString(), { headers: { Authorization: 'Bearer ' + session.access_token } });
+}
+
+function refreshExportPreview(delay = 0) {
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(async () => {
+    const seq = ++exportSeq;
+    const line = document.getElementById('ex-count-line');
+    const box = document.getElementById('ex-preview');
+    const err = document.getElementById('ex-error');
+    err.textContent = '';
+    line.textContent = 'Calcul en cours...';
+    try {
+      const res = await exportFetch('/admin/export/reservations');
+      const json = await res.json();
+      if (seq !== exportSeq) return; // un filtre plus recent a pris le relais
+      if (!res.ok) throw new Error(json.error || 'Erreur');
+      line.textContent = json.count
+        ? `${json.count} réservation${json.count > 1 ? 's' : ''}${json.cancelled ? ` dont ${json.cancelled} annulée${json.cancelled > 1 ? 's' : ''}` : ''} · ${euro(json.total)} (hors annulées)${json.truncated ? ' · liste tronquée' : ''}`
+        : 'Aucune réservation ne correspond à ces filtres.';
+      box.innerHTML = json.rows.length ? `
+        <div class="ex-table-wrap"><table class="ex-table">
+          <thead><tr><th>Date</th><th>Client</th><th>Chauffeur</th><th>Trajet</th><th>Statut</th><th class="r">Prix</th></tr></thead>
+          <tbody>${json.rows.map((r) => `<tr><td>${frDay(r.day)}<br><small>${escapeHtml(r.time)}</small></td><td>${escapeHtml(r.client)}</td><td>${r.driver ? escapeHtml(r.driver) : '<span class="hint">Non attribué</span>'}</td><td>${escapeHtml(r.trajet)}</td><td>${escapeHtml(r.status)}</td><td class="r">${euro(r.price)}</td></tr>`).join('')}</tbody>
+        </table></div>
+        ${json.count > json.rows.length ? `<p class="hint" style="margin:10px 0 0">Aperçu des ${json.rows.length} premières lignes sur ${json.count}.</p>` : ''}` : '';
+      document.getElementById('ex-download').disabled = json.count === 0;
+    } catch (e) {
+      if (seq !== exportSeq) return;
+      line.textContent = '';
+      err.textContent = 'Impossible de calculer l\'aperçu : ' + e.message;
+    }
+  }, delay);
+}
+
+['ex-from', 'ex-to', 'ex-basis', 'ex-driver', 'ex-service', 'ex-category', 'ex-payment'].forEach((id) => document.getElementById(id).addEventListener('input', () => refreshExportPreview(250)));
+['ex-client', 'ex-tag'].forEach((id) => document.getElementById(id).addEventListener('input', () => refreshExportPreview(500)));
+document.querySelectorAll('.ex-status').forEach((b) => b.addEventListener('change', () => refreshExportPreview(250)));
+document.querySelectorAll('[data-ex-preset]').forEach((b) => b.addEventListener('click', () => setExportPreset(b.dataset.exPreset)));
+document.getElementById('ex-download').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const err = document.getElementById('ex-error');
+  err.textContent = '';
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = 'Création du fichier...';
+  try {
+    const res = await exportFetch('/admin/export/reservations.xlsx');
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await res.blob());
+    a.download = `reservations-rennes-vtc-${dayStr(new Date())}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (ex) {
+    err.textContent = 'Téléchargement impossible : ' + ex.message;
+  }
+  btn.textContent = old;
+  btn.disabled = false;
+});
+
 // ---- Fiche detaillee d'une reservation (onglets Course / Client / Paiement) ----
 
 let currentRide = null;
@@ -3044,6 +3234,7 @@ document.querySelectorAll('.ride-tab-link').forEach((link) => {
 function closeRideModal() {
   document.getElementById('ride-modal-backdrop').style.display = 'none';
   currentRide = null;
+  if (document.getElementById('page-calendrier').classList.contains('active')) renderCalendar(); // les modifications se voient dans le calendrier
 }
 document.getElementById('ride-modal-close').addEventListener('click', closeRideModal);
 document.getElementById('ride-modal-backdrop').addEventListener('click', (e) => { if (e.target.id === 'ride-modal-backdrop') closeRideModal(); });

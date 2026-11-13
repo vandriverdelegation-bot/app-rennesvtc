@@ -12,6 +12,7 @@ const { registerDriverOnboarding } = require('./driverOnboarding');
 const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
 const { registerNavettes } = require('./navettes');
+const { registerExport } = require('./exportReservations');
 const { buildRideMail } = require('./mailTemplate');
 const { renderAccueil } = require('./accueil');
 
@@ -614,6 +615,7 @@ async function requireStaff(req, res, next) {
 }
 registerClients(app, requireStaff);
 registerNavettes(app, requireAdmin, BASE_URL);
+registerExport(app, requireAdmin);
 
 async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
