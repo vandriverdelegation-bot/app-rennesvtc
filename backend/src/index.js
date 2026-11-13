@@ -136,9 +136,23 @@ function accueilSignature(rideId) {
 function accueilUrl(rideId, width) {
   return `${BASE_URL}/public/accueil/${rideId}?sig=${accueilSignature(rideId)}${width ? `&w=${width}` : ''}`;
 }
-async function sendAccueil(res, rideId, width) {
+// Tablette toute prete envoyee par l'admin pour cette course (remplace celle qui porte le nom du client) : un JPEG par course dans le stockage.
+const ACCUEIL_BUCKET = 'accueil-files';
+const accueilFilePath = (rideId) => `${rideId}.jpg`;
+async function customAccueil(rideId) {
+  const { data, error } = await supabaseAdmin.storage.from(ACCUEIL_BUCKET).download(accueilFilePath(rideId));
+  return error || !data ? null : Buffer.from(await data.arrayBuffer());
+}
+async function sendAccueil(res, rideId, width, download) {
   const { data: ride } = await supabaseAdmin.from('rides').select('*').eq('id', rideId).single();
   if (!ride) return res.status(404).send('Course introuvable');
+  if (download) res.set('Content-Disposition', 'attachment; filename="tablette-accueil.jpg"');
+  const custom = await customAccueil(rideId);
+  if (custom) {
+    const w = Math.min(Math.max(parseInt(width, 10) || 0, 300), 2400);
+    const out = width ? await require('sharp')(custom).resize({ width: w, withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer() : custom;
+    return res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-cache' }).send(out);
+  }
   let name = ride.welcome_name || ride.client_name;
   if (!name && ride.client_id) name = (await supabaseAdmin.from('profiles').select('full_name').eq('id', ride.client_id).single()).data?.full_name;
   try {
@@ -959,13 +973,41 @@ app.get('/public/accueil/:rideId', async (req, res) => {
   const sig = String(req.query.sig || '');
   const ok = sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(accueilSignature(req.params.rideId)));
   if (!ok) return res.status(403).send('Lien invalide');
-  await sendAccueil(res, req.params.rideId, req.query.w);
+  await sendAccueil(res, req.params.rideId, req.query.w, req.query.download);
 });
 // Appli chauffeur et back-office : chauffeurs de la course (principal ou supplementaires) et admin.
 app.get('/driver/accueil/:rideId', requireSupabaseUser, async (req, res) => {
   const { data: ride } = await supabaseAdmin.from('rides').select('driver_id, extra_driver_ids').eq('id', req.params.rideId).single();
   if (!ride || !(isRideDriver(ride, req.user.id) || (await isDriverOrAdmin(req.user.id, ride)))) return res.status(404).send('Course introuvable');
-  await sendAccueil(res, req.params.rideId, req.query.w);
+  await sendAccueil(res, req.params.rideId, req.query.w, req.query.download);
+});
+
+// Back-office : tablette toute prete (image PNG, JPG ou WebP) a la place de celle qui porte le nom du client.
+const ACCUEIL_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+app.get('/admin/rides/:id/accueil-file', requireAdmin, async (req, res) => {
+  const { data } = await supabaseAdmin.storage.from(ACCUEIL_BUCKET).list('', { search: accueilFilePath(req.params.id), limit: 1 });
+  res.json({ custom: !!data?.some((f) => f.name === accueilFilePath(req.params.id)) });
+});
+app.post('/admin/rides/:id/accueil-file', requireAdmin, express.raw({ type: () => true, limit: '8mb' }), async (req, res) => {
+  const type = String(req.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+  if (!ACCUEIL_TYPES.has(type) || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Envoyez une image PNG, JPG ou WebP (8 Mo maximum).' });
+  const { data: ride } = await supabaseAdmin.from('rides').select('id').eq('id', req.params.id).single();
+  if (!ride) return res.status(404).json({ error: 'Course introuvable' });
+  try {
+    const jpeg = await require('sharp')(req.body).rotate().resize({ width: 2400, withoutEnlargement: true }).flatten({ background: '#000000' }).jpeg({ quality: 90 }).toBuffer();
+    const made = await supabaseAdmin.storage.createBucket(ACCUEIL_BUCKET, { public: false });
+    if (made.error && !/already exists/i.test(made.error.message)) throw made.error;
+    const { error } = await supabaseAdmin.storage.from(ACCUEIL_BUCKET).upload(accueilFilePath(ride.id), jpeg, { contentType: 'image/jpeg', upsert: true });
+    if (error) throw error;
+    res.json({ custom: true, bytes: jpeg.length });
+  } catch (e) {
+    console.error('tablette accueil (fichier) :', e.message);
+    res.status(400).json({ error: 'Image illisible ou trop lourde. Essayez un autre fichier.' });
+  }
+});
+app.delete('/admin/rides/:id/accueil-file', requireAdmin, async (req, res) => {
+  await supabaseAdmin.storage.from(ACCUEIL_BUCKET).remove([accueilFilePath(req.params.id)]);
+  res.json({ custom: false });
 });
 
 // Bon de commande de n'importe quelle course (back-office) : celui du chauffeur principal, quel que soit le createur de la course.

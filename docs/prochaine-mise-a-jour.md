@@ -104,3 +104,6 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - Mise à disposition : boutons adaptés « Démarrer la mission » → « Fin de la mission » → « Terminer la mission ».
 - Course avec arrêts (`stop_addresses`), passager à bord : carte « Arrêts » (`apps/driver/screens/StopsCard.js`) — pour chaque arrêt : « Je suis arrivé à l'arrêt », « Je repars de l'arrêt » ou « Passer cet arrêt ». Ne bloque jamais la fin de course. Le GPS guide vers le prochain arrêt (par adresse), puis la destination.
 - Serveur déjà en ligne : route `POST /rides/:id/stop`, heures rangées dans `step_times.stops` ; la page de suivi du donneur d'ordre affiche « arrivé 14h20, reparti 14h35 » ou « passé » à côté de chaque arrêt.
+
+## Déjà en ligne (13/11) : tablette d'accueil toute prête
+- Back-office > fiche réservation > nouvel onglet « Tablette d'accueil » : aperçu, bouton « Télécharger l'image », fichier perso (PNG/JPG/WebP) qui remplace la tablette avec le nom, retour possible. Fichier rangé dans le stockage Supabase (bucket privé `accueil-files`, `<id course>.jpg`). Le chauffeur le voit via le bouton existant de l'appli et via le bouton de l'e-mail du bon de commande : aucun build nécessaire. Le champ « nom sur la tablette » a déménagé dans cet onglet.

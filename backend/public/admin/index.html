@@ -283,6 +283,7 @@
   .rm-row label { display: flex; align-items: center; gap: 6px; }
   .rm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .rm-section button { margin-top: 8px; }
+  .tb-preview { display: block; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border: 1px solid var(--card-border); border-radius: 12px; }
   .rm-row button { margin-top: 0; }
 
   @media (max-width: 900px) {
@@ -803,11 +804,13 @@
         <a class="ride-tab-link active" data-tab="course">Course</a>
         <a class="ride-tab-link" data-tab="client">Client</a>
         <a class="ride-tab-link" data-tab="paiement">Paiement</a>
+        <a class="ride-tab-link" data-tab="tablette">Tablette d'accueil</a>
       </div>
       <div class="modal-body">
         <div id="ride-tab-course" class="ride-tab"></div>
         <div id="ride-tab-client" class="ride-tab" style="display:none"></div>
         <div id="ride-tab-paiement" class="ride-tab" style="display:none"></div>
+        <div id="ride-tab-tablette" class="ride-tab" style="display:none"></div>
       </div>
       <div class="modal-foot">
         <button class="secondary" id="ride-modal-close">Fermer</button>
@@ -2866,6 +2869,7 @@ async function openRideModal(rideId) {
   await renderRideCourseTab();
   await renderRideClientTab();
   await renderRidePaiementTab();
+  renderRideTabletTab();
 }
 
 function selectRideTab(tab) {
@@ -2892,6 +2896,71 @@ async function refreshRideModal() {
   await renderRideCourseTab();
   await renderRideClientTab();
   await renderRidePaiementTab();
+  renderRideTabletTab();
+}
+
+// Onglet « Tablette d'accueil » : apercu, telechargement, nom du client, ou fichier tout pret qui remplace la tablette generee.
+async function renderRideTabletTab() {
+  const ride = currentRide;
+  const el = document.getElementById('ride-tab-tablette');
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = encodeURIComponent(session.access_token);
+  const url = (extra) => '/driver/accueil/' + ride.id + '?token=' + token + (extra || '');
+  let custom = false;
+  try { custom = (await adminApi('/admin/rides/' + ride.id + '/accueil-file')).custom; } catch {}
+  el.innerHTML = `
+    <div class="rm-section">
+      <div class="rm-title">Tablette actuelle</div>
+      <img id="tb-img" class="tb-preview" alt="Tablette d'accueil" src="${url('&w=900&t=' + Date.now())}" />
+      <p class="hint" style="margin:10px 0 0">${custom ? 'Votre fichier tout pret est en place : c\'est lui que le chauffeur voit.' : 'Tablette automatique avec le nom du client.'} Le chauffeur la retrouve dans l'appli (bouton « Tablette d'accueil ») et dans son e-mail de bon de commande.</p>
+      <div class="rm-row" style="margin-top:12px">
+        <button id="tb-download">Telecharger l'image</button>
+        <button class="secondary" id="tb-open">Afficher en grand</button>
+      </div>
+    </div>
+    <div class="rm-section">
+      <div class="rm-title">Mon propre fichier</div>
+      <p class="hint" style="margin:0 0 10px">Une tablette deja prete (logo de l'hotel, design sur mesure...). Elle remplace la tablette automatique pour cette reservation. PNG, JPG ou WebP, 8 Mo maximum, de preference au format paysage 16/9.</p>
+      <input type="file" id="tb-file" accept="image/png,image/jpeg,image/webp" />
+      <div class="rm-row" style="margin-top:10px">
+        <button id="tb-upload">Utiliser ce fichier</button>
+        ${custom ? '<button class="secondary" id="tb-remove">Revenir a la tablette avec le nom</button>' : ''}
+      </div>
+      <p id="tb-msg" class="hint" style="margin:8px 0 0"></p>
+    </div>
+    <div class="rm-section">
+      <div class="rm-title">Tablette avec le nom du client</div>
+      <p class="hint" style="margin:0 0 10px">${custom ? 'Inutilisee tant qu\'un fichier est en place.' : 'Le nom ecrit dans le cadre vert. Laissez vide pour reprendre le nom du client.'}</p>
+      <input id="rm-welcome-name" value="${escapeHtml(ride.welcome_name ?? '')}" placeholder="Par defaut : le nom du client" />
+      <button class="secondary" id="tb-save-name">Enregistrer le nom</button>
+    </div>`;
+  const msg = (t, bad) => { const m = document.getElementById('tb-msg'); m.textContent = t; m.style.color = bad ? 'var(--error)' : ''; };
+  document.getElementById('tb-open').addEventListener('click', () => window.open(url('&t=' + Date.now()), '_blank'));
+  document.getElementById('tb-download').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = url('&download=1&t=' + Date.now());
+    a.click();
+  });
+  document.getElementById('tb-save-name').addEventListener('click', async () => {
+    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
+    await supabase.from('rides').update({ welcome_name }).eq('id', ride.id);
+    await refreshRideModal();
+  });
+  document.getElementById('tb-upload').addEventListener('click', async () => {
+    const file = document.getElementById('tb-file').files[0];
+    if (!file) return msg('Choisissez d\'abord un fichier.', true);
+    msg('Envoi en cours...');
+    const res = await fetch('/admin/rides/' + ride.id + '/accueil-file', { method: 'POST', headers: { 'Content-Type': file.type, Authorization: 'Bearer ' + session.access_token }, body: file });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return msg(json.error || 'Envoi impossible.', true);
+    await refreshRideModal();
+    selectRideTab('tablette');
+  });
+  document.getElementById('tb-remove')?.addEventListener('click', async () => {
+    await fetch('/admin/rides/' + ride.id + '/accueil-file', { method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token } });
+    await refreshRideModal();
+    selectRideTab('tablette');
+  });
 }
 
 async function renderRideCourseTab() {
@@ -3011,12 +3080,7 @@ async function renderRideCourseTab() {
       <textarea id="rm-client-note" style="min-height:60px">${escapeHtml(ride.client_note ?? '')}</textarea>
       <label for="rm-driver-note">Note pour le chauffeur</label>
       <textarea id="rm-driver-note" style="min-height:60px">${escapeHtml(ride.driver_note ?? '')}</textarea>
-      <label for="rm-welcome-name">Nom sur la tablette d'accueil</label>
-      <input id="rm-welcome-name" value="${escapeHtml(ride.welcome_name ?? '')}" placeholder="Par defaut : le nom du client" />
-      <div class="rm-row" style="margin-top:8px">
-        <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
-        <button class="secondary" id="rm-view-welcome" type="button">Voir la tablette d'accueil</button>
-      </div>
+      <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
     </div>
 
     <div class="rm-section">
@@ -3132,18 +3196,10 @@ async function renderRideCourseTab() {
     await supabase.from('rides').update({ passenger_count, child_seats, booster_seats, luggage_count, child_ages }).eq('id', ride.id);
     await refreshRideModal();
   });
-  // Apercu de la tablette : enregistre d'abord le nom saisi, puis ouvre l'image.
-  document.getElementById('rm-view-welcome').addEventListener('click', async () => {
-    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
-    await supabase.from('rides').update({ welcome_name }).eq('id', ride.id);
-    const { data: { session } } = await supabase.auth.getSession();
-    window.open('/driver/accueil/' + ride.id + '?token=' + encodeURIComponent(session.access_token) + '&t=' + Date.now(), '_blank');
-  });
   document.getElementById('rm-save-notes').addEventListener('click', async () => {
     const client_note = document.getElementById('rm-client-note').value.trim() || null;
     const driver_note = document.getElementById('rm-driver-note').value.trim() || null;
-    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
-    await supabase.from('rides').update({ client_note, driver_note, welcome_name }).eq('id', ride.id);
+    await supabase.from('rides').update({ client_note, driver_note }).eq('id', ride.id);
     await refreshRideModal();
   });
   el.querySelectorAll('[data-rm-step]').forEach((btn) => {
