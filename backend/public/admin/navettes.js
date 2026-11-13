@@ -45,6 +45,28 @@
       .nv-counts { text-align: right; font-size: 14px; color: var(--text-muted); } .nv-counts b { color: var(--text); font-size: 18px; }
       .nv-who { color: var(--text-muted); font-size: 13px; margin: 2px 0 10px; }
       .nv-guest { display: flex; align-items: center; gap: 12px; padding: 11px 12px; margin: 0 0 6px; border: 1px solid var(--card-border); border-radius: 12px; cursor: pointer; font-weight: 400; background: var(--bg, transparent); }
+      .nv-nuancier { display: grid; gap: 14px; margin: 8px 0 14px; }
+      .nv-famname { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+      .nv-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+      .nv-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; padding: 8px 9px 9px; text-align: left; border-radius: 12px; background: var(--card-2); border: 2px solid var(--card-border); color: var(--text); cursor: pointer; transition: transform .12s, border-color .12s; }
+      .nv-tile:hover { transform: translateY(-2px); border-color: #4A5851; }
+      .nv-tile i { display: block; width: 100%; height: 34px; margin-bottom: 6px; border-radius: 8px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+      .nv-tile b { font-size: 13px; line-height: 1.2; }
+      .nv-tile small { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+      .nv-tile.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c); background: color-mix(in srgb, var(--c) 10%, var(--card-2)); }
+      .nv-tile.on::after { content: '\\2713'; position: absolute; top: 12px; right: 14px; font-weight: 800; font-size: 16px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+      .nv-tile-custom i { background: conic-gradient(#ef4444, #facc15, #5bd42a, #38bdf8, #8b5cf6, #ef4444); }
+      .nv-tile-custom.on i { background: var(--c); }
+      .nv-tile-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; margin: 0; padding: 0; }
+      .nv-colorline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+      .nv-colorline input { width: 110px; margin: 0; text-transform: uppercase; }
+      .nv-colorline button { margin: 0; }
+      .nv-colorname { font-weight: 700; min-width: 150px; }
+      .nv-preview { --c: #5BD42A; --t: #08110A; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 14px; background: #070908; border: 1px solid #232b26; margin-bottom: 6px; }
+      .nv-preview .pk { padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: color-mix(in srgb, var(--c) 62%, #fff); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+      .nv-preview .pb { padding: 10px 18px; border-radius: 12px; font-weight: 700; background: var(--c); color: var(--t); }
+      .nv-preview .pbar { width: 120px; height: 8px; border-radius: 99px; background: #232b26; overflow: hidden; } .nv-preview .pbar i { display: block; width: 62%; height: 100%; background: var(--c); }
+      .nv-preview .pc { font-size: 13px; font-weight: 700; color: color-mix(in srgb, var(--c) 62%, #fff); }
       .nv-guest input { width: 26px; height: 26px; margin: 0; flex: none; accent-color: var(--accent); }
       .nv-guest .nm { flex: 1; font-size: 17px; } .nv-guest .n { font-weight: 700; color: var(--accent); }
       .nv-guest.on { border-color: var(--accent); } .nv-guest.on .nm { color: var(--text-muted); text-decoration: line-through; }
@@ -242,6 +264,56 @@
 
   const section = (key, title, defOpen, html) => `<details class="nv-sec" data-key="${key}" ${(openState[key] ?? defOpen) ? 'open' : ''}><summary>${title}</summary><div class="nv-body">${html}</div></details>`;
 
+  // Palette de couleurs pour la page des invites et le chevalet (noms parlants pour choisir selon les mariés ou l'entreprise).
+  const NUANCIER = [
+    ['Verts', [['#5BD42A', 'Vert Rennes VTC'], ['#A3E635', 'Citron vert'], ['#10B981', 'Émeraude'], ['#14B8A6', 'Turquoise'], ['#7CB69D', 'Sauge'], ['#2F7D5B', 'Sapin']]],
+    ['Bleus', [['#38BDF8', 'Bleu ciel'], ['#0EA5E9', 'Azur'], ['#3B82F6', 'Bleu roi'], ['#6366F1', 'Indigo'], ['#94A3B8', 'Bleu gris'], ['#1E3A8A', 'Bleu marine']]],
+    ['Violets et roses', [['#8B5CF6', 'Violet'], ['#B197FC', 'Lavande'], ['#C4A1E0', 'Mauve'], ['#EC4899', 'Rose'], ['#F0A6C0', 'Rose poudré'], ['#C026D3', 'Fuchsia']]],
+    ['Rouges et oranges', [['#EF4444', 'Rouge'], ['#BE3455', 'Bordeaux'], ['#FF7A59', 'Corail'], ['#E07A5F', 'Terracotta'], ['#F97316', 'Orange'], ['#FB923C', 'Abricot']]],
+    ['Dorés et neutres', [['#FACC15', 'Jaune'], ['#D4AF37', 'Or'], ['#E8D5A8', 'Champagne'], ['#CBD5E1', 'Argent'], ['#A8A29E', 'Taupe'], ['#F5F5F4', 'Blanc cassé']]],
+  ];
+  const PALETTE = NUANCIER.flatMap(([, list]) => list);
+  let pickedColor = '';
+  const colorHtml = (e) => {
+    pickedColor = e.accent_color || '';
+    if (!lookups.accent_supported) return '<div class="field wide"><label>Couleur de la page des invites</label><p class="hint">Pour activer le choix de couleur, la migration « 054_navettes_couleur » doit d\'abord être appliquée dans Supabase.</p></div>';
+    const shown = pickedColor || PALETTE[0][0];
+    return `<div class="field wide"><label>Couleur de la page des invites et du chevalet</label>
+      <div class="nv-nuancier" id="ne-palette">${NUANCIER.map(([family, list]) => `<div class="nv-family"><div class="nv-famname">${family}</div><div class="nv-tiles">${list.map(([hex, name]) => `<button type="button" class="nv-tile${shown.toUpperCase() === hex ? ' on' : ''}" data-hex="${hex}" style="--c:${hex}" aria-label="${name}"><i></i><b>${name}</b><small>${hex}</small></button>`).join('')}</div></div>`).join('')}
+        <div class="nv-family"><div class="nv-famname">Autre couleur</div><div class="nv-tiles"><label class="nv-tile nv-tile-custom" style="--c:${esc(shown)}"><i></i><b>Couleur libre</b><small>Choisir...</small><input type="color" id="ne-color-custom" value="${esc(shown)}" /></label></div></div>
+      </div>
+      <div class="nv-colorline"><span class="nv-colorname" id="ne-color-name"></span><input id="ne-color-hex" value="${esc(shown.toUpperCase())}" maxlength="7" placeholder="#5BD42A" /><button type="button" class="secondary" id="ne-color-reset">Revenir au vert Rennes VTC</button></div>
+      <div class="nv-preview" id="ne-color-preview"><span class="pk">${esc(TYPES[e.type] ?? 'Événement')}</span><span class="pb">Réserver ma place</span><span class="pbar"><i></i></span><span class="pc">3 places restantes</span></div>
+      <p class="hint">La page ouverte par les invités et le chevalet imprimé reprennent cette couleur (une teinte très sombre est légèrement éclaircie sur la page pour rester lisible). N'oubliez pas d'enregistrer.</p></div>`;
+  };
+  function bindColor() {
+    const pal = document.getElementById('ne-palette');
+    if (!pal) return;
+    const hexInput = document.getElementById('ne-color-hex'), custom = document.getElementById('ne-color-custom'), preview = document.getElementById('ne-color-preview');
+    const name = (hex) => (PALETTE.find(([h]) => h === hex.toUpperCase()) || [])[1] || 'Couleur personnalisée';
+    const paint = (hex) => {
+      pickedColor = hex.toUpperCase();
+      preview.style.setProperty('--c', pickedColor);
+      const lum = ((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(pickedColor.slice(i, i + 2), 16));
+      const L = 0.2126 * lum(r) + 0.7152 * lum(g) + 0.0722 * lum(b);
+      preview.style.setProperty('--t', 1.05 / (L + 0.05) > (L + 0.05) / 0.055 ? '#fff' : '#0b0f0c');
+      pal.querySelectorAll('.nv-tile[data-hex]').forEach((b2) => b2.classList.toggle('on', b2.dataset.hex === pickedColor));
+      const free = pal.querySelector('.nv-tile-custom');
+      free.classList.toggle('on', !PALETTE.some(([h]) => h === pickedColor));
+      free.style.setProperty('--c', pickedColor);
+      hexInput.value = pickedColor; custom.value = pickedColor.toLowerCase();
+      document.getElementById('ne-color-name').textContent = name(pickedColor);
+    };
+    pal.querySelectorAll('.nv-tile[data-hex]').forEach((b2) => { b2.onclick = () => paint(b2.dataset.hex); });
+    custom.oninput = () => paint(custom.value);
+    hexInput.oninput = () => { const v = hexInput.value.startsWith('#') ? hexInput.value : '#' + hexInput.value; if (/^#[0-9a-f]{6}$/i.test(v)) paint(v); };
+    document.getElementById('ne-color-reset').onclick = () => { paint(PALETTE[0][0]); pickedColor = ''; };
+    const initial = pickedColor; // vide = vert Rennes VTC par defaut, rien n'est enregistre tant que l'on ne choisit pas
+    paint(initial || PALETTE[0][0]);
+    pickedColor = initial;
+  }
+
   function drawSettings() {
     const e = current ?? { name: '', type: 'evenement', event_date: '', pickup_place: '', destination: '', welcome_message: '', pin: '', status: 'ouvert', close_minutes: 1, max_party: 4, client_id: null, ride_id: null, departures: [] };
     const L = lookups;
@@ -258,6 +330,7 @@
           <div class="field"><label>Cloture automatique (minutes avant le depart)</label><input id="ne-close" type="number" min="0" max="1440" value="${e.close_minutes}" /></div>
           <div class="field"><label>Places maximum par inscription</label><input id="ne-party" type="number" min="1" max="10" value="${e.max_party ?? 4}" /></div>
           <div class="field"><label>Client (facultatif)</label><select id="ne-client">${options(L.clients, 'x', (c) => c.name, e.client_id, 'Aucun')}</select></div>
+          ${colorHtml(e)}
           <div class="field wide"><label>Reservation Rennes VTC liee (facultatif)</label><select id="ne-ride">${options(L.rides, 'x', (r) => `${r.client_name ?? 'Client'} - ${r.pickup_address} -> ${r.dropoff_address}`, e.ride_id, 'Aucune')}</select></div>
         </div>
         <div class="price-row" style="margin-top:12px">
@@ -269,6 +342,7 @@
         <p class="hint">Apres la creation, vous pourrez generer les departs, copier le lien et imprimer le chevalet.</p>`;
       document.getElementById('nav-back').onclick = (ev) => { ev.preventDefault(); showList(); };
       document.getElementById('ne-save').onclick = saveEvent;
+      bindColor();
       return;
     }
     root().innerHTML = `
@@ -285,6 +359,7 @@
     document.getElementById('nav-golive').onclick = () => showLive(e.id);
     root().querySelectorAll('details.nv-sec').forEach((d) => d.addEventListener('toggle', () => { openState[d.dataset.key] = d.open; }));
     document.getElementById('ne-save').onclick = saveEvent;
+    bindColor();
     bindDetail();
   }
 
@@ -295,6 +370,7 @@
       pin: document.getElementById('ne-pin').value, status: document.getElementById('ne-status').value, close_minutes: document.getElementById('ne-close').value, max_party: document.getElementById('ne-party').value,
       client_id: document.getElementById('ne-client').value || null, ride_id: document.getElementById('ne-ride').value || null,
     };
+    if (lookups.accent_supported) body.accent_color = pickedColor || null;
     if (body.pin && !/^\d{4}$/.test(body.pin)) return alert('Le code PIN doit comporter exactement 4 chiffres (ou rester vide).');
     try {
       current = current ? await api('/admin/navettes/events/' + current.id, 'PATCH', body) : await api('/admin/navettes/events', 'POST', body);

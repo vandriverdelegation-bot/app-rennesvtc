@@ -62,7 +62,8 @@ function buildChevaletPdf({ event, format = 'a5', qrPng, rvtcLogo, eventLogo }) 
   const kicker = `${TYPES[event.type] ?? 'Événement'} · ${frLongDate(event.event_date)}`.toUpperCase();
   doc.font('Outfit');
   const ks = fit(doc, kicker, 'Outfit', cw, W * 0.06, W * 0.034, W * 0.022);
-  doc.fillColor(GREEN).fontSize(ks).text(kicker, m, H * 0.19, { width: cw, align: 'center' });
+  const ACCENT = /^#[0-9a-f]{6}$/i.test(event.accent_color ?? '') ? event.accent_color : GREEN; // couleur choisie pour l'evenement
+  doc.fillColor(ACCENT).fontSize(ks).text(kicker, m, H * 0.19, { width: cw, align: 'center' });
 
   // Nom de l'evenement
   const nameBoxH = H * 0.13;
@@ -79,13 +80,13 @@ function buildChevaletPdf({ event, format = 'a5', qrPng, rvtcLogo, eventLogo }) 
 
   // Phrase d'invitation
   const py = qy + qr + pad + H * 0.022;
-  doc.rect((W - W * 0.12) / 2, py - H * 0.012, W * 0.12, 2).fill(GREEN);
+  doc.rect((W - W * 0.12) / 2, py - H * 0.012, W * 0.12, 2).fill(ACCENT);
   const phrase = 'Scannez pour réserver votre navette retour';
   const ps = fit(doc, phrase, 'Outfit', cw, H * 0.1, W * 0.058, W * 0.04);
   doc.fillColor('#FFFFFF').fontSize(ps).text(phrase, m, py + H * 0.012, { width: cw, align: 'center' });
   let y = doc.y + H * 0.008;
   if (event.pin) {
-    doc.font('Outfit').fontSize(W * 0.045).fillColor(GREEN).text(`Code PIN : ${event.pin}`, m, y, { width: cw, align: 'center' });
+    doc.font('Outfit').fontSize(W * 0.045).fillColor(ACCENT).text(`Code PIN : ${event.pin}`, m, y, { width: cw, align: 'center' });
     y = doc.y;
   }
 

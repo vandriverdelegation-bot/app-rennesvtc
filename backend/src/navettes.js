@@ -68,6 +68,8 @@ function eventPayload(b, partial) {
   set('max_party', Math.min(Math.max(parseInt(b.max_party, 10) || 4, 1), 10));
   set('client_id', isUuid(b.client_id) ? b.client_id : null);
   set('ride_id', isUuid(b.ride_id) ? b.ride_id : null);
+  // Couleur : envoyee seulement si la colonne existe (migration 054) ; une valeur invalide revient au vert Rennes VTC.
+  if (b.accent_color !== undefined) out.accent_color = /^#[0-9a-f]{6}$/i.test(String(b.accent_color ?? '')) ? String(b.accent_color).toUpperCase() : null;
   return out;
 }
 
@@ -94,7 +96,8 @@ function registerNavettes(app, requireAdmin, baseUrl) {
       supabaseAdmin.from('vehicles').select('id, display_name, plate, seats, driver_id').order('display_name', { ascending: true }),
       supabaseAdmin.from('profiles').select('id, full_name, email').eq('role', 'chauffeur').order('full_name', { ascending: true }),
     ]);
-    res.json({ clients: clients.data ?? [], rides: rides.data ?? [], vehicles: vehicles.data ?? [], drivers: drivers.data ?? [] });
+    const probe = await supabaseAdmin.from('navette_events').select('accent_color').limit(1); // la colonne existe-t-elle (migration 054) ?
+    res.json({ clients: clients.data ?? [], rides: rides.data ?? [], vehicles: vehicles.data ?? [], drivers: drivers.data ?? [], accent_supported: !probe.error });
   });
 
   app.get('/admin/navettes/events', requireAdmin, async (req, res) => {
@@ -474,7 +477,7 @@ function registerGuest(app) {
     if (!allow('pin:' + req.ip + ':' + ev.id, 10, 600000)) return { ok: false, status: 429, body: { error: 'Trop d\'essais. Réessayez dans quelques minutes.' } };
     return { ok: false, status: 401, body: { needPin: true, wrong: true } };
   }
-  const header = (ev, b) => ({ name: ev.name, logo_url: ev.logo_url, rvtc_logo: b.logo_url ?? null });
+  const header = (ev, b) => ({ name: ev.name, logo_url: ev.logo_url, rvtc_logo: b.logo_url ?? null, accent_color: ev.accent_color ?? null });
 
   app.get('/public/navette/:code', async (req, res) => {
     res.set('Cache-Control', 'no-store');

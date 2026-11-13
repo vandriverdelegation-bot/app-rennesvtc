@@ -116,3 +116,7 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 ## Déjà en ligne (13/11) : extraction Excel + calendrier
 - Back-office > Réservations > « Extraction Excel » : filtres (période, date de course ou de saisie, client, chauffeur, statut, type de service, gamme, paiement, tag), aperçu en direct, fichier .xlsx (31 colonnes, filtres Excel, total qui suit les filtres) + feuille « Synthèse ». Code : `backend/src/exportReservations.js` (dépendance `exceljs`). Lecture seule.
 - Calendrier : un clic sur une course du jour ouvre la fiche (affichage + modification) ; le jour reste ouvert après modification.
+
+## Déjà en ligne (13/11) : couleur des navettes (nuancier)
+- Back-office > Navettes > Réglages > « Informations de l'événement » : nuancier de 30 couleurs rangées par famille (+ couleur libre, code hex, aperçu, retour au vert Rennes VTC). La couleur est reprise par la page des invités (`/navette/CODE`) et par le chevalet PDF ; une teinte très sombre est éclaircie sur la page pour rester lisible, le texte des boutons passe en blanc/noir selon le contraste.
+- Nécessite la migration `supabase/054_navettes_couleur.sql` (colonne `navette_events.accent_color`). Tant qu'elle n'est pas appliquée, le back-office l'indique et rien ne casse.
