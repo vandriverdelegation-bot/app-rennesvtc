@@ -112,3 +112,7 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - Création de réservation, étape 5 : champ « Tablette d'accueil toute prête » (envoyée à la création, avant les e-mails).
 - « En cours » : nom du chauffeur sur chaque course (ou « dispatchée à … / à tous »), tri (date proche/lointaine, chauffeur A-Z), filtres chauffeur (principal ou supplémentaire) et jour.
 - Fiche réservation refaite : résumé en 4 tuiles, blocs Chauffeur / Statut et déroulement / Adresses / Date et heure / Passagers / Notes et tags, zone « Supprimer » séparée. Mêmes identifiants et mêmes enregistrements qu'avant.
+
+## Déjà en ligne (13/11) : extraction Excel + calendrier
+- Back-office > Réservations > « Extraction Excel » : filtres (période, date de course ou de saisie, client, chauffeur, statut, type de service, gamme, paiement, tag), aperçu en direct, fichier .xlsx (31 colonnes, filtres Excel, total qui suit les filtres) + feuille « Synthèse ». Code : `backend/src/exportReservations.js` (dépendance `exceljs`). Lecture seule.
+- Calendrier : un clic sur une course du jour ouvre la fiche (affichage + modification) ; le jour reste ouvert après modification.
