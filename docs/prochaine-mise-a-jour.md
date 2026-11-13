@@ -107,3 +107,8 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 
 ## Déjà en ligne (13/11) : tablette d'accueil toute prête
 - Back-office > fiche réservation > nouvel onglet « Tablette d'accueil » : aperçu, bouton « Télécharger l'image », fichier perso (PNG/JPG/WebP) qui remplace la tablette avec le nom, retour possible. Fichier rangé dans le stockage Supabase (bucket privé `accueil-files`, `<id course>.jpg`). Le chauffeur le voit via le bouton existant de l'appli et via le bouton de l'e-mail du bon de commande : aucun build nécessaire. Le champ « nom sur la tablette » a déménagé dans cet onglet.
+
+## Déjà en ligne (13/11) : back-office — fiche réservation, « En cours », tablette à la création
+- Création de réservation, étape 5 : champ « Tablette d'accueil toute prête » (envoyée à la création, avant les e-mails).
+- « En cours » : nom du chauffeur sur chaque course (ou « dispatchée à … / à tous »), tri (date proche/lointaine, chauffeur A-Z), filtres chauffeur (principal ou supplémentaire) et jour.
+- Fiche réservation refaite : résumé en 4 tuiles, blocs Chauffeur / Statut et déroulement / Adresses / Date et heure / Passagers / Notes et tags, zone « Supprimer » séparée. Mêmes identifiants et mêmes enregistrements qu'avant.

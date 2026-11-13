@@ -283,6 +283,61 @@
   .rm-row label { display: flex; align-items: center; gap: 6px; }
   .rm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .rm-section button { margin-top: 8px; }
+  /* Fiche reservation : cartes, resume en tuiles, champs alignes */
+  .modal { width: 980px; }
+  .modal-head { align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 28px 0; }
+  .rm-head-main { min-width: 0; flex: 1 1 380px; }
+  .rm-head-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .modal-route { font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
+  .rm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rm-head-actions button { margin: 0; }
+  .modal-tabs { padding: 18px 28px 0; }
+  .modal-body { padding: 22px 28px 26px; background: var(--bg); }
+  .rm-section, .rm-section:first-child, .rm-section:last-child { padding: 20px 22px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); }
+  .rm-title { font-size: 16px; font-weight: 800; margin: 0 0 12px; }
+  .rm-subtitle { font-size: 13px; font-weight: 700; color: var(--text); margin: 18px 0 8px; }
+  .rm-sub { color: var(--text-muted); font-size: 13px; line-height: 1.4; margin: 8px 0 0; }
+  .rm-section label { display: block; margin-bottom: 6px; font-weight: 600; }
+  .rm-section input:not([type=checkbox]):not([type=file]), .rm-section select { height: 42px; margin: 0; }
+  .rm-section textarea { margin: 0; }
+  .rm-section .grow { flex: 1 1 200px; min-width: 0; width: auto; }
+  .rm-row { align-items: center; }
+  .rm-grid { gap: 14px 18px; }
+  .rm-grid.one { grid-template-columns: 1fr; }
+  .rm-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rm-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  .rm-foot button { margin: 0; }
+  .rm-section label.rm-check { display: inline-flex; align-items: center; margin: 0; color: var(--text); font-weight: 700; cursor: pointer; }
+  .rm-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .rm-tile { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+  .rm-tile small { display: block; color: var(--text-muted); font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .rm-tile strong { display: block; font-size: 15px; overflow-wrap: anywhere; }
+  .rm-tile span { display: block; margin-top: 3px; color: var(--text-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .rm-tile.warn strong { color: var(--amber); }
+  .rm-steps { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rm-steps button { margin: 0; }
+  .rm-steps button.is-current { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .rm-danger { border-color: color-mix(in srgb, var(--error) 45%, var(--card-border)); }
+  .rm-danger .rm-title { color: var(--error); }
+  .rm-danger button { margin-top: 12px; border-color: var(--error); color: var(--error); }
+  .rm-danger button:hover:not(:disabled) { background: color-mix(in srgb, var(--error) 14%, transparent); }
+  @media (max-width: 900px) { .rm-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rm-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .rm-summary { grid-template-columns: 1fr; } .modal-head, .modal-tabs, .modal-body { padding-left: 16px; padding-right: 16px; } }
+
+  /* Courses en cours : barre de tri / filtres et ligne chauffeur */
+  .filters-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; padding: 16px 18px; margin-bottom: 14px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); }
+  .filters-bar .field { flex: 1 1 200px; min-width: 0; margin: 0; }
+  .filters-bar label { display: block; margin-bottom: 6px; font-weight: 600; }
+  .filters-bar select, .filters-bar input { width: 100%; height: 42px; margin: 0; }
+  .filters-bar button { margin: 0; height: 42px; }
+  .filters-bar .hint { margin: 0 0 12px auto; font-weight: 700; }
+  .driver-line { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 9%, var(--card-2)); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--card-border)); }
+  .driver-line.pending { background: color-mix(in srgb, var(--amber) 9%, var(--card-2)); border-color: color-mix(in srgb, var(--amber) 32%, var(--card-border)); }
+  .driver-ico { flex-shrink: 0; color: var(--accent); }
+  .driver-line.pending .driver-ico { color: var(--amber); }
+  .driver-line small { display: block; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+  .driver-line strong { font-size: 15px; }
+  .driver-extra { color: var(--text-muted); font-size: 13px; margin-left: auto; }
   .tb-preview { display: block; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border: 1px solid var(--card-border); border-radius: 12px; }
   .rm-row button { margin-top: 0; }
 
@@ -535,6 +590,21 @@
         </section>
 
         <section class="resa-panel" data-resa-panel="active">
+          <div class="filters-bar">
+            <div class="field"><label for="active-sort">Trier par</label>
+              <select id="active-sort">
+                <option value="date_asc">Date : la plus proche d'abord</option>
+                <option value="date_desc">Date : la plus lointaine d'abord</option>
+                <option value="driver">Chauffeur (A a Z)</option>
+              </select>
+            </div>
+            <div class="field"><label for="active-driver">Chauffeur</label>
+              <select id="active-driver"><option value="">Tous les chauffeurs</option></select>
+            </div>
+            <div class="field"><label for="active-day">Jour</label><input type="date" id="active-day" /></div>
+            <button type="button" class="secondary" id="active-reset">Reinitialiser</button>
+            <span class="hint" id="active-summary"></span>
+          </div>
           <div id="active-list"></div>
         </section>
 
@@ -632,6 +702,7 @@
               <div class="form-grid cols-2">
                 <div class="field"><label for="new-ride-tags">Tags</label><input id="new-ride-tags" placeholder="Separes par des virgules" /></div>
                 <div class="field"><label for="new-ride-welcome-name">Nom sur la tablette d'accueil</label><input id="new-ride-welcome-name" placeholder="Par defaut, le nom du client" /></div>
+                <div class="field wide"><label for="new-ride-welcome-file">Tablette d'accueil toute prete</label><input id="new-ride-welcome-file" type="file" accept="image/png,image/jpeg,image/webp" /><small class="help">Facultatif : une image (PNG, JPG ou WebP, 8 Mo max.) qui remplace la tablette automatique avec le nom du client. Le chauffeur la voit dans l'appli et dans son e-mail.</small></div>
                 <div class="field wide"><label for="new-ride-driver-note">Note pour le chauffeur</label><textarea id="new-ride-driver-note" placeholder="Visible par le chauffeur dans l'appli et sur le bon de reservation"></textarea></div>
               </div>
             </div>
@@ -1238,6 +1309,14 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const { data: created, error } = await supabase.from('rides').insert(payload).select('id, tracking_token').single();
   if (error) { errorEl.textContent = error.message; return; }
 
+  // Tablette toute prete choisie a la creation : envoyee avant les e-mails, qui contiennent le lien de la tablette.
+  const welcomeFile = document.getElementById('new-ride-welcome-file').files[0];
+  if (welcomeFile) {
+    const { data: { session: s0 } } = await supabase.auth.getSession();
+    const up = await fetch(`/admin/rides/${created.id}/accueil-file`, { method: 'POST', headers: { 'Content-Type': welcomeFile.type, Authorization: `Bearer ${s0.access_token}` }, body: welcomeFile });
+    if (!up.ok) alert('Reservation creee, mais la tablette n\'a pas pu etre envoyee : ' + ((await up.json().catch(() => ({}))).error || 'erreur') + '\nVous pouvez la renvoyer depuis la fiche de la reservation (onglet Tablette d\'accueil).');
+  }
+
   // Confirmation au client : de la demande, ou directement de l'acceptation si un chauffeur est deja choisi.
   const { data: { session } } = await supabase.auth.getSession();
   // Chauffeurs supplementaires : enregistres avant la confirmation, qui les previent avec le chauffeur principal.
@@ -1298,6 +1377,7 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   document.getElementById('new-ride-tags').value = '';
   document.getElementById('new-ride-driver-note').value = '';
   document.getElementById('new-ride-welcome-name').value = '';
+  document.getElementById('new-ride-welcome-file').value = '';
   document.getElementById('new-ride-passengers').value = '1';
   ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
   document.getElementById('new-ride-child-ages').value = '';
@@ -2306,23 +2386,71 @@ const RIDE_STEP_LABELS = {
   not_started: 'Pas commencee', en_route: 'Chauffeur en route', on_site: 'Sur place', on_board: 'Passager a bord', dropped: 'Passager depose', completed: 'Terminee', no_show: 'Non presentation',
 };
 
+// Courses en cours : chargees toutes les 5 s, puis triees / filtrees dans le navigateur (les choix restent en place).
+let activeRides = [];
+let activeNames = {}; // id chauffeur -> nom
+const rideDriverId = (r) => r.driver_id || r.dispatched_to || null;
+
 async function renderActive() {
   const { data: rides } = await supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at, tracking_token')
-    .in('status', ['dispatched', 'accepted'])
-    // Par date de course (les plus proches en premier) ; les courses immediates, sans date, passent en tete.
-    .order('scheduled_at', { ascending: true, nullsFirst: true })
-    .order('created_at', { ascending: true });
-
-  setCount('active', rides?.length ?? 0);
-  const container = document.getElementById('active-list');
-  if (!rides || rides.length === 0) {
-    container.innerHTML = '<div class="empty">Aucune course en cours.</div>';
-    return;
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, extra_driver_ids, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at, created_at, tracking_token')
+    .in('status', ['dispatched', 'accepted']);
+  activeRides = rides ?? [];
+  setCount('active', activeRides.length);
+  const ids = [...new Set(activeRides.flatMap((r) => [r.driver_id, r.dispatched_to, ...(r.extra_driver_ids ?? [])]).filter(Boolean))];
+  if (ids.length) {
+    const { data: people } = await supabase.from('profiles').select('id, full_name, email').in('id', ids);
+    activeNames = Object.fromEntries((people ?? []).map((p) => [p.id, p.full_name || p.email || 'Chauffeur']));
   }
+  drawActive();
+}
 
-  container.innerHTML = rides.map((ride) => `
+function drawActive() {
+  const container = document.getElementById('active-list');
+  const nameOf = (id) => activeNames[id] || 'Chauffeur inconnu';
+
+  // Liste des chauffeurs du filtre : ceux qui ont une course en cours (la selection est conservee).
+  const sel = document.getElementById('active-driver');
+  const chosen = sel.value;
+  const present = [...new Set(activeRides.flatMap((r) => [rideDriverId(r), ...(r.extra_driver_ids ?? [])]).filter(Boolean))].sort((x, y) => nameOf(x).localeCompare(nameOf(y), 'fr'));
+  const optionsHtml = '<option value="">Tous les chauffeurs</option>' + present.map((id) => `<option value="${id}">${escapeHtml(nameOf(id))}</option>`).join('') + '<option value="__none">Non attribue (dispatch a tous)</option>';
+  if (sel.dataset.sig !== optionsHtml) { sel.innerHTML = optionsHtml; sel.dataset.sig = optionsHtml; sel.value = [...sel.options].some((o) => o.value === chosen) ? chosen : ''; }
+
+  const driverFilter = sel.value;
+  const day = document.getElementById('active-day').value;
+  const sort = document.getElementById('active-sort').value;
+  const localDay = (iso) => new Date(iso).toLocaleDateString('en-CA'); // AAAA-MM-JJ, fuseau du navigateur
+  let list = activeRides.filter((r) => {
+    if (driverFilter === '__none' && rideDriverId(r)) return false;
+    if (driverFilter && driverFilter !== '__none' && rideDriverId(r) !== driverFilter && !(r.extra_driver_ids ?? []).includes(driverFilter)) return false; // chauffeur principal ou supplementaire
+    if (day && !(r.scheduled_at && localDay(r.scheduled_at) === day)) return false;
+    return true;
+  });
+  const when = (r) => (r.scheduled_at ? new Date(r.scheduled_at).getTime() : -Infinity); // courses immediates en tete
+  list = list.sort((x, y) => {
+    if (sort === 'driver') {
+      const nx = rideDriverId(x) ? nameOf(rideDriverId(x)) : '\uffff', ny = rideDriverId(y) ? nameOf(rideDriverId(y)) : '\uffff';
+      return nx.localeCompare(ny, 'fr') || when(x) - when(y);
+    }
+    const d = when(x) === when(y) ? 0 : when(x) < when(y) ? -1 : 1;
+    return sort === 'date_desc' ? -d : d;
+  });
+
+  const summary = document.getElementById('active-summary');
+  summary.textContent = list.length === activeRides.length ? `${list.length} course${list.length > 1 ? 's' : ''}` : `${list.length} sur ${activeRides.length} courses`;
+  if (!activeRides.length) { container.innerHTML = '<div class="empty">Aucune course en cours.</div>'; return; }
+  if (!list.length) { container.innerHTML = '<div class="empty">Aucune course ne correspond a ces filtres.</div>'; return; }
+
+  const driverLine = (ride) => {
+    const extra = (ride.extra_driver_ids ?? []).map(nameOf);
+    const extraTxt = extra.length ? `<span class="driver-extra">+ ${extra.map(escapeHtml).join(', ')}</span>` : '';
+    if (ride.driver_id) return `<div class="driver-line"><svg class="driver-ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span><small>Chauffeur</small><strong>${escapeHtml(nameOf(ride.driver_id))}</strong></span>${extraTxt}</div>`;
+    const text = ride.dispatched_to ? `Dispatchee a ${escapeHtml(nameOf(ride.dispatched_to))} (en attente de reponse)` : 'Dispatchee a tous (en attente de reponse)';
+    return `<div class="driver-line pending"><svg class="driver-ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span><small>Chauffeur</small><strong>${text}</strong></span></div>`;
+  };
+
+  container.innerHTML = list.map((ride) => `
     <article class="ride-card">
       <header class="ride-head">
         <div>
@@ -2337,6 +2465,7 @@ async function renderActive() {
         </div>
         <div class="ride-price">${ride.price != null ? ride.price + ' €' : 'A fixer'}${ride.surcharge_amount ? `<div class="hint" style="font-size:12px;font-weight:600">dont +${ride.surcharge_amount} € de majoration</div>` : ''}</div>
       </header>
+      ${driverLine(ride)}
       ${routeHtml(ride)}
       <div class="ride-actions">
         <button class="secondary" data-view-ride="${ride.id}">Voir la fiche</button>
@@ -2352,6 +2481,13 @@ async function renderActive() {
     btn.addEventListener('click', () => copyTrackingLink(btn.dataset.copyTracking, btn));
   });
 }
+['active-sort', 'active-driver', 'active-day'].forEach((id) => document.getElementById(id).addEventListener('input', drawActive));
+document.getElementById('active-reset').addEventListener('click', () => {
+  document.getElementById('active-sort').value = 'date_asc';
+  document.getElementById('active-driver').value = '';
+  document.getElementById('active-day').value = '';
+  drawActive();
+});
 
 async function renderPricing() {
   const [{ data: simple }, { data: hourly }, { data: forfaits }] = await Promise.all([
@@ -2967,8 +3103,8 @@ async function renderRideCourseTab() {
   const ride = currentRide;
   let driverLabel = 'Non assigne';
   if (ride.driver_id) {
-    const { data: driver } = await supabase.from('profiles').select('email').eq('id', ride.driver_id).single();
-    driverLabel = driver?.email ?? 'Chauffeur inconnu';
+    const { data: driver } = await supabase.from('profiles').select('email, full_name').eq('id', ride.driver_id).single();
+    driverLabel = driver?.full_name || driver?.email || 'Chauffeur inconnu';
   }
   const steps = ['not_started', 'en_route', 'on_site', 'on_board', 'dropped', 'completed', 'no_show'];
   const { data: assignable } = await supabase.from('profiles').select('id, email, full_name, vehicle_categories').eq('role', 'chauffeur').not('vehicle_category', 'is', null).order('full_name', { ascending: true });
@@ -2976,130 +3112,145 @@ async function renderRideCourseTab() {
   const nameOfDriver = (id) => { const d = (assignable ?? []).find((x) => x.id === id); return d?.full_name || d?.email || 'Chauffeur inconnu'; };
   const el = document.getElementById('ride-tab-course');
   document.getElementById('ride-modal-head').innerHTML = `
-    ${statusBadge(ride.status)}
-    <h3 id="ride-modal-heading" class="modal-route">${escapeHtml(ride.pickup_address ?? '')} &rarr; ${escapeHtml(ride.dropoff_address ?? '')}</h3>
-    ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
-    <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
+    <div class="rm-head-main">
+      <div class="rm-head-badges">${statusBadge(ride.status)}<span class="chip">${SERVICE_LABELS[ride.service_type] ?? ''}</span><span class="chip">${VEHICLE_LABELS[ride.vehicle_category] ?? ''}</span>${ride.ride_step && ride.ride_step !== 'not_started' ? `<span class="chip">${RIDE_STEP_LABELS[ride.ride_step] ?? ''}</span>` : ''}</div>
+      <h3 id="ride-modal-heading" class="modal-route">${escapeHtml(ride.pickup_address ?? '')} &rarr; ${escapeHtml(ride.dropoff_address ?? '')}</h3>
+    </div>
+    <div class="rm-head-actions">
+      ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
+      <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
+    </div>
   `;
   document.getElementById('rm-head-bon').addEventListener('click', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     window.open('/admin/rides/' + ride.id + '/bon-commande?token=' + encodeURIComponent(session.access_token), '_blank');
   });
   document.getElementById('rm-head-copy-tracking')?.addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
+  const driverNames = ride.driver_id ? driverLabel : null;
+  const clientLabel = ride.client_name || (ride.client_id ? 'Compte client' : 'Non renseigne');
+  const dispatchLabel = ride.status === 'dispatched' ? (ride.dispatched_to ? `Dispatchee a ${nameOfDriver(ride.dispatched_to)}` : 'Dispatchee a tous') : 'Non attribue';
   el.innerHTML = `
+    <div class="rm-summary">
+      <div class="rm-tile"><small>Quand</small><strong>${whenLabel(ride.scheduled_at)}</strong>${ride.return_scheduled_at ? `<span>Retour : ${whenLabel(ride.return_scheduled_at)}</span>` : ''}</div>
+      <div class="rm-tile ${driverNames ? '' : 'warn'}"><small>Chauffeur</small><strong>${escapeHtml(driverNames || dispatchLabel)}</strong>${extraIds.length ? `<span>+ ${extraIds.map((id) => escapeHtml(nameOfDriver(id))).join(', ')}</span>` : ''}</div>
+      <div class="rm-tile"><small>Client</small><strong>${escapeHtml(clientLabel)}</strong>${ride.client_phone ? `<span>${escapeHtml(ride.client_phone)}</span>` : ''}</div>
+      <div class="rm-tile"><small>Prix</small><strong>${ride.price != null ? ride.price + ' €' : 'A fixer'}</strong><span>${escapeHtml(PAYMENT_LABELS[ride.payment_method] ?? '')}</span></div>
+    </div>
+
     <div class="rm-section">
-      <div class="rm-title">Statut et chauffeur</div>
+      <div class="rm-title">Chauffeur</div>
+      <div class="rm-sub">Attribue la course tout de suite, meme en dispatch automatique : le chauffeur et le client sont prevenus.</div>
       <div class="rm-row">
-        <select id="rm-status">
-          ${['pending', 'dispatched', 'accepted', 'completed', 'cancelled'].map((s) => `<option value="${s}" ${ride.status === s ? 'selected' : ''}>${STATUS_META[s][0]}</option>`).join('')}
-        </select>
-        <button class="secondary" id="rm-save-status">Enregistrer le statut</button>
-      </div>
-      <div class="rm-row" style="margin-top:12px">
-        <span class="chip">Chauffeur : ${escapeHtml(driverLabel)}</span>
-        <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
-        <button class="secondary" id="rm-stop-alert">Arreter les rappels</button>
-      </div>
-      <div class="hint">« Dispatcher a nouveau » renvoie la sonnerie aux chauffeurs toutes les minutes (1 h au maximum) jusqu'a ce que la course soit acceptee.</div>
-      <div class="rm-row" style="margin-top:12px">
-        <select id="rm-driver-select">
+        <select id="rm-driver-select" class="grow">
           <option value="">Choisir un chauffeur...</option>
           ${(assignable ?? []).map((d) => `<option value="${d.id}" ${d.id === ride.driver_id ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)} (${(d.vehicle_categories ?? []).map((c) => VEHICLE_LABELS[c]).join(', ')})</option>`).join('')}
         </select>
-        <button class="secondary" id="rm-assign">Assigner ce chauffeur</button>
+        <button id="rm-assign">Assigner ce chauffeur</button>
       </div>
-      <div class="hint">Attribue la course tout de suite, meme en dispatch automatique : le chauffeur et le client sont prevenus.</div>
       <div class="rm-row" style="margin-top:12px">
-        <span class="chip">Chauffeurs supplementaires :</span>
-        ${extraIds.length ? extraIds.map((id) => `<span class="chip">${escapeHtml(nameOfDriver(id))} <button type="button" class="secondary" data-rm-extra-remove="${id}" aria-label="Retirer ce chauffeur" style="padding:0 6px">&times;</button></span>`).join('') : '<span class="hint">aucun</span>'}
+        <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
+        <button class="secondary" id="rm-stop-alert">Arreter les rappels</button>
+      </div>
+      <div class="rm-sub">« Dispatcher a nouveau » renvoie la sonnerie aux chauffeurs toutes les minutes (1 h au maximum) jusqu'a ce que la course soit acceptee.</div>
+      <div class="rm-subtitle">Chauffeurs supplementaires</div>
+      <div class="rm-row">
+        ${extraIds.length ? extraIds.map((id) => `<span class="chip">${escapeHtml(nameOfDriver(id))} <button type="button" class="secondary" data-rm-extra-remove="${id}" aria-label="Retirer ce chauffeur" style="padding:0 6px">&times;</button></span>`).join('') : '<span class="hint">Aucun</span>'}
       </div>
       <div class="rm-row" style="margin-top:8px">
-        <select id="rm-extra-select">
+        <select id="rm-extra-select" class="grow">
           <option value="">Ajouter un chauffeur a la mission...</option>
           ${(assignable ?? []).filter((d) => d.id !== ride.driver_id && !extraIds.includes(d.id)).map((d) => `<option value="${d.id}">${escapeHtml(d.full_name || d.email)}</option>`).join('')}
         </select>
         <button class="secondary" id="rm-extra-add">Ajouter</button>
       </div>
-      <div class="hint">Plusieurs chauffeurs sur la meme mission : le chauffeur principal gere les etapes ; les autres sont prevenus et recoivent le bon de commande.</div>
+      <div class="rm-sub">Plusieurs chauffeurs sur la meme mission : le chauffeur principal gere les etapes ; les autres sont prevenus et recoivent le bon de commande.</div>
     </div>
 
     <div class="rm-section">
-      <div class="rm-title">Gamme du vehicule</div>
-      <div class="rm-row">
-        <select id="rm-category">
-          ${CATEGORIES.map((c) => `<option value="${c}" ${ride.vehicle_category === c ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
-        </select>
-        <button class="secondary" id="rm-save-category">Enregistrer la gamme</button>
+      <div class="rm-title">Statut et deroulement</div>
+      <div class="rm-grid">
+        <div>
+          <label for="rm-status">Statut de la reservation</label>
+          <div class="rm-row">
+            <select id="rm-status" class="grow">
+              ${['pending', 'dispatched', 'accepted', 'completed', 'cancelled'].map((s) => `<option value="${s}" ${ride.status === s ? 'selected' : ''}>${STATUS_META[s][0]}</option>`).join('')}
+            </select>
+            <button class="secondary" id="rm-save-status">Enregistrer</button>
+          </div>
+        </div>
+        <div>
+          <label for="rm-category">Gamme du vehicule</label>
+          <div class="rm-row">
+            <select id="rm-category" class="grow">
+              ${CATEGORIES.map((c) => `<option value="${c}" ${ride.vehicle_category === c ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
+            </select>
+            <button class="secondary" id="rm-save-category">Enregistrer</button>
+          </div>
+        </div>
       </div>
-      <div class="hint">Modifiable a tout moment, meme sur une reservation deja acceptee. Le chauffeur et le tarif ne changent pas.</div>
+      <div class="rm-sub">La gamme est modifiable a tout moment : le chauffeur et le tarif ne changent pas.</div>
+      <div class="rm-subtitle">Etape de la course</div>
+      <div class="rm-steps">
+        ${steps.map((s) => `<button class="secondary ${ride.ride_step === s ? 'is-current' : ''}" data-rm-step="${s}">${RIDE_STEP_LABELS[s]}</button>`).join('')}
+      </div>
     </div>
 
     <div class="rm-section">
       <div class="rm-title">Adresses</div>
-      <input id="rm-pickup" placeholder="Depart" autocomplete="off" value="${escapeHtml(ride.pickup_address ?? '')}" />
-      <div class="suggestions" id="rm-pickup-suggestions" style="display:none"></div>
-      <textarea id="rm-stops" placeholder="Points d'arret (un par ligne)" style="min-height:44px">${(ride.stop_addresses ?? []).join('\n')}</textarea>
-      <input id="rm-dropoff" placeholder="Destination" autocomplete="off" value="${escapeHtml(ride.dropoff_address ?? '')}" />
-      <div class="suggestions" id="rm-dropoff-suggestions" style="display:none"></div>
-      <label style="display:flex;align-items:center;margin-top:6px"><input type="checkbox" id="rm-round-trip" ${ride.round_trip ? 'checked' : ''} /> Aller-retour</label>
-      <button class="secondary" id="rm-save-addresses">Enregistrer les adresses</button>
+      <div class="rm-grid one">
+        <div><label for="rm-pickup">Depart</label><input id="rm-pickup" placeholder="Depart" autocomplete="off" value="${escapeHtml(ride.pickup_address ?? '')}" /><div class="suggestions" id="rm-pickup-suggestions" style="display:none"></div></div>
+        <div><label for="rm-stops">Points d'arret (un par ligne)</label><textarea id="rm-stops" placeholder="Facultatif" style="min-height:44px">${(ride.stop_addresses ?? []).join('\n')}</textarea></div>
+        <div><label for="rm-dropoff">Destination</label><input id="rm-dropoff" placeholder="Destination" autocomplete="off" value="${escapeHtml(ride.dropoff_address ?? '')}" /><div class="suggestions" id="rm-dropoff-suggestions" style="display:none"></div></div>
+      </div>
+      <div class="rm-foot">
+        <label class="rm-check"><input type="checkbox" id="rm-round-trip" ${ride.round_trip ? 'checked' : ''} /> Aller-retour</label>
+        <button class="secondary" id="rm-save-addresses">Enregistrer les adresses</button>
+      </div>
     </div>
 
     <div class="rm-section">
-      <div class="rm-title">Horaires</div>
+      <div class="rm-title">Date et heure</div>
       <div class="rm-grid">
         <div>
-          <label for="rm-scheduled">Date et heure de la course</label>
-          <input type="datetime-local" id="rm-scheduled" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" />
-          <button class="secondary" id="rm-save-scheduled">Enregistrer</button>
+          <label for="rm-scheduled">Course</label>
+          <div class="rm-row"><input type="datetime-local" id="rm-scheduled" class="grow" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" /><button class="secondary" id="rm-save-scheduled">Enregistrer</button></div>
         </div>
         <div>
           <label for="rm-return-scheduled">Retour (si aller-retour)</label>
-          <input type="datetime-local" id="rm-return-scheduled" value="${ride.return_scheduled_at ? toLocalDatetimeInput(ride.return_scheduled_at) : ''}" />
-          <button class="secondary" id="rm-save-return-scheduled">Enregistrer</button>
+          <div class="rm-row"><input type="datetime-local" id="rm-return-scheduled" class="grow" value="${ride.return_scheduled_at ? toLocalDatetimeInput(ride.return_scheduled_at) : ''}" /><button class="secondary" id="rm-save-return-scheduled">Enregistrer</button></div>
         </div>
       </div>
     </div>
 
     <div class="rm-section">
-      <div class="rm-title">Passagers et sieges</div>
-      <div class="rm-row">
-        <input type="number" id="rm-passengers" value="${ride.passenger_count ?? 1}" style="width:84px" /><label>passagers</label>
-        <input type="number" id="rm-child-seats" value="${ride.child_seats ?? 0}" style="width:84px" /><label>sieges auto</label>
-        <input type="number" id="rm-booster-seats" value="${ride.booster_seats ?? 0}" style="width:84px" /><label>rehausseurs</label>
-        <input type="number" id="rm-luggage" value="${ride.luggage_count ?? 0}" style="width:84px" /><label>bagages</label>
+      <div class="rm-title">Passagers, bagages et sieges</div>
+      <div class="rm-grid four">
+        <div><label for="rm-passengers">Passagers</label><input type="number" id="rm-passengers" value="${ride.passenger_count ?? 1}" /></div>
+        <div><label for="rm-luggage">Bagages</label><input type="number" id="rm-luggage" value="${ride.luggage_count ?? 0}" /></div>
+        <div><label for="rm-child-seats">Sieges auto</label><input type="number" id="rm-child-seats" value="${ride.child_seats ?? 0}" /></div>
+        <div><label for="rm-booster-seats">Rehausseurs</label><input type="number" id="rm-booster-seats" value="${ride.booster_seats ?? 0}" /></div>
       </div>
       <label for="rm-child-ages" style="margin-top:12px;display:block">Age des enfants</label>
       <input id="rm-child-ages" value="${escapeHtml(ride.child_ages ?? '')}" placeholder="Ex : 3 ans, ou 3 et 7 ans" />
-      <button class="secondary" id="rm-save-options">Enregistrer</button>
+      <div class="rm-foot"><button class="secondary" id="rm-save-options">Enregistrer</button></div>
     </div>
 
     <div class="rm-section">
-      <div class="rm-title">Notes</div>
-      <label for="rm-client-note">Note du client</label>
-      <textarea id="rm-client-note" style="min-height:60px">${escapeHtml(ride.client_note ?? '')}</textarea>
-      <label for="rm-driver-note">Note pour le chauffeur</label>
-      <textarea id="rm-driver-note" style="min-height:60px">${escapeHtml(ride.driver_note ?? '')}</textarea>
-      <button class="secondary" id="rm-save-notes">Enregistrer les notes</button>
-    </div>
-
-    <div class="rm-section">
-      <div class="rm-title">Etape de la course</div>
-      <div class="rm-row">
-        ${steps.map((s) => `<button class="secondary" data-rm-step="${s}" style="${ride.ride_step === s ? 'border-color:var(--accent);color:var(--accent)' : ''}">${RIDE_STEP_LABELS[s]}</button>`).join('')}
+      <div class="rm-title">Notes et tags</div>
+      <div class="rm-grid">
+        <div><label for="rm-client-note">Note du client</label><textarea id="rm-client-note" style="min-height:60px">${escapeHtml(ride.client_note ?? '')}</textarea></div>
+        <div><label for="rm-driver-note">Note pour le chauffeur</label><textarea id="rm-driver-note" style="min-height:60px">${escapeHtml(ride.driver_note ?? '')}</textarea></div>
       </div>
+      <div class="rm-foot"><button class="secondary" id="rm-save-notes">Enregistrer les notes</button></div>
+      <label for="rm-tags" style="margin-top:6px;display:block">Tags</label>
+      <input id="rm-tags" value="${escapeHtml((ride.tags ?? []).join(', '))}" placeholder="Separes par des virgules" />
+      <div class="rm-foot"><button class="secondary" id="rm-save-tags">Enregistrer les tags</button></div>
     </div>
 
-    <div class="rm-section">
-      <div class="rm-title">Tags</div>
-      <input id="rm-tags" value="${escapeHtml((ride.tags ?? []).join(', '))}" placeholder="separes par des virgules" />
-      <button class="secondary" id="rm-save-tags">Enregistrer les tags</button>
-    </div>
-
-    <div class="rm-section">
+    <div class="rm-section rm-danger">
       <div class="rm-title">Supprimer</div>
-      <div class="hint">Supprime définitivement cette réservation (courses passées comprises : elles disparaissent aussi du chiffre d'affaires). Pour la conserver, passez-la plutôt au statut Annulée.</div>
-      <button class="secondary" id="rm-delete" style="border-color:var(--danger,#FF5C5C);color:var(--danger,#FF5C5C)">Supprimer cette réservation</button>
+      <div class="rm-sub">Supprime définitivement cette réservation (courses passées comprises : elles disparaissent aussi du chiffre d'affaires). Pour la conserver, passez-la plutôt au statut Annulée.</div>
+      <button class="secondary" id="rm-delete">Supprimer cette réservation</button>
     </div>
   `;
 
