@@ -215,6 +215,7 @@
   .resa-create #new-ride-stops > div, .resa-create #new-ride-extra-drivers > .row { margin-bottom: 10px; }
   .resa-create #new-ride-stops .suggestions { margin-top: 6px; }
   .resa-create .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 2px; }
+  .resa-create .seg.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .resa-create .seg button { margin: 0; height: 52px; font-size: 16px; font-weight: 800; border-radius: 12px; }
   .resa-create .seg button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .resa-create .add-btn { display: block; margin: 14px 0 0; border-style: dashed; color: var(--accent); font-weight: 700; }
@@ -661,16 +662,16 @@
             <div class="form-section">
               <div class="fs-head"><span class="fs-num">2</span><div><h3>Trajet</h3><p>Type de service, adresses et arrets.</p></div></div>
               <div class="form-grid cols-2">
-                <div class="field">
-                  <label for="new-ride-service">Type de service</label>
-                  <select id="new-ride-service">
+                <div class="field wide">
+                  <label>Type de service</label>
+                  <div class="seg two" id="new-ride-service-seg" role="group" aria-label="Type de service">
+                    <button type="button" class="secondary" data-value="trajet_simple">Trajet simple</button>
+                    <button type="button" class="secondary" data-value="mise_a_disposition">Mise a disposition</button>
+                  </div>
+                  <select id="new-ride-service" style="display:none" tabindex="-1" aria-hidden="true">
                     <option value="trajet_simple">Trajet simple</option>
                     <option value="mise_a_disposition">Mise a disposition</option>
                   </select>
-                </div>
-                <div class="field" id="new-ride-duration-row" style="display:none">
-                  <label for="new-ride-duration">Duree (heures)</label>
-                  <input id="new-ride-duration" type="number" min="1" step="0.5" value="3" />
                 </div>
                 <div class="field">
                   <label for="new-ride-pickup">Depart</label>
@@ -681,6 +682,10 @@
                   <label for="new-ride-dropoff" id="new-ride-dropoff-label">Destination</label>
                   <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
                   <div class="suggestions" id="new-ride-dropoff-suggestions" style="display:none"></div>
+                </div>
+                <div class="field" id="new-ride-duration-row" style="display:none">
+                  <label for="new-ride-duration">Duree de la mise a disposition (heures)</label>
+                  <input id="new-ride-duration" type="number" min="1" step="0.5" value="3" />
                 </div>
                 <div class="field wide"><label>Points d'arret</label><div id="new-ride-stops"></div><button type="button" class="secondary add-btn" id="new-ride-add-stop">+ Ajouter un point d'arret</button></div>
                 <div class="field inline" id="new-ride-round-trip-field"><label><input type="checkbox" id="new-ride-round-trip" /> Aller-retour</label></div>
@@ -1225,6 +1230,17 @@ document.getElementById('new-ride-price').addEventListener('input', (e) => {
 });
 ['new-ride-category', 'new-ride-service', 'new-ride-duration', 'new-ride-date', 'new-ride-time', 'new-ride-passengers', 'new-ride-child-seats', 'new-ride-booster-seats']
   .forEach((id) => document.getElementById(id).addEventListener('change', updateNewRidePrice));
+function syncServiceSeg() {
+  const v = document.getElementById('new-ride-service').value;
+  document.querySelectorAll('#new-ride-service-seg button').forEach((b) => { b.classList.toggle('on', b.dataset.value === v); b.setAttribute('aria-pressed', b.dataset.value === v); });
+}
+document.querySelectorAll('#new-ride-service-seg button').forEach((b) => b.addEventListener('click', () => {
+  const select = document.getElementById('new-ride-service');
+  select.value = b.dataset.value;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}));
+document.getElementById('new-ride-service').addEventListener('change', syncServiceSeg);
+syncServiceSeg();
 // Mise a disposition : duree en heures, pas d'aller-retour, destination facultative (lieu de fin = depart par defaut).
 document.getElementById('new-ride-service').addEventListener('change', (e) => {
   const mad = e.target.value === 'mise_a_disposition';
@@ -1484,7 +1500,7 @@ function resetNewRideForm() {
   newRidePickup = null;
   newRideDropoff = null;
   newRidePriceManual = false;
-  document.getElementById('new-ride-service').dispatchEvent(new Event('change', { bubbles: true })); // remet l'affichage trajet simple (duree, aller-retour, libelle destination)
+  document.getElementById('new-ride-service').dispatchEvent(new Event('change', { bubbles: true })); // remet l'affichage trajet simple (duree, aller-retour, libelle destination) et le bouton choisi
   syncCategorySeg();
 }
 
