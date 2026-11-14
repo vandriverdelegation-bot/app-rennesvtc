@@ -214,6 +214,9 @@
   .resa-create .field .row > button { flex: 0 0 44px; height: 44px; padding: 0; margin: 0; font-size: 20px; line-height: 1; }
   .resa-create #new-ride-stops > div, .resa-create #new-ride-extra-drivers > .row { margin-bottom: 10px; }
   .resa-create #new-ride-stops .suggestions { margin-top: 6px; }
+  .resa-create .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 2px; }
+  .resa-create .seg button { margin: 0; height: 52px; font-size: 16px; font-weight: 800; border-radius: 12px; }
+  .resa-create .seg button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .resa-create .add-btn { display: block; margin: 14px 0 0; border-style: dashed; color: var(--accent); font-weight: 700; }
   .resa-create .field .add-btn { margin-top: 0; width: 100%; }
   .resa-create .field.inline { display: flex; align-items: center; }
@@ -642,7 +645,7 @@
                 <div class="field"><label for="new-ride-client-company">Societe</label><input id="new-ride-client-company" placeholder="Nom de la societe" /><small class="help">Client professionnel : nom et prenom alors facultatifs.</small></div>
                 <div class="field"><label for="new-ride-client-phone">Telephone</label><input id="new-ride-client-phone" placeholder="06 00 00 00 00" /></div>
                 <div class="field"><label for="new-ride-client-email">Email</label><input id="new-ride-client-email" type="email" placeholder="client@exemple.fr" /><small class="help">Facultatif : le client recoit la confirmation.</small></div>
-                <div class="field"><label for="new-ride-category">Gamme</label><select id="new-ride-category"></select></div>
+                <div class="field wide"><label>Gamme du vehicule</label><div class="seg" id="new-ride-category-seg" role="group" aria-label="Gamme du vehicule"></div><select id="new-ride-category" style="display:none" tabindex="-1" aria-hidden="true"></select></div>
               </div>
               <button type="button" class="secondary add-btn" id="new-ride-orderer-toggle">+ Suivi au donneur d'ordre</button>
               <div id="new-ride-orderer-block" class="inset" style="display:none">
@@ -1113,7 +1116,25 @@ function populateCategorySelect() {
   document.getElementById('new-chauffeur-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
   document.getElementById('invite-category').innerHTML = document.getElementById('new-chauffeur-category').innerHTML;
   document.getElementById('new-ride-category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${VEHICLE_LABELS[c]}</option>`).join('');
+  buildCategorySeg();
   populateNewRideDrivers();
+}
+
+// Gamme de la reservation : un clic sur Confort / Affaires / Van met a jour la liste cachee et declenche ses ecouteurs (prix, chauffeurs).
+function syncCategorySeg() {
+  const v = document.getElementById('new-ride-category').value;
+  document.querySelectorAll('#new-ride-category-seg button').forEach((b) => { b.classList.toggle('on', b.dataset.value === v); b.setAttribute('aria-pressed', b.dataset.value === v); });
+}
+function buildCategorySeg() {
+  const seg = document.getElementById('new-ride-category-seg');
+  seg.innerHTML = CATEGORIES.map((c) => `<button type="button" class="secondary" data-value="${c}">${VEHICLE_LABELS[c]}</button>`).join('');
+  seg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    const select = document.getElementById('new-ride-category');
+    select.value = b.dataset.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    syncCategorySeg();
+  }));
+  syncCategorySeg();
 }
 
 // Autocomplete d'adresse via le proxy backend (meme pattern que /reserver).
@@ -1442,38 +1463,30 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     banner.appendChild(a);
   }
 
-  document.getElementById('new-ride-client-firstname').value = '';
-  document.getElementById('new-ride-client-name').value = '';
-  document.getElementById('new-ride-client-company').value = '';
-  document.getElementById('new-ride-client-phone').value = '';
-  document.getElementById('new-ride-client-email').value = '';
-  document.getElementById('new-ride-pickup').value = '';
-  document.getElementById('new-ride-pickup-suggestions').style.display = 'none';
-  document.getElementById('new-ride-dropoff-suggestions').style.display = 'none';
-  newRidePickup = null;
-  newRideDropoff = null;
-  document.getElementById('new-ride-dropoff').value = '';
-  document.getElementById('new-ride-stops').innerHTML = '';
-  document.getElementById('new-ride-extra-drivers').innerHTML = '';
-  document.getElementById('new-ride-round-trip').checked = false;
-  document.getElementById('new-ride-return-row').style.display = 'none';
-  document.getElementById('new-ride-return-date').value = '';
-  document.getElementById('new-ride-return-time').value = '';
-  document.getElementById('new-ride-tags').value = '';
-  document.getElementById('new-ride-driver-note').value = '';
-  document.getElementById('new-ride-welcome-name').value = '';
-  document.getElementById('new-ride-welcome-file').value = '';
-  document.getElementById('new-ride-passengers').value = '1';
-  ['luggage', 'child-seats', 'booster-seats'].forEach((f) => { document.getElementById('new-ride-' + f).value = '0'; });
-  document.getElementById('new-ride-child-ages').value = '';
-  ['name', 'email', 'phone'].forEach((f) => { document.getElementById('new-ride-orderer-' + f).value = ''; });
-  document.getElementById('new-ride-orderer-block').style.display = 'none';
-  document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
-  document.getElementById('new-ride-price').value = '';
-  document.getElementById('new-ride-price-hint').textContent = '';
-  newRidePriceManual = false;
+  resetNewRideForm();
   refresh();
 });
+
+// Remet le formulaire « Creer une reservation » a l'etat vierge (le message « Reservation creee » reste affiche).
+function resetNewRideForm() {
+  const panel = document.querySelector('[data-resa-panel="create"]');
+  panel.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea').forEach((el) => { el.value = el.defaultValue; });
+  panel.querySelectorAll('input[type=checkbox]').forEach((el) => { el.checked = false; });
+  panel.querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; });
+  panel.querySelectorAll('.suggestions').forEach((el) => { el.style.display = 'none'; });
+  document.getElementById('new-ride-stops').innerHTML = '';
+  document.getElementById('new-ride-extra-drivers').innerHTML = '';
+  document.getElementById('new-ride-return-row').style.display = 'none';
+  document.getElementById('new-ride-orderer-block').style.display = 'none';
+  document.getElementById('new-ride-orderer-toggle').textContent = "+ Suivi au donneur d'ordre";
+  document.getElementById('new-ride-price-hint').textContent = '';
+  document.getElementById('new-ride-error').textContent = '';
+  newRidePickup = null;
+  newRideDropoff = null;
+  newRidePriceManual = false;
+  document.getElementById('new-ride-service').dispatchEvent(new Event('change', { bubbles: true })); // remet l'affichage trajet simple (duree, aller-retour, libelle destination)
+  syncCategorySeg();
+}
 
 const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
