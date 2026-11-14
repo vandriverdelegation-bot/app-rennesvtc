@@ -1504,6 +1504,50 @@ function resetNewRideForm() {
   syncCategorySeg();
 }
 
+// Dupliquer : ouvre « Creer une reservation » prerempli avec les informations de la course (client, adresses, arrets, options, prix, notes, donneur d'ordre).
+// Date, heure, chauffeur et chauffeurs supplementaires ne sont pas repris : on les choisit pour la nouvelle course.
+function duplicateRide(r) {
+  closeRideModal();
+  document.querySelector('[data-page="reservations"]').click();
+  showResaTab('create');
+  resetNewRideForm();
+  const q = (id) => document.getElementById(id);
+  const set = (id, v) => { q(id).value = v ?? ''; };
+  const change = (id, v) => { q(id).value = v; q(id).dispatchEvent(new Event('change', { bubbles: true })); };
+  set('new-ride-client-name', r.client_name);
+  set('new-ride-client-phone', r.client_phone);
+  set('new-ride-client-email', r.client_email);
+  change('new-ride-service', r.service_type === 'mise_a_disposition' ? 'mise_a_disposition' : 'trajet_simple');
+  if (r.service_type === 'mise_a_disposition' && r.duration_hours) set('new-ride-duration', r.duration_hours);
+  if (CATEGORIES.includes(r.vehicle_category)) change('new-ride-category', r.vehicle_category);
+  set('new-ride-pickup', r.pickup_address);
+  newRidePickup = { address: r.pickup_address, lat: r.pickup_lat, lng: r.pickup_lng };
+  set('new-ride-dropoff', r.dropoff_address);
+  newRideDropoff = { address: r.dropoff_address, lat: r.dropoff_lat, lng: r.dropoff_lng };
+  (r.stop_addresses ?? []).forEach((stop) => {
+    q('new-ride-add-stop').click();
+    [...document.querySelectorAll('.new-ride-stop')].pop().value = stop;
+  });
+  set('new-ride-passengers', r.passenger_count ?? 1);
+  set('new-ride-luggage', r.luggage_count ?? 0);
+  set('new-ride-child-seats', r.child_seats ?? 0);
+  set('new-ride-booster-seats', r.booster_seats ?? 0);
+  set('new-ride-child-ages', r.child_ages);
+  if (['carte_a_bord', 'especes', 'compte'].includes(r.payment_method)) change('new-ride-payment', r.payment_method);
+  if (r.price != null) { set('new-ride-price', r.price); newRidePriceManual = true; q('new-ride-price-hint').textContent = 'Prix repris de la reservation d\'origine (modifiable).'; }
+  set('new-ride-tags', (r.tags ?? []).join(', '));
+  set('new-ride-driver-note', r.driver_note);
+  set('new-ride-welcome-name', r.welcome_name);
+  if (r.orderer_name || r.orderer_email || r.orderer_phone) {
+    if (q('new-ride-orderer-block').style.display === 'none') q('new-ride-orderer-toggle').click();
+    set('new-ride-orderer-name', r.orderer_name); set('new-ride-orderer-email', r.orderer_email); set('new-ride-orderer-phone', r.orderer_phone);
+  }
+  syncCategorySeg();
+  q('new-ride-created').textContent = 'Reservation dupliquee : choisissez la date et l\'heure (et le chauffeur si besoin), puis validez.';
+  q('new-ride-date').scrollIntoView({ block: 'center' });
+  q('new-ride-date').focus();
+}
+
 const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 // Chauffeurs sans vehicule + chauffeur du vehicule edite (un chauffeur = un seul vehicule).
@@ -3363,6 +3407,7 @@ async function renderRideCourseTab() {
     <div class="rm-head-actions">
       ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
       <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
+      <button type="button" id="rm-head-duplicate">Dupliquer</button>
     </div>
   `;
   document.getElementById('rm-head-bon').addEventListener('click', async () => {
@@ -3370,6 +3415,7 @@ async function renderRideCourseTab() {
     window.open('/admin/rides/' + ride.id + '/bon-commande?token=' + encodeURIComponent(session.access_token), '_blank');
   });
   document.getElementById('rm-head-copy-tracking')?.addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
+  document.getElementById('rm-head-duplicate').addEventListener('click', () => duplicateRide(ride));
   const driverNames = ride.driver_id ? driverLabel : null;
   const clientLabel = ride.client_name || (ride.client_id ? 'Compte client' : 'Non renseigne');
   const dispatchLabel = ride.status === 'dispatched' ? (ride.dispatched_to ? `Dispatchee a ${nameOfDriver(ride.dispatched_to)}` : 'Dispatchee a tous') : 'Non attribue';
