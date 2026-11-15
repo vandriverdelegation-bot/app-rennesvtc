@@ -2231,18 +2231,39 @@ function renderClientsTable(clients) {
   }
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Reservations</th><th>Inscrit le</th></tr></thead>
+      <thead><tr><th>Email</th><th>Reservations</th><th>Inscrit le</th><th></th></tr></thead>
       <tbody>
         ${clients.map((c) => `
           <tr>
             <td>${escapeHtml(c.email ?? '')}</td>
             <td>${c.rideCount}</td>
             <td>${new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+            <td style="text-align:right"><button type="button" class="secondary client-delete" data-client-id="${c.id}" style="margin:0;color:var(--error);border-color:var(--error)">Supprimer</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+  container.querySelectorAll('.client-delete').forEach((btn) => btn.addEventListener('click', () => deleteClient(btn.dataset.clientId, btn)));
+}
+
+// Suppression d'un client : ses reservations a venir sont annulees, l'historique est conserve sans son identite.
+async function deleteClient(id, btn) {
+  const c = clientsCache.find((x) => x.id === id);
+  if (!c) return;
+  if (!confirm(`Supprimer le client ${c.email ?? ''} ?
+
+- Son compte est supprime definitivement (il ne pourra plus se connecter).
+- Ses reservations a venir sont annulees.
+- Ses ${c.rideCount} reservation(s) passee(s) restent dans l'historique, sans son nom ni ses coordonnees.
+
+Cette action est irreversible.`)) return;
+  btn.disabled = true;
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`/admin/clients/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
+  if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Suppression impossible.'); btn.disabled = false; return; }
+  await renderClients();
+  refresh();
 }
 
 async function renderClients() {

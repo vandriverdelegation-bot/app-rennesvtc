@@ -924,20 +924,27 @@ app.post('/client/rides/:rideId/cancel', requireSupabaseUser, async (req, res) =
   res.json({ ok: true });
 });
 
-// Suppression du compte par le client : ses courses sont conservees (comptabilite) mais detachees de son identite.
-app.delete('/client/account', requireSupabaseUser, async (req, res) => {
-  const id = req.user.id;
+// Suppression d'un compte client (par lui-meme ou par l'admin) : les reservations a venir sont annulees, l'historique est conserve (comptabilite) mais detache de son identite.
+async function deleteClientAccount(id) {
   const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', id).single();
-  if (profile?.role !== 'client') return res.status(403).json({ error: 'Reserve aux comptes clients.' });
-
-  // Les reservations a venir sont annulees ; l'historique est anonymise.
+  if (profile?.role !== 'client') return { status: 403, error: 'Reserve aux comptes clients.' };
   await supabaseAdmin.from('rides').update({ status: 'cancelled' }).eq('client_id', id).in('status', ['pending', 'dispatched']);
   const { count: engaged } = await supabaseAdmin.from('rides').select('*', { count: 'exact', head: true }).eq('client_id', id).eq('status', 'accepted');
-  if (engaged) return res.status(400).json({ error: 'Une course acceptee est en cours : contactez Rennes VTC pour la supprimer.' });
-  await supabaseAdmin.from('rides').update({ client_id: null, client_name: 'Client supprime', client_phone: null, client_email: null }).eq('client_id', id);
+  if (engaged) return { status: 400, error: 'Une course acceptee est en cours : contactez Rennes VTC pour la supprimer.' };
+  // La base exige un nom ET un telephone quand une course n'a plus de compte (contrainte rides_client_identifie) : on met un texte neutre.
+  const { error: detachError } = await supabaseAdmin.from('rides').update({ client_id: null, client_name: 'Client supprime', client_phone: '-', client_email: null }).eq('client_id', id);
+  if (detachError) return { status: 400, error: detachError.message };
   const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ ok: true });
+  return error ? { status: 400, error: error.message } : { status: 200 };
+}
+app.delete('/client/account', requireSupabaseUser, async (req, res) => {
+  const r = await deleteClientAccount(req.user.id);
+  res.status(r.status).json(r.error ? { error: r.error } : { ok: true });
+});
+// Back-office : suppression d'un client. Une course acceptee en cours l'empeche (a terminer ou annuler d'abord).
+app.delete('/admin/clients/:id', requireAdmin, async (req, res) => {
+  const r = await deleteClientAccount(req.params.id);
+  res.status(r.status === 403 ? 404 : r.status).json(r.error ? { error: r.status === 403 ? 'Client introuvable' : r.error } : { ok: true });
 });
 
 // Coordonnees du chauffeur d'une course acceptee, visibles uniquement par son client.
