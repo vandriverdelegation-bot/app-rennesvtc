@@ -113,6 +113,7 @@ async function buildBonCommandePdf({ company, driver, vehicle, ride }) {
       `Bagage(s) : ${ride.luggage_count ?? 0}`,
     ].filter(Boolean).join('\n'), { size: 9, bold: true });
     const notes = [
+      ride.transport_number ? `${ride.transport_type === 'train' ? 'Train' : 'Vol'} ${ride.transport_number}` : '',
       ride.client_note,
       ride.driver_note,
       ride.child_seats > 0 ? `Siège auto x${ride.child_seats}` : '',

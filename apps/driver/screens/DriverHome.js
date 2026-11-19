@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform, Alert } from 'react-native';
 import * as Location from 'expo-location';
-import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
+import { theme, whatsappUrl, themedStyles, agendaUrl, transportUrl, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import DriverSettings from './DriverSettings';
 import CreateRide from './CreateRide';
@@ -84,7 +84,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   async function refresh() {
     const { data: mine } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, vehicle_category, leg, stop_addresses, step_times')
+      .select('id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, payment_method, service_type, price, ride_step, scheduled_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, vehicle_category, leg, stop_addresses, step_times, tracking_token, duration_hours, transport_type, transport_number')
       .eq('driver_id', session.user.id)
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -92,7 +92,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
     setMyRides(list);
     const { data: shared } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, status, service_type, price, scheduled_at, passenger_count, payment_method, leg')
+      .select('id, pickup_address, dropoff_address, status, service_type, price, scheduled_at, passenger_count, payment_method, leg, stop_addresses, tracking_token, duration_hours, transport_type, transport_number')
       .contains('extra_driver_ids', [session.user.id])
       .eq('status', 'accepted')
       .order('scheduled_at', { ascending: true, nullsFirst: true });
@@ -109,7 +109,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, declined_by, leg')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, declined_by, leg, transport_type, transport_number')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       // Les courses que j'ai refusees ne reviennent plus dans ma liste.
@@ -480,6 +480,8 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                       </View>
                       <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      <AgendaLink ride={item} />
+                      <FollowTransport ride={item} />
                       <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
                       {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
                       {!activeRide ? (
@@ -503,6 +505,8 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                     <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                   </View>
                   <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                  <AgendaLink ride={item} />
+                  <FollowTransport ride={item} />
                   <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
                   <Btn title="Bon de commande" variant="secondary" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/driver/bon-commande/${item.id}?token=${session.access_token}`)} />
                 </Card>
@@ -588,6 +592,8 @@ function DriverHomeInner({ session, setWelcomeFor }) {
 
         <Card>
           <RouteBlock pickup={activeRide.pickup_address} dropoff={activeRide.dropoff_address} />
+          <AgendaLink ride={activeRide} />
+          <FollowTransport ride={activeRide} />
           {!navOpen ? (
             <Btn title={`Naviguer vers ${navTarget().label}`} onPress={() => setNavOpen(true)} />
           ) : (
@@ -686,6 +692,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                 <Pill icon="luggage">{item.luggage_count ?? 0}</Pill>
                 {item.child_seats > 0 || item.booster_seats > 0 ? <Pill highlight>👶 Siege{agesLabel(item.child_ages)}</Pill> : null}
                 <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
+                {item.transport_number ? <Pill highlight>{item.transport_type === 'train' ? 'Train' : 'Vol'} {item.transport_number}</Pill> : null}
               </View>
               <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
               {item.client_note ? <ClientNote text={item.client_note} /> : null}
@@ -725,6 +732,26 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   );
 }
 
+// Bouton « Suivre le vol / le train » : ouvre la page du serveur qui renvoie vers le suivi en direct.
+function FollowTransport({ ride }) {
+  const url = transportUrl(process.env.EXPO_PUBLIC_BACKEND_URL, ride);
+  if (!url) return null;
+  const kind = ride.transport_type === 'train' ? 'train' : 'vol';
+  return <Btn title={`${TRANSPORT_LABELS[kind].follow} ${ride.transport_number}`} variant="secondary" onPress={() => Linking.openURL(url)} />;
+}
+
+// Lien discret « Ajouter à l'agenda » : Google Agenda sur Android, fichier agenda (Calendrier Apple) ailleurs.
+function AgendaLink({ ride }) {
+  const url = agendaUrl(ride, { backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL, platform: Platform.OS, role: 'driver' });
+  if (!url) return null;
+  return (
+    <TouchableOpacity style={styles.agendaLink} onPress={() => Linking.openURL(url)} accessibilityLabel="Ajouter à l'agenda" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <Icon name="calendar" color="m" size={14} />
+      <Text style={styles.agendaText}>Ajouter à l'agenda</Text>
+    </TouchableOpacity>
+  );
+}
+
 function ClientNote({ text, title = 'Information du client' }) {
   return (
     <View style={styles.noteBox}>
@@ -735,6 +762,8 @@ function ClientNote({ text, title = 'Information du client' }) {
 }
 
 const styles = themedStyles(() => ({
+  agendaLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', opacity: 0.8 },
+  agendaText: { color: theme.colors.textMuted, fontSize: 12, textDecorationLine: 'underline' },
   noteBox: { borderWidth: 1, borderColor: theme.colors.accent, borderRadius: 14, padding: 12, gap: 4 },
   noteText: { color: theme.colors.text, fontSize: 15 },
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },

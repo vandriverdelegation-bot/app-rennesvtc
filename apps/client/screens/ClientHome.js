@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl, themedStyles, detectTransport, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import { autocompleteAddress, getPlaceLocation } from '../lib/places';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -106,6 +106,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
   const [luggageCount, setLuggageCount] = useState(0);
   const [childAges, setChildAges] = useState('');
   const [clientNote, setClientNote] = useState('');
+  const [transportNumber, setTransportNumber] = useState(''); // numero de vol ou de train (depart = aeroport ou gare)
   const [asap, setAsap] = useState(false); // course immediate, sans date
   const [rideDate, setRideDate] = useState('');
   const [rideTime, setRideTime] = useState('');
@@ -123,7 +124,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
     const { data } = await supabase
       .from('rides')
       .select(
-        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, ride_step, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, leg, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats'
+        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, ride_step, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, leg, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, tracking_token, stop_addresses, duration_hours, transport_type, transport_number'
       )
       .eq('client_id', session.user.id)
       .in('status', ['pending', 'dispatched', 'accepted'])
@@ -369,6 +370,12 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
       }
       returnScheduledAt = parsed.toISOString();
     }
+    const transportType = detectTransport(pickup.address);
+    const transportNum = transportType ? transportNumber.trim().toUpperCase() : '';
+    if (transportNum && !(transportType === 'vol' ? /^[A-Z0-9]{2,3}\s?-?\d{1,4}[A-Z]?$/ : /^[A-Z ]{0,12}\d{3,6}$/).test(transportNum)) {
+      setErrorMsg(transportType === 'vol' ? 'Numéro de vol invalide (exemple : AF1234), ou laissez le champ vide.' : 'Numéro de train invalide (exemple : 8601), ou laissez le champ vide.');
+      return;
+    }
     setSubmitting(true);
     const { data: ride, error } = await supabase
       .from('rides')
@@ -391,6 +398,8 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
         luggage_count: luggageCount,
         child_ages: childSeats > 0 || boosterSeats > 0 ? childAges.trim() : null,
         client_note: clientNote.trim() || null,
+        transport_type: transportNum ? transportType : null,
+        transport_number: transportNum ? (transportType === 'vol' ? transportNum.replace(/[\s-]/g, '') : transportNum) : null,
         scheduled_at: scheduledAt,
         stop_addresses: stops.filter(Boolean).map((s) => s.address),
         round_trip: roundTrip,
@@ -426,6 +435,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
     setLuggageCount(0);
     setChildAges('');
     setClientNote('');
+    setTransportNumber('');
     setAsap(false);
     setRideDate('');
     setRideTime('');
@@ -471,6 +481,21 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
 
       <SectionCard title="Trajet">
         <AddressAutocomplete key={`p${prefillKey}`} value={pickup?.address} placeholder="Adresse de depart" onSelect={setPickup} />
+        {detectTransport(pickup?.address) ? (
+          <View style={{ gap: 6 }}>
+            <Text style={styles.mutedText}>{TRANSPORT_LABELS[detectTransport(pickup.address)].field} (facultatif) : votre chauffeur suivra son horaire d'arrivée.</Text>
+            <TextInput
+              style={styles.transportInput}
+              value={transportNumber}
+              onChangeText={setTransportNumber}
+              placeholder={`Exemple : ${TRANSPORT_LABELS[detectTransport(pickup.address)].example}`}
+              placeholderTextColor={theme.colors.textMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={20}
+            />
+          </View>
+        ) : null}
         {stops.map((stop, i) => (
           <View key={i} style={styles.stopRow}>
             <View style={{ flex: 1 }}>
@@ -700,6 +725,7 @@ const styles = themedStyles(() => ({
   },
   sectionLabel: { fontWeight: '800', color: theme.colors.textMuted, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
   mutedText: { color: theme.colors.textMuted },
+  transportInput: { borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, color: theme.colors.text, borderRadius: theme.radius, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
   choiceOption: {
     flex: 1,

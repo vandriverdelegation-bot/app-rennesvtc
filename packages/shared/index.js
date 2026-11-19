@@ -6,4 +6,5 @@ module.exports = {
   ...require('./appSettings'),
   ...require('./phone'),
   ...require('./theme'),
+  ...require('./transportAgenda'),
 };

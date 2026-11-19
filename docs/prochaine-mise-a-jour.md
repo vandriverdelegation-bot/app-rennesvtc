@@ -120,3 +120,16 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 ## Déjà en ligne (13/11) : couleur des navettes (nuancier)
 - Back-office > Navettes > Réglages > « Informations de l'événement » : nuancier de 30 couleurs rangées par famille (+ couleur libre, code hex, aperçu, retour au vert Rennes VTC). La couleur est reprise par la page des invités (`/navette/CODE`) et par le chevalet PDF ; une teinte très sombre est éclaircie sur la page pour rester lisible, le texte des boutons passe en blanc/noir selon le contraste.
 - Nécessite la migration `supabase/054_navettes_couleur.sql` (colonne `navette_events.accent_color`). Tant qu'elle n'est pas appliquée, le back-office l'indique et rien ne casse.
+
+## Déjà en ligne (19/11) : fiche réservation avec un seul bouton « Enregistrer »
+- Back-office > fiche d'une réservation : plus aucun bouton « Enregistrer » par bloc. Un seul bouton vert **« Enregistrer les modifications »** en pied de fiche (tous les onglets : course, client, paiement, nom de tablette). Seuls les champs modifiés sont envoyés ; « ● Modifications non enregistrées » s'affiche tant que ce n'est pas fait ; fermer la fiche avec des modifications demande confirmation. Les boutons d'action (assigner, dispatcher, étapes, marquer payée, majoration, fichier de tablette) restent.
+- Le moyen de paiement ne s'enregistre plus au changement : il part avec le bouton vert (comme le tarif).
+
+## À builder (19/11) : vol / train + « Ajouter à l'agenda »
+- **Migration 055 (appliquée le 19/11)** : `rides.transport_type` (vol / train) et `rides.transport_number` ; l'aller-retour scindé ne recopie pas le numéro sur le retour.
+- **Appli client** : quand le départ est un aéroport ou une gare (détection sur l'adresse), champ « Numéro de vol / de train » (facultatif) dans la commande ; sur la carte de réservation, « + Ajouter votre numéro… / Modifier » (serveur : `POST /client/rides/:id/transport`). Lien discret **« Ajouter à l'agenda »** sous la date.
+- **Appli chauffeur** : bouton **« Suivre le vol AF1234 / Suivre le train 8601 »** (course en cours, réservations à venir, missions partagées) ; pastille Vol/Train dans les courses disponibles ; lien discret « Ajouter à l'agenda » (avec client, téléphone et note).
+- **Agenda** : Android = Google Agenda (lien de création pré-rempli) ; iPhone et autres = fichier `.ics` servi par `GET /public/ics/<lien de suivi>` (Calendrier Apple), rappel 1 h avant. Code commun : `packages/shared/transportAgenda.js`. Serveur déjà en ligne ; les boutons demandent le build.
+- **Suivi** : le bouton ouvre `GET /transport/<lien de suivi>` (backend/src/agendaTransport.js). Vol : redirection automatique vers FlightAware (numéro IATA accepté) + liens Flightradar24 et Google. Train : la SNCF n'a pas de lien direct par numéro ; la page copie le numéro et ouvre SNCF Connect (collez-le dans la barre de recherche) + recherche Google. Pour un vrai suivi automatique des trains, il faudrait une clé API SNCF (api.sncf.com, gratuite).
+- **Back-office** : champ vol/train à la création (apparaît si le départ est un aéroport ou une gare) et dans la fiche (bouton « Suivre en direct »). Le numéro est aussi imprimé sur le bon de commande.
+- Pas fait : champ vol/train dans la saisie de réservation de l'appli chauffeur et dans le module web de réservation.

@@ -276,7 +276,11 @@
   .ride-tab-link:hover { color: var(--text); background: var(--card-2); }
   .ride-tab-link.active { color: var(--accent); border-bottom-color: var(--accent); }
   .modal-body { padding: 22px 24px; overflow-y: auto; flex: 1; }
-  .modal-foot { display: flex; justify-content: flex-end; padding: 14px 24px; border-top: 1px solid var(--card-border); }
+  .modal-foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--card-border); }
+  .rm-dirty { margin-right: auto; font-size: 13.5px; font-weight: 700; color: var(--amber); }
+  .rm-dirty.saved { color: var(--accent); }
+  .rm-save-all { min-width: 240px; padding: 13px 22px; font-size: 15px; font-weight: 800; }
+  @media (max-width: 640px) { .modal-foot { flex-wrap: wrap; } .rm-save-all { flex: 1 1 100%; } }
   .modal-foot button { margin: 0; }
   .rm-section { padding: 16px 0; border-bottom: 1px solid var(--card-border); }
   .rm-section:first-child { padding-top: 0; }
@@ -678,6 +682,14 @@
                   <input id="new-ride-pickup" placeholder="Adresse de depart" autocomplete="off" />
                   <div class="suggestions" id="new-ride-pickup-suggestions" style="display:none"></div>
                 </div>
+                <div class="field" id="new-ride-transport-row" style="display:none">
+                  <label for="new-ride-transport-number">Numero de vol ou de train (facultatif)</label>
+                  <div style="display:flex;gap:8px">
+                    <select id="new-ride-transport-type" style="width:110px"><option value="vol">Vol</option><option value="train">Train</option></select>
+                    <input id="new-ride-transport-number" placeholder="Ex : AF1234 ou 8601" maxlength="20" style="flex:1" />
+                  </div>
+                  <div class="hint">Le chauffeur suit l'horaire d'arrivee depuis un bouton de son appli.</div>
+                </div>
                 <div class="field">
                   <label for="new-ride-dropoff" id="new-ride-dropoff-label">Destination</label>
                   <input id="new-ride-dropoff" placeholder="Adresse de destination" autocomplete="off" />
@@ -976,7 +988,9 @@
         <div id="ride-tab-tablette" class="ride-tab" style="display:none"></div>
       </div>
       <div class="modal-foot">
+        <span id="rm-dirty" class="rm-dirty" role="status"></span>
         <button class="secondary" id="ride-modal-close">Fermer</button>
+        <button id="rm-save-all" class="rm-save-all">Enregistrer les modifications</button>
       </div>
     </div>
   </div>
@@ -1189,7 +1203,21 @@ document.getElementById('new-ride-add-stop').addEventListener('click', () => {
   setupAdminAutocomplete(`new-ride-stop-${n}`, `new-ride-stop-${n}-suggestions`, () => {});
   row.querySelector('input').focus();
 });
-setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; updateNewRidePrice(); });
+// Depart = aeroport ou gare : on propose le champ numero de vol / de train.
+function detectTransport(address) {
+  const a = String(address ?? '');
+  if (/a[ée]roport|airport|a[ée]rogare/i.test(a)) return 'vol';
+  if (/\bgare\b|train station|railway station/i.test(a) && !/routi[eè]re|bus station/i.test(a)) return 'train';
+  return null;
+}
+function syncTransportRow() {
+  const kind = detectTransport(document.getElementById('new-ride-pickup').value);
+  document.getElementById('new-ride-transport-row').style.display = kind ? '' : 'none';
+  if (kind) document.getElementById('new-ride-transport-type').value = kind;
+  else document.getElementById('new-ride-transport-number').value = '';
+}
+setupAdminAutocomplete('new-ride-pickup', 'new-ride-pickup-suggestions', (loc) => { newRidePickup = loc; updateNewRidePrice(); setTimeout(syncTransportRow, 0); });
+document.getElementById('new-ride-pickup').addEventListener('input', syncTransportRow);
 setupAdminAutocomplete('new-ride-dropoff', 'new-ride-dropoff-suggestions', (loc) => { newRideDropoff = loc; updateNewRidePrice(); });
 // Prix calcule automatiquement (memes tarifs que le module de reservation) des que les adresses sont choisies ;
 // un prix saisi a la main n'est jamais ecrase.
@@ -1366,6 +1394,13 @@ document.getElementById('add-ride').addEventListener('click', async () => {
   const tags = document.getElementById('new-ride-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
   const driver_note = document.getElementById('new-ride-driver-note').value.trim() || null;
   const welcome_name = document.getElementById('new-ride-welcome-name').value.trim() || null;
+  const transportKind = document.getElementById('new-ride-transport-row').style.display === 'none' ? null : document.getElementById('new-ride-transport-type').value;
+  let transport_number = transportKind ? document.getElementById('new-ride-transport-number').value.trim().toUpperCase().replace(/\s+/g, ' ') : '';
+  if (transport_number && !(transportKind === 'vol' ? /^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(transport_number.replace(/[\s-]/g, '')) : /^[A-Z ]{0,12}\d{3,6}$/.test(transport_number))) {
+    errorEl.textContent = transportKind === 'vol' ? 'Numero de vol invalide (exemple : AF1234), ou laissez le champ vide.' : 'Numero de train invalide (exemple : 8601), ou laissez le champ vide.';
+    return;
+  }
+  if (transport_number && transportKind === 'vol') transport_number = transport_number.replace(/[\s-]/g, '');
 
   const dropoffLoc = newRideDropoff ?? (isMad ? newRidePickup : null);
   if (!client_name || !client_phone || !newRidePickup || !dropoffLoc || !price) {
@@ -1416,6 +1451,8 @@ document.getElementById('add-ride').addEventListener('click', async () => {
     tags,
     driver_note,
     welcome_name,
+    transport_type: transport_number ? transportKind : null,
+    transport_number: transport_number || null,
     orderer_name: ordererOpen ? document.getElementById('new-ride-orderer-name').value.trim() || null : null,
     orderer_email: ordererOpen ? document.getElementById('new-ride-orderer-email').value.trim() || null : null,
     orderer_phone: ordererOpen ? document.getElementById('new-ride-orderer-phone').value.trim() || null : null,
@@ -1502,6 +1539,7 @@ function resetNewRideForm() {
   newRidePriceManual = false;
   document.getElementById('new-ride-service').dispatchEvent(new Event('change', { bubbles: true })); // remet l'affichage trajet simple (duree, aller-retour, libelle destination) et le bouton choisi
   syncCategorySeg();
+  syncTransportRow();
 }
 
 // Dupliquer : ouvre « Creer une reservation » prerempli avec les informations de la course (client, adresses, arrets, options, prix, notes, donneur d'ordre).
@@ -1543,6 +1581,7 @@ function duplicateRide(r) {
     set('new-ride-orderer-name', r.orderer_name); set('new-ride-orderer-email', r.orderer_email); set('new-ride-orderer-phone', r.orderer_phone);
   }
   syncCategorySeg();
+  syncTransportRow();
   q('new-ride-created').textContent = 'Reservation dupliquee : choisissez la date et l\'heure (et le chauffeur si besoin), puis validez.';
   q('new-ride-date').scrollIntoView({ block: 'center' });
   q('new-ride-date').focus();
@@ -3313,7 +3352,8 @@ async function openRideModal(rideId) {
   await renderRideCourseTab();
   await renderRideClientTab();
   await renderRidePaiementTab();
-  renderRideTabletTab();
+  await renderRideTabletTab();
+  rmTakeSnapshot();
 }
 
 function selectRideTab(tab) {
@@ -3325,24 +3365,127 @@ function selectRideTab(tab) {
 document.querySelectorAll('.ride-tab-link').forEach((link) => {
   link.addEventListener('click', () => selectRideTab(link.dataset.tab));
 });
-function closeRideModal() {
+function closeRideModal(force) {
+  if (force !== true && rmChangedKeys().length && !confirm('Des modifications ne sont pas enregistrees. Fermer sans les enregistrer ?')) return;
   document.getElementById('ride-modal-backdrop').style.display = 'none';
+  rmSnapshot = null;
   currentRide = null;
   if (document.getElementById('page-calendrier').classList.contains('active')) renderCalendar(); // les modifications se voient dans le calendrier
 }
-document.getElementById('ride-modal-close').addEventListener('click', closeRideModal);
+document.getElementById('ride-modal-close').addEventListener('click', () => closeRideModal());
 document.getElementById('ride-modal-backdrop').addEventListener('click', (e) => { if (e.target.id === 'ride-modal-backdrop') closeRideModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && currentRide) closeRideModal(); });
 
+// Recharge la fiche apres une action (assigner, etape...). Les champs modifies mais pas encore enregistres le sont d'abord, pour ne rien perdre.
 async function refreshRideModal() {
   if (!currentRide) return;
+  if (rmChangedKeys().length && !(await rmSaveAll({ silent: true, reload: false }))) return;
   const { data: ride } = await supabase.from('rides').select('*').eq('id', currentRide.id).single();
   currentRide = ride;
   await renderRideCourseTab();
   await renderRideClientTab();
   await renderRidePaiementTab();
-  renderRideTabletTab();
+  await renderRideTabletTab();
+  rmTakeSnapshot();
 }
+
+// ---- Enregistrement unique de la fiche ----
+// rmValues() lit tous les champs de la fiche (tous les onglets) ; seuls ceux qui ont change depuis l'affichage sont envoyes.
+let rmSnapshot = null;
+function rmValues() {
+  const q = (id) => document.getElementById(id);
+  const v = {};
+  const txt = (key, id, nullIfEmpty) => { const e = q(id); if (e) { const t = e.value.trim(); v[key] = nullIfEmpty && !t ? null : t; } };
+  const int = (key, id, min) => { const e = q(id); if (e) v[key] = Math.max(min, parseInt(e.value, 10) || min); };
+  const when = (key, id) => { const e = q(id); if (e) v[key] = e.value ? new Date(e.value).toISOString() : null; };
+  if (q('rm-status')) v.status = q('rm-status').value;
+  if (q('rm-category')) v.vehicle_category = q('rm-category').value;
+  txt('pickup_address', 'rm-pickup');
+  txt('dropoff_address', 'rm-dropoff');
+  if (q('rm-stops')) v.stop_addresses = q('rm-stops').value.split('\n').map((x) => x.trim()).filter(Boolean);
+  if (q('rm-round-trip')) v.round_trip = q('rm-round-trip').checked;
+  when('scheduled_at', 'rm-scheduled');
+  when('return_scheduled_at', 'rm-return-scheduled');
+  int('passenger_count', 'rm-passengers', 1);
+  int('child_seats', 'rm-child-seats', 0);
+  int('booster_seats', 'rm-booster-seats', 0);
+  int('luggage_count', 'rm-luggage', 0);
+  txt('child_ages', 'rm-child-ages', true);
+  txt('client_note', 'rm-client-note', true);
+  txt('driver_note', 'rm-driver-note', true);
+  if (q('rm-tags')) v.tags = q('rm-tags').value.split(',').map((x) => x.trim()).filter(Boolean);
+  txt('client_name', 'rm-client-name', true);
+  txt('client_phone', 'rm-client-phone', true);
+  txt('client_email', 'rm-client-email', true);
+  txt('orderer_name', 'rm-orderer-name', true);
+  txt('orderer_email', 'rm-orderer-email', true);
+  txt('orderer_phone', 'rm-orderer-phone', true);
+  if (q('rm-change-client')) v.client_id = q('rm-change-client').value || null;
+  if (q('rm-payment')) v.payment_method = q('rm-payment').value;
+  if (q('rm-price')) v.price = q('rm-price').value === '' ? null : parseFloat(q('rm-price').value);
+  txt('welcome_name', 'rm-welcome-name', true);
+  if (q('rm-transport-number')) {
+    const n = q('rm-transport-number').value.trim().toUpperCase().replace(/\s+/g, ' ');
+    v.transport_number = n || null;
+    v.transport_type = n ? q('rm-transport-type').value : null;
+  }
+  return v;
+}
+function rmTakeSnapshot() { rmSnapshot = JSON.stringify(rmValues()); rmShowDirty(); }
+function rmChangedKeys() {
+  if (!currentRide || !rmSnapshot || !document.getElementById('rm-pickup')) return [];
+  const before = JSON.parse(rmSnapshot);
+  const now = rmValues();
+  return Object.keys(now).filter((k) => JSON.stringify(now[k]) !== JSON.stringify(before[k] ?? null) && !(before[k] === undefined));
+}
+function rmShowDirty(message) {
+  const el = document.getElementById('rm-dirty');
+  if (!el) return;
+  const n = rmChangedKeys().length;
+  el.className = 'rm-dirty' + (message ? ' saved' : '');
+  el.textContent = message || (n ? '● Modifications non enregistrées' : '');
+}
+document.getElementById('ride-modal-backdrop').addEventListener('input', () => rmShowDirty());
+document.getElementById('ride-modal-backdrop').addEventListener('change', () => rmShowDirty());
+
+function rmValidate(patch) {
+  if ('transport_number' in patch && patch.transport_number) {
+    const ok = patch.transport_type === 'vol' ? /^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(patch.transport_number.replace(/[\s-]/g, '')) : /^[A-Z ]{0,12}\d{3,6}$/.test(patch.transport_number);
+    if (!ok) return patch.transport_type === 'vol' ? 'Numero de vol invalide (exemple : AF1234).' : 'Numero de train invalide (exemple : 8601).';
+    if (patch.transport_type === 'vol') patch.transport_number = patch.transport_number.replace(/[\s-]/g, '');
+  }
+  if ('pickup_address' in patch && !patch.pickup_address) return 'Le depart ne peut pas etre vide.';
+  if ('dropoff_address' in patch && !patch.dropoff_address) return 'La destination ne peut pas etre vide.';
+  if (('price' in patch) && patch.price != null && Number.isNaN(patch.price)) return 'Tarif invalide.';
+  return null;
+}
+
+async function rmSaveAll({ silent = false, reload = true } = {}) {
+  if (!currentRide) return true;
+  const keys = rmChangedKeys();
+  if (!keys.length) { if (!silent) rmShowDirty('Aucune modification a enregistrer'); return true; }
+  const now = rmValues();
+  const patch = {};
+  keys.forEach((k) => { patch[k] = now[k]; });
+  const problem = rmValidate(patch);
+  if (problem) { alert(problem); return false; }
+  if ('pickup_address' in patch) { patch.pickup_lat = rmPickupLoc?.lat ?? currentRide.pickup_lat; patch.pickup_lng = rmPickupLoc?.lng ?? currentRide.pickup_lng; }
+  if ('dropoff_address' in patch) { patch.dropoff_lat = rmDropoffLoc?.lat ?? currentRide.dropoff_lat; patch.dropoff_lng = rmDropoffLoc?.lng ?? currentRide.dropoff_lng; }
+  const btn = document.getElementById('rm-save-all');
+  btn.disabled = true;
+  const { error } = await supabase.from('rides').update(patch).eq('id', currentRide.id);
+  btn.disabled = false;
+  if (error) { alert('Enregistrement impossible : ' + error.message); return false; }
+  Object.assign(currentRide, patch);
+  rmTakeSnapshot();
+  if (reload) {
+    await refreshRideModal();
+    rmShowDirty('✓ Enregistré');
+    refresh();
+  }
+  return true;
+}
+document.getElementById('rm-save-all').addEventListener('click', () => rmSaveAll());
 
 // Onglet « Tablette d'accueil » : apercu, telechargement, nom du client, ou fichier tout pret qui remplace la tablette generee.
 async function renderRideTabletTab() {
@@ -3359,7 +3502,7 @@ async function renderRideTabletTab() {
       <img id="tb-img" class="tb-preview" alt="Tablette d'accueil" src="${url('&w=900&t=' + Date.now())}" />
       <p class="hint" style="margin:10px 0 0">${custom ? 'Votre fichier tout pret est en place : c\'est lui que le chauffeur voit.' : 'Tablette automatique avec le nom du client.'} Le chauffeur la retrouve dans l'appli (bouton « Tablette d'accueil ») et dans son e-mail de bon de commande.</p>
       <div class="rm-row" style="margin-top:12px">
-        <button id="tb-download">Telecharger l'image</button>
+        <button class="secondary" id="tb-download">Telecharger l'image</button>
         <button class="secondary" id="tb-open">Afficher en grand</button>
       </div>
     </div>
@@ -3368,7 +3511,7 @@ async function renderRideTabletTab() {
       <p class="hint" style="margin:0 0 10px">Une tablette deja prete (logo de l'hotel, design sur mesure...). Elle remplace la tablette automatique pour cette reservation. PNG, JPG ou WebP, 8 Mo maximum, de preference au format paysage 16/9.</p>
       <input type="file" id="tb-file" accept="image/png,image/jpeg,image/webp" />
       <div class="rm-row" style="margin-top:10px">
-        <button id="tb-upload">Utiliser ce fichier</button>
+        <button class="secondary" id="tb-upload">Utiliser ce fichier</button>
         ${custom ? '<button class="secondary" id="tb-remove">Revenir a la tablette avec le nom</button>' : ''}
       </div>
       <p id="tb-msg" class="hint" style="margin:8px 0 0"></p>
@@ -3377,7 +3520,7 @@ async function renderRideTabletTab() {
       <div class="rm-title">Tablette avec le nom du client</div>
       <p class="hint" style="margin:0 0 10px">${custom ? 'Inutilisee tant qu\'un fichier est en place.' : 'Le nom ecrit dans le cadre vert. Laissez vide pour reprendre le nom du client.'}</p>
       <input id="rm-welcome-name" value="${escapeHtml(ride.welcome_name ?? '')}" placeholder="Par defaut : le nom du client" />
-      <button class="secondary" id="tb-save-name">Enregistrer le nom</button>
+      <p class="hint" style="margin:8px 0 0">Le nom est enregistre avec le bouton vert « Enregistrer les modifications ».</p>
     </div>`;
   const msg = (t, bad) => { const m = document.getElementById('tb-msg'); m.textContent = t; m.style.color = bad ? 'var(--error)' : ''; };
   document.getElementById('tb-open').addEventListener('click', () => window.open(url('&t=' + Date.now()), '_blank'));
@@ -3385,11 +3528,6 @@ async function renderRideTabletTab() {
     const a = document.createElement('a');
     a.href = url('&download=1&t=' + Date.now());
     a.click();
-  });
-  document.getElementById('tb-save-name').addEventListener('click', async () => {
-    const welcome_name = document.getElementById('rm-welcome-name').value.trim() || null;
-    await supabase.from('rides').update({ welcome_name }).eq('id', ride.id);
-    await refreshRideModal();
   });
   document.getElementById('tb-upload').addEventListener('click', async () => {
     const file = document.getElementById('tb-file').files[0];
@@ -3406,6 +3544,13 @@ async function renderRideTabletTab() {
     await refreshRideModal();
     selectRideTab('tablette');
   });
+}
+
+// Indice sous le champ vol / train : le depart ressemble-t-il a un aeroport ou a une gare ?
+function rmTransportHint(ride) {
+  const a = String(ride.pickup_address ?? '');
+  const kind = /a[ée]roport|airport|a[ée]rogare/i.test(a) ? 'un aeroport (numero de vol)' : (/\bgare\b|train station|railway station/i.test(a) && !/routi[eè]re/i.test(a)) ? 'une gare (numero de train)' : null;
+  return kind && !ride.transport_number ? `Le depart est ${kind} : demandez le numero au client. ` : '';
 }
 
 async function renderRideCourseTab() {
@@ -3428,7 +3573,7 @@ async function renderRideCourseTab() {
     <div class="rm-head-actions">
       ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
       <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
-      <button type="button" id="rm-head-duplicate">Dupliquer</button>
+      <button type="button" class="secondary" id="rm-head-duplicate">Dupliquer</button>
     </div>
   `;
   document.getElementById('rm-head-bon').addEventListener('click', async () => {
@@ -3456,7 +3601,7 @@ async function renderRideCourseTab() {
           <option value="">Choisir un chauffeur...</option>
           ${(assignable ?? []).map((d) => `<option value="${d.id}" ${d.id === ride.driver_id ? 'selected' : ''}>${escapeHtml(d.full_name || d.email)} (${(d.vehicle_categories ?? []).map((c) => VEHICLE_LABELS[c]).join(', ')})</option>`).join('')}
         </select>
-        <button id="rm-assign">Assigner ce chauffeur</button>
+        <button class="secondary" id="rm-assign">Assigner ce chauffeur</button>
       </div>
       <div class="rm-row" style="margin-top:12px">
         <button class="secondary" id="rm-redispatch">Dispatcher a nouveau</button>
@@ -3486,7 +3631,6 @@ async function renderRideCourseTab() {
             <select id="rm-status" class="grow">
               ${['pending', 'dispatched', 'accepted', 'completed', 'cancelled'].map((s) => `<option value="${s}" ${ride.status === s ? 'selected' : ''}>${STATUS_META[s][0]}</option>`).join('')}
             </select>
-            <button class="secondary" id="rm-save-status">Enregistrer</button>
           </div>
         </div>
         <div>
@@ -3495,7 +3639,6 @@ async function renderRideCourseTab() {
             <select id="rm-category" class="grow">
               ${CATEGORIES.map((c) => `<option value="${c}" ${ride.vehicle_category === c ? 'selected' : ''}>${VEHICLE_LABELS[c]}</option>`).join('')}
             </select>
-            <button class="secondary" id="rm-save-category">Enregistrer</button>
           </div>
         </div>
       </div>
@@ -3515,8 +3658,17 @@ async function renderRideCourseTab() {
       </div>
       <div class="rm-foot">
         <label class="rm-check"><input type="checkbox" id="rm-round-trip" ${ride.round_trip ? 'checked' : ''} /> Aller-retour</label>
-        <button class="secondary" id="rm-save-addresses">Enregistrer les adresses</button>
       </div>
+      <div class="rm-subtitle">Vol ou train du client (depart aeroport ou gare)</div>
+      <div class="rm-row">
+        <select id="rm-transport-type" style="width:120px">
+          <option value="vol" ${ride.transport_type !== 'train' ? 'selected' : ''}>Vol</option>
+          <option value="train" ${ride.transport_type === 'train' ? 'selected' : ''}>Train</option>
+        </select>
+        <input id="rm-transport-number" class="grow" placeholder="Numero (ex : AF1234 ou 8601)" maxlength="20" value="${escapeHtml(ride.transport_number ?? '')}" />
+        ${ride.transport_number && ride.tracking_token ? '<button type="button" class="secondary" id="rm-follow-transport">Suivre en direct</button>' : ''}
+      </div>
+      <div class="rm-sub">${rmTransportHint(ride)}Le chauffeur a un bouton « Suivre le vol / le train » dans son appli (ouvre le suivi en direct).</div>
     </div>
 
     <div class="rm-section">
@@ -3524,11 +3676,11 @@ async function renderRideCourseTab() {
       <div class="rm-grid">
         <div>
           <label for="rm-scheduled">Course</label>
-          <div class="rm-row"><input type="datetime-local" id="rm-scheduled" class="grow" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" /><button class="secondary" id="rm-save-scheduled">Enregistrer</button></div>
+          <div class="rm-row"><input type="datetime-local" id="rm-scheduled" class="grow" value="${ride.scheduled_at ? toLocalDatetimeInput(ride.scheduled_at) : ''}" /></div>
         </div>
         <div>
           <label for="rm-return-scheduled">Retour (si aller-retour)</label>
-          <div class="rm-row"><input type="datetime-local" id="rm-return-scheduled" class="grow" value="${ride.return_scheduled_at ? toLocalDatetimeInput(ride.return_scheduled_at) : ''}" /><button class="secondary" id="rm-save-return-scheduled">Enregistrer</button></div>
+          <div class="rm-row"><input type="datetime-local" id="rm-return-scheduled" class="grow" value="${ride.return_scheduled_at ? toLocalDatetimeInput(ride.return_scheduled_at) : ''}" /></div>
         </div>
       </div>
     </div>
@@ -3543,7 +3695,6 @@ async function renderRideCourseTab() {
       </div>
       <label for="rm-child-ages" style="margin-top:12px;display:block">Age des enfants</label>
       <input id="rm-child-ages" value="${escapeHtml(ride.child_ages ?? '')}" placeholder="Ex : 3 ans, ou 3 et 7 ans" />
-      <div class="rm-foot"><button class="secondary" id="rm-save-options">Enregistrer</button></div>
     </div>
 
     <div class="rm-section">
@@ -3552,10 +3703,8 @@ async function renderRideCourseTab() {
         <div><label for="rm-client-note">Note du client</label><textarea id="rm-client-note" style="min-height:60px">${escapeHtml(ride.client_note ?? '')}</textarea></div>
         <div><label for="rm-driver-note">Note pour le chauffeur</label><textarea id="rm-driver-note" style="min-height:60px">${escapeHtml(ride.driver_note ?? '')}</textarea></div>
       </div>
-      <div class="rm-foot"><button class="secondary" id="rm-save-notes">Enregistrer les notes</button></div>
       <label for="rm-tags" style="margin-top:6px;display:block">Tags</label>
       <input id="rm-tags" value="${escapeHtml((ride.tags ?? []).join(', '))}" placeholder="Separes par des virgules" />
-      <div class="rm-foot"><button class="secondary" id="rm-save-tags">Enregistrer les tags</button></div>
     </div>
 
     <div class="rm-section rm-danger">
@@ -3570,16 +3719,6 @@ async function renderRideCourseTab() {
   setupAdminAutocomplete('rm-pickup', 'rm-pickup-suggestions', (loc) => { rmPickupLoc = loc; });
   setupAdminAutocomplete('rm-dropoff', 'rm-dropoff-suggestions', (loc) => { rmDropoffLoc = loc; });
 
-  document.getElementById('rm-save-status').addEventListener('click', async () => {
-    await supabase.from('rides').update({ status: document.getElementById('rm-status').value }).eq('id', ride.id);
-    await refreshRideModal();
-    refresh();
-  });
-  document.getElementById('rm-save-category').addEventListener('click', async () => {
-    await supabase.from('rides').update({ vehicle_category: document.getElementById('rm-category').value }).eq('id', ride.id);
-    await refreshRideModal();
-    refresh();
-  });
   document.getElementById('rm-assign').addEventListener('click', async () => {
     const driverId = document.getElementById('rm-driver-select').value;
     if (!driverId) { alert('Choisissez un chauffeur.'); return; }
@@ -3621,49 +3760,6 @@ async function renderRideCourseTab() {
     await fetch(`/admin/rides/${ride.id}/stop-alert`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
     alert('Les rappels sont arretes.');
   });
-  document.getElementById('rm-save-addresses').addEventListener('click', async () => {
-    const pickup_address = document.getElementById('rm-pickup').value.trim();
-    const dropoff_address = document.getElementById('rm-dropoff').value.trim();
-    const stop_addresses = document.getElementById('rm-stops').value.split('\n').map((s) => s.trim()).filter(Boolean);
-    const round_trip = document.getElementById('rm-round-trip').checked;
-    await supabase.from('rides').update({
-      pickup_address,
-      pickup_lat: rmPickupLoc?.lat ?? ride.pickup_lat,
-      pickup_lng: rmPickupLoc?.lng ?? ride.pickup_lng,
-      dropoff_address,
-      dropoff_lat: rmDropoffLoc?.lat ?? ride.dropoff_lat,
-      dropoff_lng: rmDropoffLoc?.lng ?? ride.dropoff_lng,
-      stop_addresses,
-      round_trip,
-    }).eq('id', ride.id);
-    await refreshRideModal();
-    refresh();
-  });
-  document.getElementById('rm-save-scheduled').addEventListener('click', async () => {
-    const val = document.getElementById('rm-scheduled').value;
-    await supabase.from('rides').update({ scheduled_at: val ? new Date(val).toISOString() : null }).eq('id', ride.id);
-    await refreshRideModal();
-  });
-  document.getElementById('rm-save-return-scheduled').addEventListener('click', async () => {
-    const val = document.getElementById('rm-return-scheduled').value;
-    await supabase.from('rides').update({ return_scheduled_at: val ? new Date(val).toISOString() : null }).eq('id', ride.id);
-    await refreshRideModal();
-  });
-  document.getElementById('rm-save-options').addEventListener('click', async () => {
-    const passenger_count = parseInt(document.getElementById('rm-passengers').value, 10) || 1;
-    const child_seats = parseInt(document.getElementById('rm-child-seats').value, 10) || 0;
-    const booster_seats = parseInt(document.getElementById('rm-booster-seats').value, 10) || 0;
-    const luggage_count = parseInt(document.getElementById('rm-luggage').value, 10) || 0;
-    const child_ages = document.getElementById('rm-child-ages').value.trim() || null;
-    await supabase.from('rides').update({ passenger_count, child_seats, booster_seats, luggage_count, child_ages }).eq('id', ride.id);
-    await refreshRideModal();
-  });
-  document.getElementById('rm-save-notes').addEventListener('click', async () => {
-    const client_note = document.getElementById('rm-client-note').value.trim() || null;
-    const driver_note = document.getElementById('rm-driver-note').value.trim() || null;
-    await supabase.from('rides').update({ client_note, driver_note }).eq('id', ride.id);
-    await refreshRideModal();
-  });
   el.querySelectorAll('[data-rm-step]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const ride_step = btn.dataset.rmStep;
@@ -3683,18 +3779,13 @@ async function renderRideCourseTab() {
       refresh();
     });
   });
+  document.getElementById('rm-follow-transport')?.addEventListener('click', () => window.open(location.origin + '/transport/' + ride.tracking_token, '_blank'));
   document.getElementById('rm-delete').addEventListener('click', async () => {
     if (!confirm('Supprimer définitivement cette réservation ? Cette action est irréversible.')) return;
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(`/admin/rides/${ride.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
     if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Suppression impossible.'); return; }
-    closeRideModal();
-    refresh();
-  });
-  document.getElementById('rm-save-tags').addEventListener('click', async () => {
-    const tags = document.getElementById('rm-tags').value.split(',').map((t) => t.trim()).filter(Boolean);
-    await supabase.from('rides').update({ tags }).eq('id', ride.id);
-    await refreshRideModal();
+    closeRideModal(true);
     refresh();
   });
 }
@@ -3713,7 +3804,6 @@ async function renderRideClientTab() {
         <div><label for="rm-client-phone">Telephone</label><input id="rm-client-phone" value="${escapeHtml(ride.client_phone ?? '')}" /></div>
         <div><label for="rm-client-email">Email</label><input id="rm-client-email" type="email" value="${escapeHtml(ride.client_email ?? '')}" /></div>
       </div>
-      <button class="secondary" id="rm-save-client-contact">Enregistrer</button>
     `;
   }
   const { data: clients } = await supabase.from('profiles').select('id, email').eq('role', 'client').order('email', { ascending: true });
@@ -3730,7 +3820,6 @@ async function renderRideClientTab() {
         <div><label for="rm-orderer-email">Email</label><input id="rm-orderer-email" type="email" value="${escapeHtml(ride.orderer_email ?? '')}" /></div>
         <div><label for="rm-orderer-phone">Telephone</label><input id="rm-orderer-phone" value="${escapeHtml(ride.orderer_phone ?? '')}" /></div>
       </div>
-      <button class="secondary" id="rm-save-orderer">Enregistrer</button>
       <label for="rm-tracking-link" style="margin-top:12px;display:block">Lien de suivi</label>
       <div class="rm-row">
         <input id="rm-tracking-link" readonly style="flex:1;min-width:220px" value="${location.origin}/suivi/${ride.tracking_token}" onclick="this.select()" />
@@ -3746,42 +3835,16 @@ async function renderRideClientTab() {
         <option value="">Reservation telephonique (nom/telephone, pas de compte)</option>
         ${(clients ?? []).map((c) => `<option value="${c.id}" ${ride.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.email)}</option>`).join('')}
       </select>
-      <button class="secondary" id="rm-save-client">Assigner</button>
     </div>
   `;
-  document.getElementById('rm-save-orderer').addEventListener('click', async () => {
-    await supabase.from('rides').update({
-      orderer_name: document.getElementById('rm-orderer-name').value.trim() || null,
-      orderer_email: document.getElementById('rm-orderer-email').value.trim() || null,
-      orderer_phone: document.getElementById('rm-orderer-phone').value.trim() || null,
-    }).eq('id', ride.id);
-    await refreshRideModal();
-  });
   document.getElementById('rm-copy-tracking').addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
   document.getElementById('rm-whatsapp-tracking').addEventListener('click', () => {
     const phone = document.getElementById('rm-orderer-phone').value.trim();
-    if (!phone) { alert("Renseignez d'abord le telephone du donneur d'ordre (puis Enregistrer)."); return; }
+    if (!phone) { alert("Renseignez d'abord le telephone du donneur d'ordre."); return; }
     window.open(whatsappTrackingUrl(phone, ride.tracking_token), '_blank');
   });
   document.getElementById('rm-open-tracking').addEventListener('click', () => {
     window.open(document.getElementById('rm-tracking-link').value, '_blank');
-  });
-  const contactBtn = document.getElementById('rm-save-client-contact');
-  if (contactBtn) {
-    contactBtn.addEventListener('click', async () => {
-      const client_name = document.getElementById('rm-client-name').value.trim() || null;
-      const client_phone = document.getElementById('rm-client-phone').value.trim() || null;
-      const client_email = document.getElementById('rm-client-email').value.trim() || null;
-      await supabase.from('rides').update({ client_name, client_phone, client_email }).eq('id', ride.id);
-      await refreshRideModal();
-      refresh();
-    });
-  }
-  document.getElementById('rm-save-client').addEventListener('click', async () => {
-    const client_id = document.getElementById('rm-change-client').value || null;
-    await supabase.from('rides').update({ client_id }).eq('id', ride.id);
-    await refreshRideModal();
-    refresh();
   });
 }
 
@@ -3794,7 +3857,7 @@ async function renderRidePaiementTab() {
       <div class="rm-grid">
         <div>
           <label for="rm-payment">Moyen de paiement</label>
-          <select id="rm-payment" style="width:100%" title="Enregistre tout de suite">
+          <select id="rm-payment" style="width:100%">
             <option value="carte_a_bord" ${ride.payment_method === 'carte_a_bord' ? 'selected' : ''}>CB a bord</option>
             <option value="especes" ${ride.payment_method === 'especes' ? 'selected' : ''}>Especes</option>
             <option value="compte" ${ride.payment_method === 'compte' ? 'selected' : ''}>En compte</option>
@@ -3805,8 +3868,7 @@ async function renderRidePaiementTab() {
           <input type="number" step="0.01" id="rm-price" value="${ride.price ?? ''}" placeholder="Prix a fixer" />
         </div>
       </div>
-      <div class="hint">Le moyen de paiement s'enregistre des qu'on le change, a tout moment de la reservation (meme terminee). Le tarif s'enregistre avec le bouton.</div>
-      <button class="secondary" id="rm-save-payment">Enregistrer le tarif</button>
+      <div class="hint">Le moyen de paiement et le tarif sont modifiables a tout moment de la reservation (meme terminee) : ils s'enregistrent avec le bouton vert en bas de la fiche.</div>
     </div>
     ${ride.payment_method === 'compte' ? `
       <div class="rm-section">
@@ -3828,20 +3890,6 @@ async function renderRidePaiementTab() {
   document.getElementById('rm-toggle-paid')?.addEventListener('click', async () => {
     await supabase.from('rides').update({ paid_at: ride.paid_at ? null : new Date().toISOString() }).eq('id', ride.id);
     await refreshRideModal();
-  });
-  // Moyen de paiement : enregistre au changement, sans toucher au tarif.
-  document.getElementById('rm-payment').addEventListener('change', async (e) => {
-    const { error } = await supabase.from('rides').update({ payment_method: e.target.value }).eq('id', ride.id);
-    if (error) { alert(error.message); return; }
-    await refreshRideModal();
-    refresh();
-  });
-  document.getElementById('rm-save-payment').addEventListener('click', async () => {
-    const priceVal = document.getElementById('rm-price').value;
-    const price = priceVal === '' ? null : parseFloat(priceVal);
-    await supabase.from('rides').update({ price }).eq('id', ride.id);
-    await refreshRideModal();
-    refresh();
   });
   document.getElementById('rm-apply-surcharge').addEventListener('click', async () => {
     const amount = parseFloat(document.getElementById('rm-surcharge-amount').value);

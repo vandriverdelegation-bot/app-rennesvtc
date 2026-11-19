@@ -13,6 +13,7 @@ const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
 const { registerNavettes } = require('./navettes');
 const { registerExport } = require('./exportReservations');
+const { registerAgendaTransport } = require('./agendaTransport');
 const { buildRideMail } = require('./mailTemplate');
 const { renderAccueil } = require('./accueil');
 
@@ -445,7 +446,7 @@ app.patch('/admin/chauffeurs/:id', requireAdmin, async (req, res) => {
 async function fetchBonCommandeData(rideId, asDriverId) {
   const { data: ride } = await supabaseAdmin
     .from('rides')
-    .select('id, client_id, client_name, client_phone, driver_id, extra_driver_ids, vehicle_category, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at, payment_method, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, stop_addresses, round_trip, return_scheduled_at')
+    .select('id, client_id, client_name, client_phone, driver_id, extra_driver_ids, vehicle_category, pickup_address, dropoff_address, price, service_type, duration_hours, created_at, scheduled_at, payment_method, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, stop_addresses, round_trip, return_scheduled_at, transport_type, transport_number')
     .eq('id', rideId)
     .single();
   if (!ride) return null;
@@ -616,6 +617,7 @@ async function requireStaff(req, res, next) {
 registerClients(app, requireStaff);
 registerNavettes(app, requireAdmin, BASE_URL);
 registerExport(app, requireAdmin);
+registerAgendaTransport(app, requireSupabaseUser);
 
 async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {

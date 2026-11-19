@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
+import { Alert, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { theme, whatsappUrl, themedStyles, agendaUrl, detectTransport, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { COMPANY_PHONE, euro, longDay, plural, relativeWhen, timeOf } from '../lib/format';
 import { Icon } from '../icons';
@@ -48,6 +48,9 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
   const [driverInfo, setDriverInfo] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState('');
+  const [editingTransport, setEditingTransport] = useState(false);
+  const [transportInput, setTransportInput] = useState('');
+  const [transportSaved, setTransportSaved] = useState(undefined); // numero enregistre a l'instant (avant le rechargement de la liste)
 
   const accepted = ride.status === 'accepted';
   const when = ride.scheduled_at ? new Date(ride.scheduled_at) : null;
@@ -78,6 +81,31 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
       ...(locked ? [] : [{ text: 'Annuler la réservation', style: 'destructive', onPress: confirmCancel }]),
       { text: 'Fermer', style: 'cancel' },
     ]);
+  }
+
+  const transportKind = ride.transport_type ?? detectTransport(ride.pickup_address);
+  const transportNumber = transportSaved !== undefined ? transportSaved : ride.transport_number;
+
+  function addToAgenda() {
+    const url = agendaUrl(ride, { backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL, platform: Platform.OS });
+    if (url) Linking.openURL(url).catch(() => setError("Impossible d'ouvrir l'agenda."));
+  }
+
+  async function saveTransport() {
+    setError('');
+    try {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/client/rides/${ride.id}/transport`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ type: transportKind, number: transportInput }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(json.error ?? 'Enregistrement impossible.'); return; }
+      setTransportSaved(json.transport_number);
+      setEditingTransport(false);
+    } catch (e) {
+      setError('Connexion au serveur impossible.');
+    }
   }
 
   async function doCancel() {
@@ -122,6 +150,12 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
             <Text style={ride.price != null ? styles.price : styles.priceTbd}>{ride.price != null ? euro(ride.price) : 'À confirmer'}</Text>
           </View>
         </View>
+        {when && ride.tracking_token ? (
+          <TouchableOpacity style={styles.agenda} onPress={addToAgenda} accessibilityLabel="Ajouter à l'agenda" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name="calendar" color="m" size={14} />
+            <Text style={styles.agendaText}>Ajouter à l'agenda</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {showMap && ride.pickup_lat && ride.dropoff_lat ? (
@@ -142,6 +176,32 @@ export default function RideCard({ ride, session, onChanged, showMap = true }) {
         </View>
         {ride.child_seats > 0 || ride.booster_seats > 0 || ride.leg ? (
           <Text style={styles.extras}>{[ride.leg === 'aller' ? 'Trajet aller' : ride.leg === 'retour' ? 'Trajet retour' : null, ride.child_seats > 0 ? 'Siège enfant' : null, ride.booster_seats > 0 ? 'Rehausseur' : null].filter(Boolean).join(' · ')}</Text>
+        ) : null}
+        {transportKind && ['pending', 'dispatched', 'accepted'].includes(ride.status) ? (
+          editingTransport ? (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.extras}>{TRANSPORT_LABELS[transportKind].field} (le chauffeur suit son horaire)</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  style={styles.transportInput}
+                  value={transportInput}
+                  onChangeText={setTransportInput}
+                  placeholder={`Exemple : ${TRANSPORT_LABELS[transportKind].example}`}
+                  placeholderTextColor={c.textMuted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={20}
+                />
+                <TouchableOpacity style={styles.transportSave} onPress={saveTransport}><Text style={styles.transportSaveText}>OK</Text></TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => { setTransportInput(transportNumber ?? ''); setEditingTransport(true); }}>
+              <Text style={styles.transportLink}>
+                {transportNumber ? `${transportKind === 'train' ? 'Train' : 'Vol'} ${transportNumber} · Modifier` : `+ Ajouter votre ${TRANSPORT_LABELS[transportKind].field.toLowerCase()}`}
+              </Text>
+            </TouchableOpacity>
+          )
         ) : null}
         {accepted ? (
           <View style={styles.driverBox}>
@@ -203,6 +263,12 @@ const styles = themedStyles(() => ({
   chip: { flex: 1, borderRadius: 14, backgroundColor: c.pill, paddingVertical: 10, paddingHorizontal: 10, gap: 6 },
   chipText: { color: c.text, fontSize: 13, fontFamily: FONT.semi },
   extras: { color: c.textMuted, fontSize: 13, fontFamily: FONT.body },
+  agenda: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', opacity: 0.85 },
+  agendaText: { color: c.textMuted, fontSize: 12, fontFamily: FONT.body, textDecorationLine: 'underline' },
+  transportLink: { color: c.accent, fontSize: 14, fontFamily: FONT.semi },
+  transportInput: { flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: c.inputBorder, backgroundColor: c.input, color: c.text, paddingHorizontal: 12, fontSize: 15 },
+  transportSave: { minWidth: 56, borderRadius: 12, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+  transportSaveText: { color: '#0B0C0B', fontFamily: FONT.semi, fontSize: 15 },
   driverBox: { gap: 4, borderTopWidth: 1, borderTopColor: c.cardBorder, paddingTop: 12 },
   driverName: { color: c.text, fontSize: 17, fontFamily: FONT.title },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 20 },
