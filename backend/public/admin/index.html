@@ -1030,6 +1030,10 @@ function showResaTab(name) {
   if (name === 'export') exportInit();
 }
 document.querySelectorAll('.subtab').forEach((t) => t.addEventListener('click', () => showResaTab(t.dataset.resaTab)));
+// « Nouvelles demandes » = a dispatcher : pas encore dispatchees, ou dispatchees sans qu'aucun chauffeur ait accepte.
+// « En cours » = un chauffeur a accepte la course.
+const RIDES_TO_DISPATCH = 'status.eq.pending,and(status.eq.dispatched,driver_id.is.null)';
+const RIDES_IN_PROGRESS = 'status.eq.accepted,and(status.eq.dispatched,driver_id.not.is.null)';
 function setCount(key, n) {
   const el = document.getElementById('count-' + key);
   if (el) { el.textContent = n; el.classList.toggle('zero', n === 0); }
@@ -1910,8 +1914,8 @@ async function renderStats() {
   const [{ count: chauffeurs }, { count: clients }, { count: pending }, { count: enCours }, { count: terminees }] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'chauffeur'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client'),
-    supabase.from('rides').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('rides').select('*', { count: 'exact', head: true }).in('status', ['dispatched', 'accepted']),
+    supabase.from('rides').select('*', { count: 'exact', head: true }).or(RIDES_TO_DISPATCH),
+    supabase.from('rides').select('*', { count: 'exact', head: true }).or(RIDES_IN_PROGRESS),
     supabase.from('rides').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
   ]);
 
@@ -2535,8 +2539,8 @@ function routeHtml(ride) {
 async function renderPending() {
   const { data: rides } = await supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, payment_method, service_type, price, created_at, scheduled_at, stop_addresses, round_trip, client_note')
-    .eq('status', 'pending')
+    .select('id, pickup_address, dropoff_address, vehicle_category, payment_method, service_type, price, created_at, scheduled_at, stop_addresses, round_trip, client_note, status, dispatched_to')
+    .or(RIDES_TO_DISPATCH)
     .order('created_at', { ascending: true });
 
   setCount('pending', rides?.length ?? 0);
@@ -2558,8 +2562,16 @@ async function renderPending() {
     }
   }
 
+  const waitingIds = [...new Set(rides.map((r) => r.dispatched_to).filter(Boolean))];
+  const waitingNames = {};
+  if (waitingIds.length) {
+    const { data: people } = await supabase.from('profiles').select('id, full_name, email').in('id', waitingIds);
+    (people ?? []).forEach((p) => { waitingNames[p.id] = p.full_name || p.email || 'Chauffeur'; });
+  }
+
   container.innerHTML = rides.map((ride) => {
     const drivers = driversByCategory[ride.vehicle_category];
+    const waiting = ride.status === 'dispatched'; // deja dispatchee, aucun chauffeur n'a encore accepte
     const onlineCount = drivers.filter((d) => d.online_status).length;
     const options = drivers
       .map((d) => `<option value="${d.id}">${escapeHtml(d.email)}${d.online_status ? ' 🟢' : ' ⚪'}</option>`)
@@ -2569,7 +2581,7 @@ async function renderPending() {
         <header class="ride-head">
           <div>
             <div class="chips">
-              ${statusBadge('pending')}
+              ${statusBadge(ride.status)}
               <span class="chip">${VEHICLE_LABELS[ride.vehicle_category] ?? ''}</span>
               <span class="chip">${SERVICE_LABELS[ride.service_type] ?? ''}</span>
               <span class="chip">${PAYMENT_LABELS[ride.payment_method] ?? ''}</span>
@@ -2579,9 +2591,10 @@ async function renderPending() {
           <div class="ride-price">${ride.price != null ? ride.price + ' €' : 'A fixer'}</div>
         </header>
         ${routeHtml(ride)}
+        ${waiting ? `<div class="hint">Dispatchee a ${ride.dispatched_to ? escapeHtml(waitingNames[ride.dispatched_to] || 'un chauffeur') : 'tous'} : en attente de reponse. Vous pouvez la dispatcher a nouveau.</div>` : ''}
         ${ride.client_note ? `<div class="hint">Note du client : ${escapeHtml(ride.client_note)}</div>` : ''}
         <div class="ride-actions">
-          <button data-dispatch-all="${ride.id}">Dispatcher a tous (${drivers.length} chauffeur${drivers.length > 1 ? 's' : ''}, ${onlineCount} en ligne)</button>
+          <button data-dispatch-all="${ride.id}">${waiting ? 'Dispatcher a nouveau a tous' : 'Dispatcher a tous'} (${drivers.length} chauffeur${drivers.length > 1 ? 's' : ''}, ${onlineCount} en ligne)</button>
           <select class="grow" data-driver-select="${ride.id}">
             <option value="">Choisir un chauffeur...</option>
             ${options}
@@ -2614,7 +2627,7 @@ async function dispatchRide(rideId, driverId) {
     .from('rides')
     .update({ status: 'dispatched', dispatched_to: driverId })
     .eq('id', rideId)
-    .eq('status', 'pending');
+    .or(RIDES_TO_DISPATCH);
   if (error) { alert(error.message); return; }
   const { data: { session } } = await supabase.auth.getSession();
   fetch('/notify/dispatch', {
@@ -2638,7 +2651,7 @@ async function renderActive() {
   const { data: rides } = await supabase
     .from('rides')
     .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, price, driver_id, dispatched_to, extra_driver_ids, ride_step, surcharge_amount, stop_addresses, round_trip, tags, scheduled_at, created_at, tracking_token')
-    .in('status', ['dispatched', 'accepted']);
+    .or(RIDES_IN_PROGRESS);
   activeRides = rides ?? [];
   setCount('active', activeRides.length);
   const ids = [...new Set(activeRides.flatMap((r) => [r.driver_id, r.dispatched_to, ...(r.extra_driver_ids ?? [])]).filter(Boolean))];
