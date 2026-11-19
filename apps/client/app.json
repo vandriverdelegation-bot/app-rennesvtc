@@ -36,15 +36,15 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 220,
-          "backgroundColor": "#000000"
+          "image": "./assets/splash-ouverture.jpg",
+          "resizeMode": "cover",
+          "backgroundColor": "#05080F"
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#47C415"
+          "color": "#22C55E"
         }
       ]
     ],

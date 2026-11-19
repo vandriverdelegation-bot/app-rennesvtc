@@ -139,3 +139,19 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - Si le numero n'existe pas dans les donnees : repli sur l'ancienne page (numero copie + SNCF Connect).
 - App chauffeur : le bouton « Suivre le vol / le train » apparait aussi sur les courses proposees (avant acceptation) — a builder avec les autres changements.
 - Limite : si la gare de depart n'est pas reconnue dans l'adresse, la page montre le terminus. Les noms de gares viennent de `backend/src/data/gares-sncf.json` (a regenerer si la SNCF ajoute des gares).
+
+## 19/11 — Nouveau vert de l'appli client (#22C55E)
+- App client uniquement (l'appli chauffeur garde son vert) : accent #22C55E, texte clair #4ADE80, halos et fonds teintés recalculés ; mode clair : #15803D (version plus profonde, lisible sur fond blanc). Couleur des notifications Android aussi (app.json).
+- Retouche du mode clair propre à une appli via `theme.lightOverrides` (packages/shared/theme.js) — sans effet sur le chauffeur.
+- À builder avec le reste ; pas encore vérifié visuellement sur téléphone. Les icônes/logo (images) n'ont pas été recolorés.
+
+## 19/11 — Nouvel écran d'ouverture (client + chauffeur)
+- Image plein écran fournie par Jim (château + van + logo) : `apps/*/assets/splash-ouverture.jpg` (barre d'état iPhone et barre de chargement dessinées dans l'image retirées).
+- Écran natif (`expo-splash-screen`, resizeMode cover) : plein écran sur iPhone et Android < 12 ; sur Android 12+ le système n'affiche qu'une icône centrée (limite d'Android), puis l'écran d'ouverture de l'appli prend le relais.
+- Écran d'ouverture dans l'appli (`packages/shared/LaunchScreen.js`) : même image, barre de chargement animée + « Rennes VTC », affiché au moins 1,6 s. Remplace le rond de chargement sur fond noir.
+- À vérifier au prochain build sur iPhone et sur Android : cadrage de l'image (rognée sur les côtés selon l'écran), transition natif → appli sans clignotement.
+
+## 19/11 — Note de fin de course + avis Google (version transparente)
+- Appli client : après une course terminée (moins de 7 jours, pas encore notée), carte « Course terminée ! Comment avez-vous trouvé votre course ? » avec 5 étoiles sur l'accueil. La note est enregistrée (`POST /client/rides/:id/rating`, une seule fois, colonnes `rating` et `rated_at`, migration 056 appliquée), puis message « Merci ! » avec le bouton **« Écrire mon avis sur Google »** (lien officiel de la fiche, le client écrit son avis avec son compte Google) et « Nous écrire en privé » (WhatsApp). Affiché pour toutes les notes, sans tri. Les courses passées montrent leurs étoiles.
+- Back-office : la fiche d'une réservation affiche la note du client.
+- Lien Google : `GOOGLE_PLACE_ID` (variable Render, valeur par défaut = fiche Rennes VTC `ChIJPfHbDLgDD0gRLJFboMkl_Mg`) ; le serveur renvoie le lien, donc le changer ne demande pas de build.

@@ -50,7 +50,7 @@ let darkColors = null;
 function setThemeMode(mode) {
   if (!darkColors) darkColors = { ...theme.colors };
   theme.mode = mode === 'light' ? 'light' : 'dark';
-  Object.assign(theme.colors, theme.mode === 'light' ? LIGHT_COLORS : darkColors);
+  Object.assign(theme.colors, theme.mode === 'light' ? { ...LIGHT_COLORS, ...theme.lightOverrides } : darkColors); // lightOverrides : retouche propre a une appli (client)
 }
 
 // Remplace StyleSheet.create : la fabrique est rappelee (une fois) pour chaque mode, a la premiere lecture dans ce mode.

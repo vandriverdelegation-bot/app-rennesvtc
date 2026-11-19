@@ -7,4 +7,5 @@ module.exports = {
   ...require('./phone'),
   ...require('./theme'),
   ...require('./transportAgenda'),
+  ...require('./LaunchScreen'),
 };

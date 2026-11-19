@@ -5,6 +5,7 @@ import { COMPANY_PHONE, euro, shortDay, timeOf } from '../lib/format';
 import { Icon } from '../icons';
 import { FONT } from '../ui';
 import RideCard from './RideCard';
+import RateCard, { rideToRate } from './RateCard';
 
 const c = theme.colors;
 
@@ -19,7 +20,7 @@ function Halo() {
   return (
     <View pointerEvents="none" style={styles.halo}>
       {Array.from({ length: 16 }, (_, i) => 340 - i * 20).map((size) => (
-        <View key={size} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: theme.mode === 'light' ? 'rgba(47,143,16,0.012)' : 'rgba(91,212,42,0.012)' }} />
+        <View key={size} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: theme.mode === 'light' ? 'rgba(21,128,61,0.012)' : 'rgba(34,197,94,0.012)' }} />
       ))}
     </View>
   );
@@ -45,6 +46,7 @@ function PastRide({ ride, onRebook }) {
         <Text style={styles.pastDate}>
           {shortDay(when)} · {timeOf(when)}
           {ride.status === 'cancelled' ? ' · Annulée' : ''}
+          {ride.rating ? ' · ' + '★'.repeat(ride.rating) : ''}
         </Text>
         <Text style={styles.pastPrice}>{ride.price != null ? euro(ride.price) : ''}</Text>
       </View>
@@ -71,6 +73,8 @@ function PastRide({ ride, onRebook }) {
 // Accueil client : en-tete, commande rapide, reservations (a venir / passees) et reassurance.
 export default function HomeView({ session, appName, firstName, initials, rides, history, onBook, onShortcut, onChanged, onOpenAccount, onOpenNotifications, focus }) {
   const [tab, setTab] = useState('upcoming');
+  const [rateDismissed, setRateDismissed] = useState([]); // courses dont le client a ferme la carte de note
+  const toRate = rideToRate(history);
   const scrollRef = useRef(null);
   const bookingsY = useRef(0);
   const pending = useRef(null); // defilement demande avant que la mise en page soit connue
@@ -130,6 +134,12 @@ export default function HomeView({ session, appName, firstName, initials, rides,
             ))}
           </View>
         </View>
+
+        {toRate && !rateDismissed.includes(toRate.id) ? (
+          <View>
+            <RateCard key={toRate.id} ride={toRate} session={session} onDone={() => setRateDismissed((d) => [...d, toRate.id])} />
+          </View>
+        ) : null}
 
         <View style={styles.bookings} onLayout={(e) => {
           bookingsY.current = e.nativeEvent.layout.y;

@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Linking, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode, LaunchScreen, useLaunchDelay } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import ClientHome from './screens/ClientHome';
 import ClientMenu from './screens/ClientMenu';
@@ -44,6 +44,7 @@ const FONT_FILES = {
 function AppContent() {
   const { pref: themePref, mode: themeMode, choose: setThemePref, loaded: themeLoaded } = useThemeMode();
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  const launchDone = useLaunchDelay();
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [appName, setAppName] = useState('RENNES VTC');
@@ -158,12 +159,8 @@ function AppContent() {
     setFocus({ to: key === 'bookings' ? 'bookings' : 'top', n: Date.now() });
   }
 
-  if (checkingSession || !themeLoaded || (!fontsLoaded && !fontError)) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator color={theme.colors.accent} />
-      </SafeAreaView>
-    );
+  if (checkingSession || !themeLoaded || !launchDone || (!fontsLoaded && !fontError)) {
+    return <LaunchScreen source={require('./assets/splash-ouverture.jpg')} />;
   }
 
   if (session && needPhone) {

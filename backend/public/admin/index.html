@@ -3604,6 +3604,7 @@ async function renderRideCourseTab() {
       <div class="rm-tile ${driverNames ? '' : 'warn'}"><small>Chauffeur</small><strong>${escapeHtml(driverNames || dispatchLabel)}</strong>${extraIds.length ? `<span>+ ${extraIds.map((id) => escapeHtml(nameOfDriver(id))).join(', ')}</span>` : ''}</div>
       <div class="rm-tile"><small>Client</small><strong>${escapeHtml(clientLabel)}</strong>${ride.client_phone ? `<span>${escapeHtml(ride.client_phone)}</span>` : ''}</div>
       <div class="rm-tile"><small>Prix</small><strong>${ride.price != null ? ride.price + ' €' : 'A fixer'}</strong><span>${escapeHtml(PAYMENT_LABELS[ride.payment_method] ?? '')}</span></div>
+      ${ride.rating ? `<div class="rm-tile"><small>Note du client</small><strong style="color:#FFC933">${'★'.repeat(ride.rating)}${'☆'.repeat(5 - ride.rating)}</strong><span>${ride.rating}/5</span></div>` : ''}
     </div>
 
     <div class="rm-section">

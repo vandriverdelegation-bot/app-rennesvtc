@@ -136,7 +136,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
   async function fetchHistory() {
     const { data } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, price, scheduled_at, created_at')
+      .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, price, scheduled_at, created_at, rating')
       .eq('client_id', session.user.id)
       .in('status', ['completed', 'cancelled'])
       .order('created_at', { ascending: false })

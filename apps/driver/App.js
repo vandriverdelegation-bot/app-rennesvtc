@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode } from '@app-rennesvtc/shared';
+import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode, LaunchScreen, useLaunchDelay } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
@@ -46,6 +46,7 @@ function AppContent() {
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const launchDone = useLaunchDelay();
 
   useEffect(() => {
     fetchAppSettings(supabase).then((settings) => {
@@ -93,12 +94,8 @@ function AppContent() {
     }
   }
 
-  if (checkingSession || !themeLoaded) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator color={theme.colors.accent} />
-      </SafeAreaView>
-    );
+  if (checkingSession || !themeLoaded || !launchDone) {
+    return <LaunchScreen source={require('./assets/splash-ouverture.jpg')} />;
   }
 
   if (session) {

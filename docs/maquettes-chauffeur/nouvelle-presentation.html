@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Maquette appli chauffeur - nouvelle présentation</title>
+<style>
+:root{--g:#47C415;--gl:#6FDC3F;--bg:#060707;--card:#101310;--line:#1f261e;--txt:#F2F4F0;--mut:#9AA19A;--white:#F7F8F5;--ink:#141714}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1560px;background:#2a2d31;font-family:"Segoe UI",Inter,Arial,sans-serif;color:var(--txt);padding:34px 30px 26px}
+.row{display:flex;gap:34px;justify-content:center}
+.cell{width:470px}
+.phone{width:470px;height:960px;border-radius:64px;background:#000;border:9px solid #3a3d44;box-shadow:0 0 0 2px #14161a,0 24px 50px rgba(0,0,0,.5);position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column}
+.status{height:60px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 34px 6px;font-weight:700;font-size:18px;position:relative;z-index:5}
+.island{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:128px;height:36px;border-radius:20px;background:#000;z-index:6}
+.sig{display:flex;gap:7px;align-items:center;font-size:14px}
+.bat{width:26px;height:13px;border:2px solid #fff;border-radius:4px;position:relative}.bat:after{content:"";position:absolute;inset:2px;background:#fff;border-radius:1px}
+.tabs{height:92px;border-top:1px solid #1b211a;background:#0a0c0a;display:flex;justify-content:space-around;padding-top:10px;position:relative}
+.tab{min-width:60px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:13px;color:var(--mut);position:relative}
+.tab.on{color:var(--g)}.tab svg{width:27px;height:27px}
+.badge{position:absolute;top:-4px;right:-9px;background:#ff4d4d;color:#fff;border-radius:50%;width:17px;height:17px;font-size:11px;display:grid;place-items:center;font-weight:700}
+.home-bar{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);width:150px;height:5px;border-radius:3px;background:#e8e8e8}
+svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.btn{height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:20px}
+.btn.g{background:var(--g);color:#06120a}.btn.o{border:1.5px solid #3c433b;color:var(--txt);background:transparent}.btn.og{border:1.5px solid var(--g);color:var(--txt)}
+.btn svg{width:24px;height:24px}
+.cap{margin-top:18px;text-align:center;font-size:20px;font-weight:700}.cap small{display:block;color:#aeb4ad;font-weight:500;font-size:15px;margin-top:4px}
+/* écran 1 */
+.hero{height:280px;margin-top:-60px;position:relative;background:#0b0e0b;overflow:hidden}.hero:before{content:"";position:absolute;inset:0;background:url(../../apps/driver/assets/ui/header.jpg) 100% center/auto 100%;filter:brightness(2.1) contrast(1.05) saturate(1.15)}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,7,.3) 0,rgba(6,7,7,0) 30%,rgba(6,7,7,.5) 72%,#060707 100%)}
+.topbar{position:absolute;top:70px;left:22px;right:22px;display:flex;justify-content:space-between;align-items:center;z-index:4}
+.topbar svg{width:30px;height:30px}.online{display:flex;gap:8px;align-items:center;font-size:16px}.online i{width:12px;height:12px;border-radius:50%;background:#38d159;box-shadow:0 0 10px #38d159}
+.offer{margin:-66px 22px 0;position:relative;z-index:4;text-align:center}
+.bell{width:84px;height:84px;border-radius:50%;margin:0 auto 6px;background:rgba(71,196,21,.18);border:2px solid var(--g);display:grid;place-items:center;color:var(--g);box-shadow:0 0 28px rgba(71,196,21,.35)}
+.bell svg{width:40px;height:40px;fill:var(--g)}
+.offer h2{font-size:30px}.offer p{color:var(--mut);font-size:19px;margin-top:2px}.count{font-size:54px;font-weight:800;color:var(--g);line-height:1.1}
+.white{background:var(--white);color:var(--ink);border-radius:26px;margin:12px 22px 0;padding:16px 20px}
+.when{display:flex;justify-content:space-between;align-items:center;font-size:16px;color:#4a514a;padding-bottom:10px;border-bottom:1px solid #e4e7e1;margin-bottom:10px}.when b{font-size:25px;color:#1c7a0b}
+.stop{display:flex;gap:14px;align-items:flex-start}.stop+.stop{margin-top:10px}.stop svg{width:24px;height:24px;flex:none;margin-top:2px}
+.stop strong{display:block;font-size:20px;line-height:1.15}.stop span{color:#6a716a;font-size:15px}
+.dash{width:2px;height:12px;border-left:2px dotted #8bd16c;margin:2px 0 -2px 11px}
+.facts{display:flex;margin-top:14px;border-top:1px solid #e4e7e1;padding-top:12px}.facts div{flex:1;text-align:center;font-size:14px;color:#3d443d}.facts div+div{border-left:1px solid #e4e7e1}.facts svg{width:24px;height:24px;display:block;margin:0 auto 3px;stroke:#1f241f}
+.follow{display:flex;align-items:center;gap:9px;margin:10px 22px 0;padding:10px 16px;border-radius:16px;background:rgba(71,196,21,.1);border:1px solid rgba(71,196,21,.45);font-size:16px}.follow svg{width:22px;height:22px;color:var(--g)}.follow b{color:var(--gl)}.follow em{margin-left:auto;font-style:normal;color:var(--gl);font-size:14px}
+.btns{display:flex;gap:14px;margin:14px 22px 0}.btns .btn{flex:1}.btns.col .btn{flex:none;height:60px;width:100%}.btns .btn.o{flex:.8}
+.fill{flex:1}.logo{position:absolute;top:92px;left:0;right:0;text-align:center;z-index:4}.logo{text-shadow:0 2px 14px rgba(0,0,0,.85),0 0 3px rgba(0,0,0,.6)}.logo b{font-size:46px;font-style:italic;font-weight:700;letter-spacing:-1px}.logo b i{color:var(--g)}.logo small{display:block;font-size:15px;margin-top:2px}.logo svg{width:150px;height:34px;stroke:var(--g);stroke-width:4;display:block;margin:0 auto -8px}
+/* écran 2 */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:6px 22px 12px;font-size:21px;font-weight:700}.nav svg{width:28px;height:28px}
+.map{height:355px;position:relative;background:#0f1514;overflow:hidden}
+.chip{position:absolute;top:16px;left:16px;background:rgba(10,12,10,.88);border:1px solid #232a22;border-radius:18px;padding:12px 18px;display:flex;gap:12px;align-items:center;z-index:3}.chip svg{width:28px;height:28px}.chip b{font-size:26px;display:block;line-height:1}.chip span{color:var(--mut);font-size:17px}
+.sheet{background:#0d100d;border-radius:28px 28px 0 0;margin-top:-22px;position:relative;z-index:3;padding:18px 22px 0;border-top:1px solid var(--line)}
+.client{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid #1d231c}
+.av{width:46px;height:46px;border-radius:50%;background:#16301a;display:grid;place-items:center;color:var(--g)}.av svg{width:26px;height:26px}
+.client b{font-size:22px;flex:1}.client small{display:block;color:var(--mut);font-weight:400;font-size:14px;margin-top:2px}
+.call{width:52px;height:52px;border-radius:50%;background:#14301a;display:grid;place-items:center;color:var(--g)}.call svg{width:26px;height:26px}
+.sheet .stop{margin-top:14px}.sheet .stop strong{font-size:19px;color:var(--txt)}.sheet .stop span{color:var(--mut)}
+.steps{display:flex;gap:7px;margin:14px 0 0}.steps i{flex:1;height:5px;border-radius:3px;background:#262c25}.steps i.d{background:var(--g)}
+.steplab{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin:6px 0 12px}.steplab b{color:var(--gl)}
+.mini{display:flex;gap:10px;margin-bottom:12px}.mini div{flex:1;height:46px;border-radius:15px;border:1px solid #2a3129;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;color:var(--txt)}.mini svg{width:20px;height:20px;color:var(--g)}
+/* écran 3 */
+.done{text-align:center;margin-top:34px}
+.ok{width:128px;height:128px;border-radius:50%;margin:0 auto 22px;border:4px solid var(--g);display:grid;place-items:center;color:var(--g);box-shadow:0 0 36px rgba(71,196,21,.3);background:radial-gradient(circle,rgba(71,196,21,.1),transparent 70%)}.ok svg{width:68px;height:68px;stroke-width:3}
+.done h2{font-size:36px}.done p{color:var(--mut);font-size:20px;margin-top:6px}
+.stats{display:flex;margin-top:16px;border-top:1px solid #e4e7e1;padding-top:14px}.stats div{flex:1;text-align:center}.stats div+div{border-left:1px solid #e4e7e1}.stats svg{width:26px;height:26px;stroke:#1f241f;display:block;margin:0 auto 4px}.stats b{font-size:22px;display:block}.stats small{color:#6a716a;font-size:15px}
+.note{margin:14px 22px 0;padding:12px 16px;border-radius:16px;background:#101410;border:1px solid var(--line);font-size:15px;color:var(--mut);display:flex;justify-content:space-between}.note b{color:var(--txt)}
+.logo{top:84px!important}.logo img{width:168px;display:block;margin:0 auto;filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z" fill="currentColor" stroke="none"/><circle cx="12" cy="9.5" r="2.5" fill="#fff" stroke="none"/></symbol>
+<symbol id="car" viewBox="0 0 24 24"><path d="M5 16V11l1.7-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.8 1.3L19 11v5M3.5 16h17v3h-17zM7.5 13h.01M16.5 13h.01"/></symbol>
+<symbol id="map" viewBox="0 0 24 24"><path d="M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+<symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5M16 5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.5 2.4 3.5 5.5"/></symbol>
+<symbol id="bag" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="12" rx="2"/><path d="M9 8V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V8"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="train" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4M9 14h.01M15 14h.01"/></symbol>
+<symbol id="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zM10 19a2 2 0 0 0 4 0"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="road" viewBox="0 0 24 24"><path d="M8 3 4 21M16 3l4 18M12 5v3M12 11v3M12 17v3"/></symbol>
+<symbol id="eur" viewBox="0 0 24 24"><path d="M17 6.5a6 6 0 1 0 0 11M5 10.5h9M5 13.5h9"/></symbol>
+<symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9H4z" fill="currentColor"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 4l15 7-6 2-2 6z" fill="currentColor"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+<symbol id="dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></symbol><symbol id="wa" viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.8z"/><path d="M9 9c0 3 3 6 6 6l1-1.5-2-1-1 .8c-1-.5-2-1.500-2.500-2.500l.8-1-1-2z"/></symbol><symbol id="chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+</defs></svg>
+
+<div class="row">
+
+<!-- 1 : nouvelle course -->
+<div class="cell"><div class="phone"><div class="screen">
+  <div class="island"></div>
+  <div class="status"><span>9:41</span><span class="sig">▂▄▆ <span class="bat"></span></span></div>
+  <div class="hero"></div>
+  <div class="logo"><img src="logo-rennesvtc-transparent.png" alt="Rennes VTC"></div><div class="topbar"><svg><use href="#menu"/></svg><span class="online"><i></i>En ligne</span></div>
+  <div class="offer"><div class="bell"><svg><use href="#bell"/></svg></div><h2>Nouvelle course</h2><p>À accepter dans :</p><div class="count">00:45</div></div>
+  <div class="white">
+    <div class="when"><span>Jeudi 20 novembre · 14h30</span><b>35 €</b></div>
+    <div class="stop"><svg style="color:#47C415"><use href="#pin"/></svg><div><strong>Gare de Rennes</strong><span>Rennes</span></div></div>
+    <div class="dash"></div>
+    <div class="stop"><svg style="color:#141714"><use href="#pin"/></svg><div><strong>Aéroport Rennes Bretagne</strong><span>Saint-Jacques-de-la-Lande</span></div></div>
+    <div class="facts"><div><svg><use href="#users"/></svg>2 passagers</div><div><svg><use href="#bag"/></svg>1 bagage</div><div><svg><use href="#car"/></svg>Confort</div></div>
+  </div>
+  <div class="follow"><svg><use href="#train"/></svg><span>Train <b>8601</b> du client</span><em>Suivre ›</em></div>
+  <div class="btns"><div class="btn o"><svg><use href="#x"/></svg>Refuser</div><div class="btn g"><svg><use href="#check"/></svg>Accepter</div></div>
+  <div style="text-align:center;font-size:15px;color:var(--mut);margin-top:10px">Dispatcher à un collègue</div>
+  <div class="fill"></div>
+  <div class="tabs"><div class="tab on"><svg><use href="#car"/></svg>Courses</div><div class="tab"><svg><use href="#map"/></svg>Carte</div><div class="tab"><svg><use href="#cal"/></svg>Calendrier</div><div class="tab"><svg><use href="#chat"/></svg>Messages<span class="badge">1</span></div><div class="tab"><svg><use href="#user"/></svg>Profil</div></div>
+  <div class="home-bar"></div>
+</div></div><div class="cap">1 · Nouvelle course<small>Compte à rebours, prix, heure, train du client</small></div></div>
+
+<!-- 2 : course en cours -->
+<div class="cell"><div class="phone"><div class="screen">
+  <div class="island"></div>
+  <div class="status"><span>9:41</span><span class="sig">▂▄▆ <span class="bat"></span></span></div>
+  <div class="nav"><svg><use href="#back"/></svg><span>Course en cours</span><svg><use href="#chat"/></svg></div>
+  <div class="map">
+    <svg viewBox="0 0 450 360" width="450" height="360" style="position:absolute;inset:0;stroke-width:1;stroke:#1b2624">
+      <g opacity=".9"><path d="M0 70 450 40M0 150 450 120M0 230 450 215M0 310 450 290M60 0 90 360M160 0 175 360M270 0 285 360M370 0 385 360" /><path d="M0 110 450 200M0 260 380 340M120 0 400 360" stroke="#233230" stroke-width="1.6"/></g>
+      <path d="M44 250 C100 230 130 205 190 188 S250 160 270 128 S330 95 380 70" stroke="#4CD11E" stroke-width="7" opacity=".95"/>
+      <circle cx="44" cy="250" r="14" fill="#0b0e0b" stroke="#4CD11E" stroke-width="4"/><circle cx="44" cy="250" r="5" fill="#4CD11E" stroke="none"/>
+      <path d="M380 28a18 18 0 0 1 18 18c0 14-18 30-18 30s-18-16-18-30a18 18 0 0 1 18-18z" fill="#f3f4f1" stroke="none"/><circle cx="380" cy="46" r="6" fill="#0b0e0b" stroke="none"/>
+      <g transform="translate(205 168) rotate(-28)"><rect x="-22" y="-12" width="44" height="24" rx="9" fill="#f3f4f1" stroke="#0b0e0b" stroke-width="2"/><rect x="-9" y="-8" width="18" height="16" rx="4" fill="#1a1e1a" stroke="none"/></g>
+      <text x="270" y="256" fill="#d9ddd6" stroke="none" font-size="26" font-weight="600">Rennes</text>
+    </svg>
+    <div class="chip"><svg style="fill:#fff;stroke:none"><use href="#arrow"/></svg><div><b>6,8 km</b><span>16 min</span></div></div>
+  </div>
+  <div class="sheet">
+    <div class="client"><div class="av"><svg><use href="#user"/></svg></div><b>Mme Dupont<small>2 passagers · 1 bagage · Espèces</small></b><div class="call" style="margin-right:-6px"><svg><use href="#wa"/></svg></div><div class="call"><svg><use href="#phone"/></svg></div></div>
+    <div class="stop"><svg style="color:#47C415;width:24px;height:24px"><use href="#pin"/></svg><div><strong>Gare de Rennes</strong><span>Rennes</span></div></div>
+    <div class="dash" style="border-color:#2e5a24"></div>
+    <div class="stop"><svg style="color:#e8ebe6;width:24px;height:24px"><use href="#pin"/></svg><div><strong>Aéroport Rennes Bretagne</strong><span>Saint-Jacques-de-la-Lande</span></div></div>
+    <div class="steps"><i class="d"></i><i></i><i></i><i></i></div>
+    <div class="steplab"><b>En route</b><span>Sur place</span><span>À bord</span><span>Terminée</span></div>
+    <div class="mini"><div><svg style="fill:currentColor;stroke:none"><use href="#arrow"/></svg>Naviguer</div><div><svg><use href="#train"/></svg>Train 8601</div><div><svg><use href="#dots"/></svg>Plus</div></div>
+    <div class="btn g"><svg><use href="#check"/></svg>Arrivée client</div>
+  </div>
+  <div class="fill"></div>
+  <div class="tabs"><div class="tab on"><svg><use href="#car"/></svg>Courses</div><div class="tab"><svg><use href="#map"/></svg>Carte</div><div class="tab"><svg><use href="#cal"/></svg>Calendrier</div><div class="tab"><svg><use href="#chat"/></svg>Messages<span class="badge">1</span></div><div class="tab"><svg><use href="#user"/></svg>Profil</div></div>
+  <div class="home-bar"></div>
+</div></div><div class="cap">2 · Course en cours<small>Carte, client, étapes, bouton unique « étape suivante »</small></div></div>
+
+<!-- 3 : course terminée -->
+<div class="cell"><div class="phone"><div class="screen" style="background:radial-gradient(circle at 50% 18%,#0e1a0d 0,#060707 55%)">
+  <div class="island"></div>
+  <div class="status"><span>9:41</span><span class="sig">▂▄▆ <span class="bat"></span></span></div>
+  <div class="done"><div class="ok"><svg><use href="#check"/></svg></div><h2>Course terminée !</h2><p>Merci pour votre service</p></div>
+  <div class="white" style="margin-top:30px">
+    <div class="stop"><svg style="color:#47C415"><use href="#pin"/></svg><div><strong>Gare de Rennes</strong><span>Rennes</span></div></div>
+    <div class="dash"></div>
+    <div class="stop"><svg style="color:#141714"><use href="#pin"/></svg><div><strong>Aéroport Rennes Bretagne</strong><span>Saint-Jacques-de-la-Lande</span></div></div>
+    <div class="stats"><div><svg><use href="#clock"/></svg><b>14 min</b><small>Durée</small></div><div><svg><use href="#road"/></svg><b>6,8 km</b><small>Distance</small></div><div><svg><use href="#eur"/></svg><b>35,00 €</b><small>Course</small></div></div>
+  </div>
+  <div class="note"><span>Paiement</span><b>Espèces à encaisser</b></div>
+  <div class="btns col" style="flex-direction:column;gap:14px;margin-top:20px"><div class="btn og">Voir le détail <svg style="margin-left:auto;margin-right:16px"><use href="#chev"/></svg></div><div class="btn g"><svg style="fill:#06120a;stroke:none"><use href="#home"/></svg>Retour à l'accueil</div></div>
+  <div class="fill"></div>
+  <div class="tabs"><div class="tab on"><svg><use href="#car"/></svg>Courses</div><div class="tab"><svg><use href="#map"/></svg>Carte</div><div class="tab"><svg><use href="#cal"/></svg>Calendrier</div><div class="tab"><svg><use href="#chat"/></svg>Messages<span class="badge">1</span></div><div class="tab"><svg><use href="#user"/></svg>Profil</div></div>
+  <div class="home-bar"></div>
+</div></div><div class="cap">3 · Course terminée<small>Récapitulatif, encaissement, retour à l'accueil</small></div></div>
+
+</div>
+</body></html>

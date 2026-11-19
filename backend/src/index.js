@@ -14,6 +14,7 @@ const { registerClients, saveClient } = require('./clients');
 const { registerNavettes } = require('./navettes');
 const { registerExport } = require('./exportReservations');
 const { registerAgendaTransport } = require('./agendaTransport');
+const { registerAvisCourse } = require('./avisCourse');
 const { buildRideMail } = require('./mailTemplate');
 const { renderAccueil } = require('./accueil');
 
@@ -618,6 +619,7 @@ registerClients(app, requireStaff);
 registerNavettes(app, requireAdmin, BASE_URL);
 registerExport(app, requireAdmin);
 registerAgendaTransport(app, requireSupabaseUser);
+registerAvisCourse(app, requireSupabaseUser);
 
 async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
