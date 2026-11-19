@@ -20,6 +20,9 @@ const ICONS = {
   dots: { w: require('./assets/ui/dots_w.png'), g: require('./assets/ui/dots_g.png'), m: require('./assets/ui/dots_m.png'), k: require('./assets/ui/dots_k.png') },
   star: { w: require('./assets/ui/star_w.png'), g: require('./assets/ui/star_g.png'), m: require('./assets/ui/star_m.png'), k: require('./assets/ui/star_k.png') },
   close: { w: require('./assets/ui/close_w.png'), g: require('./assets/ui/close_g.png'), m: require('./assets/ui/close_m.png'), k: require('./assets/ui/close_k.png') },
+  history: { w: require('./assets/ui/history_w.png'), g: require('./assets/ui/history_g.png'), m: require('./assets/ui/history_m.png'), k: require('./assets/ui/history_k.png') },
+  pin: { w: require('./assets/ui/pin_w.png'), g: require('./assets/ui/pin_g.png'), m: require('./assets/ui/pin_m.png'), k: require('./assets/ui/pin_k.png') },
+  headset: { w: require('./assets/ui/headset_w.png'), g: require('./assets/ui/headset_g.png'), m: require('./assets/ui/headset_m.png'), k: require('./assets/ui/headset_k.png') },
 };
 
 // color : w = adaptatif (blanc en mode sombre, texte en mode clair), white = toujours blanc (sur fond vert), g = vert, m = gris, k = noir (texte du bouton vert).

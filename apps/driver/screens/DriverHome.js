@@ -72,7 +72,7 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
   const [releaseTarget, setReleaseTarget] = useState('all'); // 'all' ou id d'un collegue
   const [releasing, setReleasing] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  const [priceEditing, setPriceEditing] = useState(false);
+  const [priceEditing, setPriceEditing] = useState(null); // id de la reservation dont le tarif est en cours de modification
   const [newPrice, setNewPrice] = useState('');
   const locationSubscription = useRef(null);
   const [myRides, setMyRides] = useState([]); // toutes mes courses acceptees
@@ -389,14 +389,14 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
     Linking.openURL(urls[app]).catch(() => Linking.openURL(urls.google));
   }
 
-  async function handleSavePrice() {
+  async function handleSavePrice(ride) {
     const value = parseFloat(newPrice.replace(',', '.'));
     if (isNaN(value) || value < 0) {
       setErrorMsg('Saisissez un tarif valide.');
       return;
     }
     setErrorMsg('');
-    const { error } = await supabase.from('rides').update({ price: value }).eq('id', activeRide.id).eq('driver_id', session.user.id);
+    const { error } = await supabase.from('rides').update({ price: value }).eq('id', ride.id).eq('driver_id', session.user.id);
     if (error) {
       setErrorMsg(error.message);
       return;
@@ -405,9 +405,9 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
     fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/notify/price`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ rideId: activeRide.id, oldPrice: activeRide.price }),
+      body: JSON.stringify({ rideId: ride.id, oldPrice: ride.price }),
     }).catch(() => {});
-    setPriceEditing(false);
+    setPriceEditing(null);
     refresh();
   }
 
@@ -485,6 +485,19 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                       </View>
                       <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      {permissions.can_edit_price ? (
+                        priceEditing === item.id ? (
+                          <View style={{ gap: 8 }}>
+                            <TextInput style={styles.priceInput} value={newPrice} onChangeText={setNewPrice} keyboardType="decimal-pad" placeholder="Nouveau tarif en euros" placeholderTextColor={theme.colors.textMuted} />
+                            <View style={styles.contactRow}>
+                              <View style={{ flex: 1 }}><Btn title="Enregistrer" onPress={() => handleSavePrice(item)} /></View>
+                              <View style={{ flex: 1 }}><Btn title="Annuler" variant="secondary" onPress={() => setPriceEditing(null)} /></View>
+                            </View>
+                          </View>
+                        ) : (
+                          <Btn title="Modifier le tarif" variant="secondary" onPress={() => { setNewPrice(String(item.price ?? '')); setPriceEditing(item.id); }} />
+                        )
+                      ) : null}
                       <AgendaLink ride={item} />
                       <FollowTransport ride={item} />
                       <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
@@ -623,19 +636,10 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
             <SectionLabel>Prix</SectionLabel>
             <Text style={styles.bigPrice}>{activeRide.price != null ? `${Number(activeRide.price).toFixed(2)} €` : '-'}</Text>
           </View>
-          {permissions.can_edit_price ? (
-            priceEditing ? (
-              <View style={{ gap: 8 }}>
-                <TextInput style={styles.priceInput} value={newPrice} onChangeText={setNewPrice} keyboardType="decimal-pad" placeholder="Nouveau tarif en euros" placeholderTextColor={theme.colors.textMuted} />
-                <View style={styles.contactRow}>
-                  <View style={{ flex: 1 }}><Btn title="Enregistrer" onPress={handleSavePrice} /></View>
-                  <View style={{ flex: 1 }}><Btn title="Annuler" variant="secondary" onPress={() => setPriceEditing(false)} /></View>
-                </View>
-              </View>
-            ) : (
-              <Btn title="Modifier le tarif" variant="secondary" onPress={() => { setNewPrice(String(activeRide.price ?? '')); setPriceEditing(true); }} />
-            )
-          ) : null}
+          <View style={styles.rowBetween}>
+            <SectionLabel>Client</SectionLabel>
+            <Text style={styles.clientName}>{clientInfo?.name ?? 'Non renseigne'}</Text>
+          </View>
           <View style={styles.pillRow}>
             {activeRide.leg ? <Pill highlight>{LEG_LABELS[activeRide.leg]}</Pill> : null}
             <Pill>{SERVICE_LABELS[activeRide.service_type]}</Pill>

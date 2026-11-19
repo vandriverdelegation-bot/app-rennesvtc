@@ -170,3 +170,9 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - **Calendrier** : le calendrier et la liste des réservations à venir. **Carte** : trajet de la course en cours ou de la prochaine réservation + Naviguer (Waze / Google Maps / autre). **Messages** : conversation de chaque course acceptée. **Profil** : le menu habituel (compte, chiffre d'affaires, courses en compte, historique, notifications, back-office, réglages).
 - **Fin de course** : écran « Course terminée ! » (durée, distance, prix, somme à encaisser) puis retour à l'accueil.
 - DriverHome reste monté pendant les autres onglets (le partage de position continue).
+
+## 19/11 (nuit, suite) — Corrections demandées par Jim
+- **Client** : photo de fond = celle de la maquette de Jim (Rennes au crépuscule, extraite de son image et nettoyée de tout le texte dessiné dessus), même format qu'elle : menu + « Mon compte », logo de Jim, « Bonjour, {nom} », 4 cartes aux textes exacts (Réserver une course / Mes courses / Suivi de ma course / Besoin d'aide ?), barre du bas pleine largeur. Les raccourcis Aéroport / Gare / Domicile ne sont plus sur l'accueil (absents de la maquette).
+- **Chauffeur** : « Modifier le tarif » retiré de la course en cours (le nom du client est affiché à la place) ; il est désormais dans les réservations à venir et le calendrier.
+- **Ouverture** : image de l'écran d'ouverture à la taille exacte de l'écran (haut gauche, rognée sur les côtés si besoin). Android natif : petit logo seul (limite d'Android 12+).
+- **Builds** : en attente de l'abonnement Expo Starter sur rennesvtcs-team (ou du 01/12/2026). Aucun build à lancer avant validation de Jim dans Expo Go.

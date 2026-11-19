@@ -73,7 +73,7 @@ function PastRide({ ride, onRebook }) {
 
 function MenuCard({ icon, title, sub, onPress, main, dim }) {
   return (
-    <TouchableOpacity style={[styles.card, main && styles.cardMain, dim && { opacity: 0.6 }]} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={title}>
+    <TouchableOpacity style={[styles.card, main && styles.cardMain, false]} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={title}>
       <View style={[styles.cardIcon, main && styles.cardIconMain]}>
         <Icon name={icon} color={main ? 'white' : 'g'} size={26} />
       </View>
@@ -81,7 +81,7 @@ function MenuCard({ icon, title, sub, onPress, main, dim }) {
         <Text style={styles.cardTitle}>{title}</Text>
         <Text style={[styles.cardSub, main && { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={2}>{sub}</Text>
       </View>
-      <Icon name="arrow" color={main ? 'white' : 'g'} size={20} />
+      <Text style={styles.cardChevron}>›</Text>
     </TouchableOpacity>
   );
 }
@@ -179,7 +179,7 @@ export default function HomeView({ session, appName, firstName, fullName, initia
     <View style={styles.root}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={styles.heroBox}>
-          <Image source={require('../assets/hero-chateau.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image source={require('../assets/hero-rennes.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,12,11,0.18)' }]} />
           <View pointerEvents="none" style={styles.fadeBottom}>
             {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 12) ** 1.6})` }} />)}
@@ -203,17 +203,9 @@ export default function HomeView({ session, appName, firstName, fullName, initia
 
         <View style={styles.cards}>
           <MenuCard main icon="van" title="Réserver une course" sub="En quelques clics" onPress={() => onBook()} />
-          <View style={styles.shortcuts}>
-            {SHORTCUTS.map((s) => (
-              <TouchableOpacity key={s.key} style={styles.shortcut} onPress={() => onShortcut(s.key)} activeOpacity={0.8}>
-                <Icon name={s.icon} color="g" size={20} />
-                <Text style={styles.shortcutText}>{s.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <MenuCard icon="calendar" title="Mes courses" sub={rides.length ? `${rides.length} à venir · consulter mon historique` : 'Consulter mon historique'} onPress={onOpenCourses} />
-          <MenuCard icon="search" title="Suivi de ma course" sub={trackRide ? 'Chauffeur confirmé · suivre en direct' : 'Suivre ma course en temps réel'} onPress={openTracking} dim={!trackRide} />
-          <MenuCard icon="message" title="Besoin d'aide ?" sub="Contactez-nous" onPress={askHelp} />
+          <MenuCard icon="history" title="Mes courses" sub="Consulter mon historique" onPress={onOpenCourses} />
+          <MenuCard icon="pin" title="Suivi de ma course" sub="Suivre ma course en temps réel" onPress={openTracking} />
+          <MenuCard icon="headset" title="Besoin d'aide ?" sub="Contactez-nous" onPress={askHelp} />
         </View>
       </ScrollView>
       {endScreen}
@@ -238,7 +230,8 @@ const styles = themedStyles(() => ({
   underline: { width: 44, height: 4, borderRadius: 2, backgroundColor: c.accent, marginTop: 8 },
   cards: { paddingHorizontal: 22, paddingTop: 6, gap: 12 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder, paddingVertical: 14, paddingHorizontal: 16 },
-  cardMain: { backgroundColor: c.accent, borderColor: c.accentLight },
+  cardMain: { backgroundColor: '#0F5F2C', borderColor: c.accent, borderWidth: 2 },
+  cardChevron: { color: '#FFFFFF', fontSize: 30, lineHeight: 32, marginRight: 2 },
   cardIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: c.accentTint, alignItems: 'center', justifyContent: 'center' },
   cardIconMain: { backgroundColor: 'rgba(0,0,0,0.28)' },
   cardTitle: { color: c.text, fontSize: 19, fontFamily: FONT.title },

@@ -2,8 +2,9 @@
 // `source` = require('./assets/splash-ouverture.jpg') de l'appli ; `minMs` = duree minimale d'affichage (voir useLaunchDelay).
 function LaunchScreen({ source }) {
   const React = require('react');
-  const { View, Text, Image, Animated, Easing, StatusBar, StyleSheet } = require('react-native');
+  const { View, Text, Image, Animated, Easing, StatusBar, useWindowDimensions } = require('react-native');
   const h = React.createElement;
+  const { width: W, height: H } = useWindowDimensions();
   const progress = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(progress, { toValue: 1, duration: 1600, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
@@ -11,7 +12,8 @@ function LaunchScreen({ source }) {
   const width = progress.interpolate({ inputRange: [0, 1], outputRange: ['6%', '100%'] });
   return h(View, { style: { flex: 1, backgroundColor: '#05080F' } },
     h(StatusBar, { barStyle: 'light-content', translucent: true, backgroundColor: 'transparent' }),
-    h(Image, { source, style: StyleSheet.absoluteFill, resizeMode: 'cover' }),
+    // Image a la taille exacte de l'ecran, collee en haut a gauche : pas de decalage, rognee sur les cotes si besoin.
+    h(Image, { source, style: { position: 'absolute', top: 0, left: 0, width: W, height: H }, resizeMode: 'cover' }),
     h(View, { style: { position: 'absolute', left: 0, right: 0, bottom: '9%', alignItems: 'center' } },
       h(View, { style: { width: '34%', height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)', overflow: 'hidden' } },
         h(Animated.View, { style: { width, height: 4, borderRadius: 2, backgroundColor: '#47C415' } })),

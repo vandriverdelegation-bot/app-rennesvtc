@@ -87,7 +87,7 @@ export default function TrackScreen({ ride, session, onBack, onChanged }) {
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
         <Text style={styles.barTitle}>Suivi de ma course</Text>
         <TouchableOpacity onPress={() => Linking.openURL(`tel:${COMPANY_PHONE}`)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Besoin d'aide ? Appeler Rennes VTC">
-          <Icon name="phone" color="w" size={24} />
+          <Icon name="headset" color="w" size={26} />
         </TouchableOpacity>
       </View>
 
@@ -120,7 +120,7 @@ export default function TrackScreen({ ride, session, onBack, onChanged }) {
               <Text style={styles.driverSub}>Rennes VTC</Text>
             </View>
             <TouchableOpacity style={styles.round} onPress={() => Linking.openURL(`tel:${phone}`)} accessibilityLabel="Appeler le chauffeur"><Icon name="phone" color="g" size={22} /></TouchableOpacity>
-            <TouchableOpacity style={styles.round} onPress={() => Linking.openURL(whatsappUrl(phone))} accessibilityLabel="WhatsApp"><Icon name="message" color="g" size={22} /></TouchableOpacity>
+            <TouchableOpacity style={styles.round} onPress={() => setDetail(true)} accessibilityLabel="Messages"><Icon name="message" color="g" size={22} /></TouchableOpacity>
           </View>
 
           {driver?.vehicle ? (
