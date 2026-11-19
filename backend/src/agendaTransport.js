@@ -1,6 +1,7 @@
 // Agenda (fichier .ics) et suivi du vol / du train d'une reservation.
 // Les deux pages publiques sont protegees par le lien secret de la course (tracking_token), comme la page de suivi.
 const { supabaseAdmin } = require('./supabaseAdmin');
+const { findTrain, pickStop } = require('./suiviTrain');
 
 const TOKEN_RE = /^[a-z0-9]{16,64}$/i;
 
@@ -89,6 +90,8 @@ small{display:block;color:#9AA19A;font-size:13px;margin-bottom:6px}h1{margin:0 0
 p{margin:6px 0;color:#c9cfc8;line-height:1.4}.when{font-size:15px;margin-bottom:18px}
 a.btn{display:block;margin-top:12px;padding:15px 16px;border-radius:14px;background:#5BD42A;color:#0B0C0B;font-weight:700;text-decoration:none;font-size:16px}
 a.btn.alt{background:transparent;color:#F4F6F2;border:1px solid #3a413a;font-weight:600}
+.state{font-size:20px;font-weight:700;margin:12px 0}.ontime{color:#5BD42A}.late{color:#FF8A3D}
+.stops{list-style:none;padding:0;margin:14px 0 0}.stops li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #2a302a;font-size:15px}.stops li.me{color:#5BD42A;font-weight:700}.stops i{color:#FF8A3D;font-style:normal}
 .note{margin-top:16px;font-size:13px;color:#9AA19A}.ok{color:#5BD42A;font-size:14px;margin-top:10px;min-height:18px}`;
 
 function pageShell(inner, head = '') {
@@ -100,11 +103,35 @@ function whenText(iso) {
   return new Date(iso).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
 }
 
-function transportPage(ride) {
+const hm = (epoch) => new Date(epoch * 1000).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+const delayText = (sec) => (Math.abs(sec) < 60 ? 'à l\'heure' : sec > 0 ? `+${Math.round(sec / 60)} min` : `${Math.round(sec / 60)} min`);
+
+// Suivi en direct du train (donnees ouvertes SNCF) ; train = { stops, canceled } de findTrain.
+function trainLivePage(ride, train, when) {
+  const stop = pickStop(train.stops, ride.pickup_address);
+  const arrives = stop.arrTime ?? stop.depTime;
+  const delay = stop.arrTime ? stop.arrDelay : stop.depDelay;
+  const state = train.canceled ? '<span class="late">Train supprimé</span>' : delay >= 60 ? `<span class="late">Retard ${esc(delayText(delay))}</span>` : '<span class="ontime">À l\'heure</span>';
+  const rows = train.stops.map((s) => {
+    const t = s.arrTime ?? s.depTime, d = s.arrTime ? s.arrDelay : s.depDelay;
+    return `<li${s === stop ? ' class="me"' : ''}><span>${esc(s.name)}</span><b>${s.skipped ? 'non desservi' : `${hm(t)}${Math.abs(d) >= 60 ? ` <i>(${esc(delayText(d))})</i>` : ''}`}</b></li>`;
+  }).join('');
+  return pageShell(`
+    <small>Train du client · ${esc(ride.transport_number)}</small>
+    <h1>${esc(stop.name)}<br>${train.canceled ? '—' : hm(arrives)}</h1>${when}
+    <p class="state">${state}</p>
+    <ul class="stops">${rows}</ul>
+    <p class="note">Mis à jour : ${hm(Date.now() / 1000)} (la page se rafraîchit toute seule). Données ouvertes SNCF.</p>
+    <a class="btn alt" href="https://www.sncf-connect.com/" target="_blank" rel="noopener">Ouvrir SNCF Connect</a>`,
+  '<meta http-equiv="refresh" content="60">');
+}
+
+function transportPage(ride, train = null) {
   if (!ride?.transport_number) {
     return pageShell('<h1 style="color:#F4F6F2;font-size:24px">Aucun numéro</h1><p>Le client n\'a pas indiqué de numéro de vol ou de train pour cette course.</p>');
   }
   const when = ride.scheduled_at ? `<p class="when">Course prévue le ${esc(whenText(ride.scheduled_at))}<br>${esc(ride.pickup_address)}</p>` : '';
+  if (ride.transport_type === 'train' && train) return trainLivePage(ride, train, when);
   if (ride.transport_type === 'train') {
     const num = ride.transport_number;
     const digits = (num.match(/\d+$/) ?? [num])[0];
@@ -154,7 +181,11 @@ function registerAgendaTransport(app, requireSupabaseUser) {
     const ride = await loadByToken(req.params.token);
     if (!ride) return res.status(404).send(pageShell('<h1 style="color:#F4F6F2;font-size:24px">Lien introuvable</h1>'));
     res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.send(transportPage(ride));
+    let train = null;
+    if (ride.transport_type === 'train') {
+      try { train = await findTrain(ride.transport_number, ride.scheduled_at); } catch (e) { console.warn('suivi train :', e.message); }
+    }
+    res.send(transportPage(ride, train));
   });
 
   // Le client indique ou corrige le numero de vol / train de sa reservation.

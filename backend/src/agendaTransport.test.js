@@ -29,3 +29,17 @@ test('page de suivi : vol redirige, train copie le numero, rien sans numero', ()
   assert.match(t, /sncf-connect\.com/); assert.match(t, /8601/); assert.ok(!t.includes('<b>x</b>'));
   assert.match(transportPage({}), /Aucun numéro/);
 });
+
+test('page train : suivi en direct avec retard, ou repli sans donnees', () => {
+  const { transportPage } = require('./agendaTransport');
+  const ride = { transport_type: 'train', transport_number: '8601', scheduled_at: '2026-11-20T10:00:00Z', pickup_address: 'Gare de Rennes' };
+  const t0 = Date.parse('2026-11-20T10:00:00Z') / 1000;
+  const train = { canceled: false, stops: [
+    { name: 'Paris Montparnasse', arrTime: null, arrDelay: 0, depTime: t0 - 7200, depDelay: 0 },
+    { name: 'Rennes', arrTime: t0 + 900, arrDelay: 900, depTime: t0 + 1080, depDelay: 900 },
+  ] };
+  const live = transportPage(ride, train);
+  assert.match(live, /Retard \+15 min/);
+  assert.match(live, /http-equiv="refresh"/);
+  assert.match(transportPage(ride, null), /Ouvrir SNCF Connect/);
+});

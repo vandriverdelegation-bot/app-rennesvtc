@@ -133,3 +133,9 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - **Suivi** : le bouton ouvre `GET /transport/<lien de suivi>` (backend/src/agendaTransport.js). Vol : redirection automatique vers FlightAware (numéro IATA accepté) + liens Flightradar24 et Google. Train : la SNCF n'a pas de lien direct par numéro ; la page copie le numéro et ouvre SNCF Connect (collez-le dans la barre de recherche) + recherche Google. Pour un vrai suivi automatique des trains, il faudrait une clé API SNCF (api.sncf.com, gratuite).
 - **Back-office** : champ vol/train à la création (apparaît si le départ est un aéroport ou une gare) et dans la fiche (bouton « Suivre en direct »). Le numéro est aussi imprimé sur le bon de commande.
 - Pas fait : champ vol/train dans la saisie de réservation de l'appli chauffeur et dans le module web de réservation.
+
+## 19/11 — Suivi des trains en direct (serveur, sans cle SNCF)
+- La page « Suivre le train » (`/transport/:token`) affiche maintenant le train en direct : gare du client, heure reelle, retard, tous les arrets. Source : donnees ouvertes SNCF (GTFS-RT, TGV INOUI, OUIGO, Intercites, TER), aucun compte ni cle. Se rafraichit toute seule chaque minute.
+- Si le numero n'existe pas dans les donnees : repli sur l'ancienne page (numero copie + SNCF Connect).
+- App chauffeur : le bouton « Suivre le vol / le train » apparait aussi sur les courses proposees (avant acceptation) — a builder avec les autres changements.
+- Limite : si la gare de depart n'est pas reconnue dans l'adresse, la page montre le terminus. Les noms de gares viennent de `backend/src/data/gares-sncf.json` (a regenerer si la SNCF ajoute des gares).

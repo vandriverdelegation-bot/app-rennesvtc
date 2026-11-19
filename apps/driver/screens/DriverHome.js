@@ -109,7 +109,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
     if (!active) {
       const { data: pending } = await supabase
         .from('rides')
-        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, declined_by, leg, transport_type, transport_number')
+        .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, payment_method, service_type, price, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, child_ages, client_note, driver_note, declined_by, leg, tracking_token, transport_type, transport_number')
         .eq('status', 'dispatched')
         .order('created_at', { ascending: true });
       // Les courses que j'ai refusees ne reviennent plus dans ma liste.
@@ -703,6 +703,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                 dropoffLat={item.dropoff_lat}
                 dropoffLng={item.dropoff_lng}
               />
+              <FollowTransport ride={item} />
               <Btn variant="accept" chevron title="Accepter la course" onPress={() => handleAccept(item.id)} />
               {permissions.is_owner ? (
                 forwardFor === item.id ? (
