@@ -155,3 +155,11 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - Appli client : après une course terminée (moins de 7 jours, pas encore notée), carte « Course terminée ! Comment avez-vous trouvé votre course ? » avec 5 étoiles sur l'accueil. La note est enregistrée (`POST /client/rides/:id/rating`, une seule fois, colonnes `rating` et `rated_at`, migration 056 appliquée), puis message « Merci ! » avec le bouton **« Écrire mon avis sur Google »** (lien officiel de la fiche, le client écrit son avis avec son compte Google) et « Nous écrire en privé » (WhatsApp). Affiché pour toutes les notes, sans tri. Les courses passées montrent leurs étoiles.
 - Back-office : la fiche d'une réservation affiche la note du client.
 - Lien Google : `GOOGLE_PLACE_ID` (variable Render, valeur par défaut = fiche Rennes VTC `ChIJPfHbDLgDD0gRLJFboMkl_Mg`) ; le serveur renvoie le lien, donc le changer ne demande pas de build.
+
+## 19/11 (soir) — Nouvelle présentation de l'appli client codée + correction de l'ouverture Android
+- **Accueil** : photo (château + van), ton logo, « Bonjour, {nom} », cartes « Réserver une course », « Mes courses », « Suivi de ma course », « Besoin d'aide ? » ; raccourcis Aéroport / Gare / Domicile conservés sous « Réserver ». Barre du bas : Accueil, Mes courses, Notifications, Mon compte. En-tête : menu + « Mon compte ».
+- **Mes courses** : page à part (À venir / Passées), toutes les fonctions de la carte de réservation conservées (chat, annulation, agenda, vol/train, réserver à nouveau).
+- **Suivi de ma course** : position du chauffeur sur le schéma, « À X min · Y km » (estimation à vol d'oiseau, pas un vrai GPS), chauffeur (appel, WhatsApp), véhicule (nom, couleur, plaque, photo si renseignée), étapes ; « Voir le détail » ouvre la réservation complète. Le serveur renvoie maintenant le véhicule (`/client/ride-driver/:id`).
+- **Fin de course** : écran plein écran (récapitulatif, étoiles, puis avis Google), « Voir mon historique ».
+- **Ouverture Android** : image plein écran impossible en natif sur Android 12+ ; le système affichait l'image écrasée dans une petite icône. Maintenant : petit logo sur fond bleu nuit (natif) puis écran d'ouverture plein écran de l'appli. iPhone inchangé (plein écran natif).
+- Bug corrigé : prénom/nom du client coupé sur la lettre « s » (expression `/\s+/`).

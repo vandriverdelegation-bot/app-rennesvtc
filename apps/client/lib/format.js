@@ -24,3 +24,15 @@ export function relativeWhen(d, now = new Date()) {
 }
 
 export const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+// Distance a vol d'oiseau entre deux points (km) ; la route reelle est environ 1,3 fois plus longue.
+export function crowKm(a, b) {
+  if (!a?.lat || !a?.lng || !b?.lat || !b?.lng) return null;
+  const R = 6371, rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+// Minutes de trajet estimees en ville pour une distance a vol d'oiseau (x1,3, 25 km/h).
+export const cityMinutes = (km) => Math.max(1, Math.round(((km * 1.3) / 25) * 60));
+export const km1 = (km) => (Math.round(km * 10) / 10).toString().replace('.', ',');

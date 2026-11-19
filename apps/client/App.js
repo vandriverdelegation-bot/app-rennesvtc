@@ -56,7 +56,7 @@ function AppContent() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [tab, setTab] = useState('home'); // home | account
+  const [tab, setTab] = useState('home'); // home | courses | account
   const [menuView, setMenuView] = useState('menu');
   const [focus, setFocus] = useState(null); // zone de l'accueil a afficher (barre du bas)
   const [booking, setBooking] = useState(false); // formulaire de commande ouvert : pas de barre du bas
@@ -154,9 +154,10 @@ function AppContent() {
   }
 
   function navigate(key) {
-    if (key === 'account') return openAccount();
-    setTab('home');
-    setFocus({ to: key === 'bookings' ? 'bookings' : 'top', n: Date.now() });
+    if (key === 'account') return openAccount('menu');
+    if (key === 'notifications') return openAccount('notifications');
+    setTab(key === 'courses' ? 'courses' : 'home');
+    setFocus({ to: 'top', n: Date.now() });
   }
 
   if (checkingSession || !themeLoaded || !launchDone || (!fontsLoaded && !fontError)) {
@@ -183,11 +184,11 @@ function AppContent() {
     return (
       <SafeAreaView key={themeMode} style={styles.sessionContainer}>
         {tab === 'account' ? (
-          <ClientMenu session={session} initialView={menuView} onClose={() => setTab('home')} themePref={themePref} onThemePref={setThemePref} />
+          <ClientMenu key={menuView} session={session} initialView={menuView} onClose={() => setTab('home')} themePref={themePref} onThemePref={setThemePref} />
         ) : (
-          <ClientHome session={session} appName={appName} onViewChange={(v) => setBooking(v === 'book')} onOpenAccount={() => openAccount('account')} onOpenNotifications={() => openAccount('notifications')} focus={focus} />
+          <ClientHome session={session} appName={appName} page={tab} onOpenCourses={() => navigate('courses')} onViewChange={(v) => setBooking(v === 'book')} onOpenAccount={() => openAccount('menu')} onOpenNotifications={() => openAccount('notifications')} focus={focus} />
         )}
-        {tab === 'account' || !booking ? <BottomNav active={tab === 'account' ? 'account' : focus?.to === 'bookings' ? 'bookings' : 'home'} onPress={navigate} /> : null}
+        {tab === 'account' || !booking ? <BottomNav active={tab === 'account' ? (menuView === 'notifications' ? 'notifications' : 'account') : tab} onPress={navigate} /> : null}
         <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
       </SafeAreaView>
     );

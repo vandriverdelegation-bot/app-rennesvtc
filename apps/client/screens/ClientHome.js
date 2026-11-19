@@ -84,7 +84,7 @@ function SectionCard({ title, children }) {
   );
 }
 
-export default function ClientHome({ session, appName, onViewChange, onOpenAccount, onOpenNotifications, focus }) {
+export default function ClientHome({ session, appName, page, onOpenCourses, onViewChange, onOpenAccount, onOpenNotifications, focus }) {
   const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
   const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
@@ -124,7 +124,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
     const { data } = await supabase
       .from('rides')
       .select(
-        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, ride_step, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, leg, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, tracking_token, stop_addresses, duration_hours, transport_type, transport_number'
+        'id, pickup_address, dropoff_address, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, ride_step, driver_lat, driver_lng, payment_method, vehicle_category, service_type, price, round_trip, leg, scheduled_at, created_at, passenger_count, luggage_count, child_seats, booster_seats, tracking_token, step_times, stop_addresses, duration_hours, transport_type, transport_number'
       )
       .eq('client_id', session.user.id)
       .in('status', ['pending', 'dispatched', 'accepted'])
@@ -136,7 +136,7 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
   async function fetchHistory() {
     const { data } = await supabase
       .from('rides')
-      .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, price, scheduled_at, created_at, rating')
+      .select('id, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status, price, scheduled_at, created_at, rating, step_times')
       .eq('client_id', session.user.id)
       .in('status', ['completed', 'cancelled'])
       .order('created_at', { ascending: false })
@@ -449,12 +449,15 @@ export default function ClientHome({ session, appName, onViewChange, onOpenAccou
 
   if (view === 'home') {
     const name = fullName || session.user.user_metadata?.full_name || '';
-    const words = name.trim().split(/s+/).filter(Boolean);
+    const words = name.trim().split(/\s+/).filter(Boolean);
     return (
       <HomeView
         session={session}
         appName={appName}
         firstName={words[0] ?? ''}
+        fullName={name.trim()}
+        page={page}
+        onOpenCourses={onOpenCourses}
         initials={(words.length ? words.slice(0, 2).map((w) => w[0]).join('') : (session.user.email ?? '?')[0]).toUpperCase()}
         rides={rides}
         history={history}

@@ -38,7 +38,13 @@
         {
           "image": "./assets/splash-ouverture.jpg",
           "resizeMode": "cover",
-          "backgroundColor": "#05080F"
+          "backgroundColor": "#05080F",
+          "android": {
+            "image": "./assets/splash-android.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#05080F"
+          }
         }
       ],
       [

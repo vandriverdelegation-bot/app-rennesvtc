@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { COMPANY_PHONE, euro, shortDay, timeOf } from '../lib/format';
 import { Icon } from '../icons';
 import { FONT } from '../ui';
 import RideCard from './RideCard';
-import RateCard, { rideToRate } from './RateCard';
+import EndScreen, { rideToRate } from './RateCard';
+import TrackScreen from './TrackScreen';
 
 const c = theme.colors;
 
@@ -70,61 +71,138 @@ function PastRide({ ride, onRebook }) {
   );
 }
 
-// Accueil client : en-tete, commande rapide, reservations (a venir / passees) et reassurance.
-export default function HomeView({ session, appName, firstName, initials, rides, history, onBook, onShortcut, onChanged, onOpenAccount, onOpenNotifications, focus }) {
-  const [tab, setTab] = useState('upcoming');
-  const [rateDismissed, setRateDismissed] = useState([]); // courses dont le client a ferme la carte de note
-  const toRate = rideToRate(history);
-  const scrollRef = useRef(null);
-  const bookingsY = useRef(0);
-  const pending = useRef(null); // defilement demande avant que la mise en page soit connue
+function MenuCard({ icon, title, sub, onPress, main, dim }) {
+  return (
+    <TouchableOpacity style={[styles.card, main && styles.cardMain, dim && { opacity: 0.6 }]} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={title}>
+      <View style={[styles.cardIcon, main && styles.cardIconMain]}>
+        <Icon name={icon} color={main ? 'white' : 'g'} size={26} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={[styles.cardSub, main && { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={2}>{sub}</Text>
+      </View>
+      <Icon name="arrow" color={main ? 'white' : 'g'} size={20} />
+    </TouchableOpacity>
+  );
+}
 
-  // Les boutons Accueil / Reservations de la barre du bas font defiler jusqu'a la bonne zone.
-  useEffect(() => {
-    if (!focus) return;
-    if (focus.to === 'bookings' && !bookingsY.current) pending.current = focus;
-    else scrollRef.current?.scrollTo({ y: focus.to === 'bookings' ? Math.max(bookingsY.current - 12, 0) : 0, animated: true });
-  }, [focus]);
+// Accueil client : photo, logo, bonjour, puis Reserver / Mes courses / Suivi de ma course / Aide. La page « Mes courses » (a venir / passees) est une page a part.
+export default function HomeView({ session, appName, firstName, fullName, initials, rides, history, page = 'home', onOpenCourses, onBook, onShortcut, onChanged, onOpenAccount, onOpenNotifications, focus }) {
+  const [tab, setTab] = useState('upcoming');
+  const [rateDismissed, setRateDismissed] = useState([]); // courses dont le client a ferme l'ecran de fin
+  const [tracking, setTracking] = useState(false);
+  const toRate = rideToRate(history);
+  const trackRide = rides.find((r) => r.status === 'accepted' && ['en_route', 'on_site', 'on_board'].includes(r.ride_step)) ?? rides.find((r) => r.status === 'accepted');
+
+  function openTracking() {
+    if (trackRide) setTracking(true);
+    else Alert.alert('Aucune course en cours', "Le suivi en direct apparaît dès qu'un chauffeur a confirmé votre course.");
+  }
+
+  function askHelp() {
+    Alert.alert("Besoin d'aide ?", 'Rennes VTC est joignable 7j/7.', [
+      { text: 'Appeler', onPress: () => Linking.openURL(`tel:${COMPANY_PHONE}`) },
+      { text: 'WhatsApp', onPress: () => Linking.openURL(whatsappUrl(COMPANY_PHONE)) },
+      { text: 'Fermer', style: 'cancel' },
+    ]);
+  }
+
+  if (tracking && trackRide) {
+    return <TrackScreen ride={trackRide} session={session} onBack={() => setTracking(false)} onChanged={onChanged} />;
+  }
+
+  const endScreen = toRate && !rateDismissed.includes(toRate.id) ? (
+    <EndScreen
+      key={toRate.id}
+      ride={toRate}
+      session={session}
+      onClose={() => setRateDismissed((d) => [...d, toRate.id])}
+      onHistory={() => { setTab('past'); onOpenCourses?.(); }}
+    />
+  ) : null;
+
+  if (page === 'courses') {
+    return (
+      <View style={styles.root}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Text style={styles.pageTitle}>Mes courses</Text>
+          <View style={styles.bookings}>
+            <View style={styles.tabs}>
+              {[
+                { key: 'upcoming', label: `À venir · ${rides.length}` },
+                { key: 'past', label: `Passées · ${history.length}` },
+              ].map((t) => (
+                <TouchableOpacity key={t.key} style={[styles.tab, tab === t.key && styles.tabOn]} onPress={() => setTab(t.key)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.key }}>
+                  <Text style={[styles.tabText, tab === t.key && styles.tabTextOn]}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {tab === 'upcoming' ? (
+              rides.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>Aucune réservation à venir</Text>
+                  <Text style={styles.emptyText}>Commandez votre prochaine course en quelques secondes.</Text>
+                </View>
+              ) : (
+                rides.map((r) => <RideCard key={r.id} ride={r} session={session} onChanged={onChanged} />)
+              )
+            ) : history.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>Aucune course passée</Text>
+                <Text style={styles.emptyText}>Vos courses terminées apparaîtront ici.</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {history.map((h) => (
+                  <PastRide
+                    key={h.id}
+                    ride={h}
+                    onRebook={() =>
+                      onBook({
+                        pickup: { address: h.pickup_address, lat: h.pickup_lat, lng: h.pickup_lng },
+                        dropoff: { address: h.dropoff_address, lat: h.dropoff_lat, lng: h.dropoff_lng },
+                      })
+                    }
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+        {endScreen}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
-      <Halo />
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.logoTile}>
-              <Icon name="star" color="g" size={22} />
-            </View>
-            <View style={{ gap: 2 }}>
-              <BrandName appName={appName} />
-              <Text style={styles.tagline}>CHAUFFEUR PRIVÉ</Text>
-            </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroBox}>
+          <Image source={require('../assets/hero-chateau.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,12,11,0.18)' }]} />
+          <View pointerEvents="none" style={styles.fadeBottom}>
+            {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 12) ** 1.6})` }} />)}
           </View>
-          <View style={styles.headerBtns}>
-            <TouchableOpacity style={styles.iconBtn} onPress={onOpenNotifications} accessibilityLabel="Notifications">
-              <Icon name="bell" color="w" size={20} />
+          <View style={styles.heroTop}>
+            <TouchableOpacity onPress={onOpenAccount} style={styles.burger} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Menu">
+              <View style={styles.burgerLine} /><View style={styles.burgerLine} /><View style={styles.burgerLine} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconBtn, { backgroundColor: theme.colors.pill }]} onPress={onOpenAccount} accessibilityLabel="Mon compte">
-              <Text style={styles.initials}>{initials}</Text>
+            <TouchableOpacity style={styles.accountChip} onPress={onOpenAccount} accessibilityLabel="Mon compte">
+              <Icon name="user" color="g" size={18} />
+              <Text style={styles.accountChipText}>Mon compte</Text>
             </TouchableOpacity>
+          </View>
+          <Image source={require('../assets/logo-rennesvtc.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+          <View style={styles.greeting}>
+            <Text style={styles.hello}>Bonjour,</Text>
+            <Text style={styles.name} numberOfLines={1}>{fullName || firstName || 'et bienvenue'}</Text>
+            <View style={styles.underline} />
           </View>
         </View>
 
-        <View style={styles.hero}>
-          <View>
-            <Text style={styles.hello}>{firstName ? `Bonjour ${firstName},` : 'Bonjour,'}</Text>
-            <Text style={styles.h1}>{'Où allez-vous\naujourd\'hui ?'}</Text>
-          </View>
-          <TouchableOpacity style={styles.cta} onPress={() => onBook()} activeOpacity={0.85}>
-            <Icon name="search" color="k" size={22} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.ctaTitle}>Commander une course</Text>
-              <Text style={styles.ctaSub}>Immédiate ou à l'avance</Text>
-            </View>
-            <View style={styles.ctaArrow}>
-              <Icon name="arrow" color="g" size={20} />
-            </View>
-          </TouchableOpacity>
+        <View style={styles.cards}>
+          <MenuCard main icon="van" title="Réserver une course" sub="En quelques clics" onPress={() => onBook()} />
           <View style={styles.shortcuts}>
             {SHORTCUTS.map((s) => (
               <TouchableOpacity key={s.key} style={styles.shortcut} onPress={() => onShortcut(s.key)} activeOpacity={0.8}>
@@ -133,82 +211,39 @@ export default function HomeView({ session, appName, firstName, initials, rides,
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        {toRate && !rateDismissed.includes(toRate.id) ? (
-          <View>
-            <RateCard key={toRate.id} ride={toRate} session={session} onDone={() => setRateDismissed((d) => [...d, toRate.id])} />
-          </View>
-        ) : null}
-
-        <View style={styles.bookings} onLayout={(e) => {
-          bookingsY.current = e.nativeEvent.layout.y;
-          if (pending.current) scrollRef.current?.scrollTo({ y: Math.max(bookingsY.current - 12, 0), animated: false });
-          pending.current = null;
-        }}>
-          <Text style={styles.h2}>Mes réservations</Text>
-          <View style={styles.tabs}>
-            {[
-              { key: 'upcoming', label: `À venir · ${rides.length}` },
-              { key: 'past', label: `Passées · ${history.length}` },
-            ].map((t) => (
-              <TouchableOpacity key={t.key} style={[styles.tab, tab === t.key && styles.tabOn]} onPress={() => setTab(t.key)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.key }}>
-                <Text style={[styles.tabText, tab === t.key && styles.tabTextOn]}>{t.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {tab === 'upcoming' ? (
-            rides.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>Aucune réservation à venir</Text>
-                <Text style={styles.emptyText}>Commandez votre prochaine course en quelques secondes.</Text>
-              </View>
-            ) : (
-              rides.map((r) => <RideCard key={r.id} ride={r} session={session} onChanged={onChanged} />)
-            )
-          ) : history.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Aucune course passée</Text>
-              <Text style={styles.emptyText}>Vos courses terminées apparaîtront ici.</Text>
-            </View>
-          ) : (
-            <View style={{ gap: 10 }}>
-              {history.map((h) => (
-                <PastRide
-                  key={h.id}
-                  ride={h}
-                  onRebook={() =>
-                    onBook({
-                      pickup: { address: h.pickup_address, lat: h.pickup_lat, lng: h.pickup_lng },
-                      dropoff: { address: h.dropoff_address, lat: h.dropoff_lat, lng: h.dropoff_lng },
-                    })
-                  }
-                />
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.assurance}>
-          <View style={styles.assuranceIcon}>
-            <Icon name="message" color="g" size={20} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.assuranceTitle}>Une question ?</Text>
-            <Text style={styles.assuranceSub}>Votre chauffeur répond 7j/7</Text>
-          </View>
-          <TouchableOpacity style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => Linking.openURL(whatsappUrl(COMPANY_PHONE))}>
-            <Text style={styles.assuranceLink}>Écrire</Text>
-          </TouchableOpacity>
+          <MenuCard icon="calendar" title="Mes courses" sub={rides.length ? `${rides.length} à venir · consulter mon historique` : 'Consulter mon historique'} onPress={onOpenCourses} />
+          <MenuCard icon="search" title="Suivi de ma course" sub={trackRide ? 'Chauffeur confirmé · suivre en direct' : 'Suivre ma course en temps réel'} onPress={openTracking} dim={!trackRide} />
+          <MenuCard icon="message" title="Besoin d'aide ?" sub="Contactez-nous" onPress={askHelp} />
         </View>
       </ScrollView>
+      {endScreen}
     </View>
   );
 }
 
 const styles = themedStyles(() => ({
   root: { flex: 1, width: '100%', backgroundColor: c.background },
+  pageTitle: { color: c.text, fontSize: 28, fontFamily: FONT.title, marginBottom: 6 },
+  heroBox: { height: 340, overflow: 'hidden', backgroundColor: '#0B0C0B' },
+  fadeBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 150 },
+  heroTop: { position: 'absolute', top: 16, left: 22, right: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  burger: { gap: 5, padding: 4 },
+  burgerLine: { width: 26, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
+  accountChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(10,12,10,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  accountChipText: { color: '#F2F2EE', fontSize: 14, fontFamily: FONT.semi },
+  logo: { position: 'absolute', top: 54, alignSelf: 'center', width: 190, height: 143 },
+  greeting: { position: 'absolute', left: 24, right: 24, bottom: 22 },
+  hello: { color: '#E8EAE6', fontSize: 20, fontFamily: FONT.body },
+  name: { color: '#FFFFFF', fontSize: 32, fontFamily: FONT.title, marginTop: 2 },
+  underline: { width: 44, height: 4, borderRadius: 2, backgroundColor: c.accent, marginTop: 8 },
+  cards: { paddingHorizontal: 22, paddingTop: 6, gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder, paddingVertical: 14, paddingHorizontal: 16 },
+  cardMain: { backgroundColor: c.accent, borderColor: c.accentLight },
+  cardIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: c.accentTint, alignItems: 'center', justifyContent: 'center' },
+  cardIconMain: { backgroundColor: 'rgba(0,0,0,0.28)' },
+  cardTitle: { color: c.text, fontSize: 19, fontFamily: FONT.title },
+  cardSub: { color: c.textMuted, fontSize: 14, fontFamily: FONT.body, marginTop: 2 },
+
   halo: { position: 'absolute', top: -140, right: -120, width: 340, height: 340, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 20, paddingHorizontal: 24, paddingBottom: 120, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

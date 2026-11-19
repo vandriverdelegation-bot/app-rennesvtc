@@ -5,11 +5,12 @@ import { FONT } from '../ui';
 
 const ITEMS = [
   { key: 'home', label: 'Accueil', icon: 'navhome' },
-  { key: 'bookings', label: 'Réservations', icon: 'calendar' },
-  { key: 'account', label: 'Compte', icon: 'user' },
+  { key: 'courses', label: 'Mes courses', icon: 'calendar' },
+  { key: 'notifications', label: 'Notifications', icon: 'bell' },
+  { key: 'account', label: 'Mon compte', icon: 'user' },
 ];
 
-// Barre de navigation flottante du design : Accueil, Reservations, Compte.
+// Barre de navigation flottante : Accueil, Mes courses, Notifications, Mon compte.
 export default function BottomNav({ active, onPress }) {
   return (
     <View style={styles.nav}>

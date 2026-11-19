@@ -966,7 +966,15 @@ app.get('/client/ride-driver/:rideId', requireSupabaseUser, async (req, res) => 
     .select('full_name, email, phone')
     .eq('id', ride.driver_id)
     .single();
-  res.json({ name: driver?.full_name || driver?.email || null, phone: driver?.phone ?? null });
+  const { data: vehicle } = await supabaseAdmin
+    .from('vehicles')
+    .select('display_name, plate, color, photo_url')
+    .eq('driver_id', ride.driver_id)
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  res.json({ name: driver?.full_name || driver?.email || null, phone: driver?.phone ?? null, vehicle: vehicle ?? null });
 });
 
 // Telecharge le bon de commande d'une course (espace chauffeur).
