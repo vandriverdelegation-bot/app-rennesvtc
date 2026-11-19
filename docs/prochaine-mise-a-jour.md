@@ -163,3 +163,10 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - **Fin de course** : écran plein écran (récapitulatif, étoiles, puis avis Google), « Voir mon historique ».
 - **Ouverture Android** : image plein écran impossible en natif sur Android 12+ ; le système affichait l'image écrasée dans une petite icône. Maintenant : petit logo sur fond bleu nuit (natif) puis écran d'ouverture plein écran de l'appli. iPhone inchangé (plein écran natif).
 - Bug corrigé : prénom/nom du client coupé sur la lettre « s » (expression `/\s+/`).
+
+## 19/11 (nuit) — Nouvelle présentation de l'appli chauffeur codée
+- **Barre du bas** : Courses, Carte, Calendrier, Messages, Profil. Bandeau photo + logo + pastille « En ligne / Hors ligne » sur l'onglet Courses ; le menu à trois traits ouvre Profil.
+- **Courses** : comportement habituel conservé (disponibles / à venir / saisir une réservation / course en cours avec toutes ses actions). Course proposée : cloche, « Nouvelle course », compte à rebours 45 s (repère visuel : rien n'est refusé à 00:00), boutons Refuser / Accepter côte à côte (Refuser et « Dispatcher à un collègue » réservés au propriétaire, comme avant).
+- **Calendrier** : le calendrier et la liste des réservations à venir. **Carte** : trajet de la course en cours ou de la prochaine réservation + Naviguer (Waze / Google Maps / autre). **Messages** : conversation de chaque course acceptée. **Profil** : le menu habituel (compte, chiffre d'affaires, courses en compte, historique, notifications, back-office, réglages).
+- **Fin de course** : écran « Course terminée ! » (durée, distance, prix, somme à encaisser) puis retour à l'accueil.
+- DriverHome reste monté pendant les autres onglets (le partage de position continue).

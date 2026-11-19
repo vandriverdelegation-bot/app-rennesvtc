@@ -13,6 +13,7 @@ import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode,
 import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
+import DriverTabs from './screens/DriverTabs';
 import { HEADER_IMAGE, Icon } from './icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -45,7 +46,8 @@ function AppContent() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [tab, setTab] = useState('courses'); // courses | map | calendar | messages | profile
+  const [online, setOnline] = useState(false);
   const launchDone = useLaunchDelay();
 
   useEffect(() => {
@@ -65,6 +67,15 @@ function AppContent() {
   useEffect(() => {
     if (session) registerPushToken(supabase, session.user.id, { courseChannel: true });
   }, [session?.user.id]);
+
+  // Pastille « En ligne » du bandeau : relue regulierement (le statut se change dans Profil > Gamme, statut...).
+  useEffect(() => {
+    if (!session) return undefined;
+    const load = () => supabase.from('profiles').select('online_status').eq('id', session.user.id).single().then(({ data }) => setOnline(!!data?.online_status));
+    load();
+    const t = setInterval(load, 20000);
+    return () => clearInterval(t);
+  }, [session?.user.id, tab]);
 
   async function handleLogin() {
     setErrorMsg('');
@@ -101,13 +112,30 @@ function AppContent() {
   if (session) {
     return (
       <SafeAreaView key={mode} style={styles.sessionContainer}>
-        <View style={styles.header}>
-          <Image source={HEADER_IMAGE} style={styles.headerImage} resizeMode="cover" />
-          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu((v) => !v)} accessibilityLabel={showMenu ? 'Fermer le menu' : 'Ouvrir le menu'}>
-            <Icon name={showMenu ? 'close' : 'menu'} color="w" size={30} />
-          </TouchableOpacity>
+        {tab === 'courses' ? (
+          <View style={styles.hero}>
+            <Image source={require('./assets/hero-chateau.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,6,6,0.25)' }]} />
+            <View pointerEvents="none" style={styles.heroFade}>
+              {Array.from({ length: 8 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(5,6,6,${((i + 1) / 8) ** 1.6})` }} />)}
+            </View>
+            <View style={styles.heroTop}>
+              <TouchableOpacity onPress={() => setTab('profile')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Ouvrir le profil">
+                <Icon name="menu" color="white" size={28} />
+              </TouchableOpacity>
+              <View style={styles.onlineChip}>
+                <View style={[styles.onlineDot, !online && { backgroundColor: '#8A8F8A' }]} />
+                <Text style={styles.onlineText}>{online ? 'En ligne' : 'Hors ligne'}</Text>
+              </View>
+            </View>
+            <Image source={require('./assets/logo-rennesvtc.png')} style={styles.heroLogo} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+          </View>
+        ) : null}
+        <View style={{ flex: 1, width: '100%', display: tab === 'profile' ? 'none' : 'flex' }}>
+          <DriverHome session={session} view={tab === 'profile' ? 'courses' : tab} />
         </View>
-        {showMenu ? <DriverMenu session={session} onClose={() => setShowMenu(false)} themePref={themePref} onThemePref={setThemePref} /> : <DriverHome session={session} />}
+        {tab === 'profile' ? <DriverMenu session={session} onClose={() => setTab('courses')} themePref={themePref} onThemePref={setThemePref} /> : null}
+        <DriverTabs active={tab} onPress={setTab} />
         <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
       </SafeAreaView>
     );
@@ -170,6 +198,13 @@ const styles = themedStyles(() => ({
     paddingTop: 4,
     paddingBottom: 8,
   },
+  hero: { width: '100%', height: 150, overflow: 'hidden', backgroundColor: '#050606' },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 70 },
+  heroTop: { position: 'absolute', top: 10, left: 18, right: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  onlineChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(5,6,6,0.65)' },
+  onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#38D159' },
+  onlineText: { color: '#F2F2EE', fontSize: 14, fontWeight: '600' },
+  heroLogo: { position: 'absolute', top: 26, alignSelf: 'center', width: 120, height: 90 },
   headerImage: { flex: 1, aspectRatio: 760 / 166, borderRadius: 4 },
   menuButton: {
     width: 58,

@@ -9,6 +9,8 @@ import RideMiniMap from './RideMiniMap';
 import RideCalendar, { dayKey } from './RideCalendar';
 import RideChat from './RideChat';
 import WelcomeTablet from './WelcomeTablet';
+import OfferBanner from './OfferBanner';
+import EndRide from './EndRide';
 import StopsCard, { nextStopIndex } from './StopsCard';
 import { ActionRow, Btn, Card, LinkRow, Pill, RideHeader, RouteBlock, SectionLabel, TabPill } from '../ui';
 import { Icon } from '../icons';
@@ -44,17 +46,17 @@ function formatRideDateTime(scheduledAt) {
   return d.toLocaleDateString('fr-FR') + ' a ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function DriverHome({ session }) {
+export default function DriverHome({ session, view = 'courses' }) {
   const [welcomeFor, setWelcomeFor] = useState(null);
   return (
     <>
-      <DriverHomeInner session={session} setWelcomeFor={setWelcomeFor} />
+      <DriverHomeInner session={session} view={view} setWelcomeFor={setWelcomeFor} />
       {welcomeFor ? <WelcomeTablet rideId={welcomeFor} token={session.access_token} onClose={() => setWelcomeFor(null)} /> : null}
     </>
   );
 }
 
-function DriverHomeInner({ session, setWelcomeFor }) {
+function DriverHomeInner({ session, view, setWelcomeFor }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
   const [permissions, setPermissions] = useState({ can_create_rides: false, is_owner: false });
   const [onlineStatus, setOnlineStatus] = useState(false);
@@ -78,6 +80,8 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   const [tab, setTab] = useState('available'); // 'available' | 'upcoming'
   const [selectedDay, setSelectedDay] = useState(null);
   const [showUpcoming, setShowUpcoming] = useState(false); // pendant une course : afficher mes reservations a venir
+  const [chatFor, setChatFor] = useState(null); // onglet Messages : course dont la conversation est ouverte
+  const [doneRide, setDoneRide] = useState(null); // course qui vient d'etre terminee (ecran de fin)
   const selectedRef = useRef(null); // course ouverte depuis « Mes reservations » (lue par refresh, qui tourne dans un intervalle)
   const openRide = (id) => { selectedRef.current = id; refresh(); };
 
@@ -313,11 +317,12 @@ function DriverHomeInner({ session, setWelcomeFor }) {
   }
 
   async function handleComplete() {
-    await supabase
+    const { error } = await supabase
       .from('rides')
       .update({ status: 'completed', ride_step: 'completed' })
       .eq('id', activeRide.id)
       .eq('driver_id', session.user.id);
+    if (!error) setDoneRide({ ...activeRide, step_times: { ...(activeRide.step_times ?? {}), dropped: (activeRide.step_times ?? {}).dropped ?? new Date().toISOString() } });
     notifyStep(activeRide.id, 'completed');
     refresh();
   }
@@ -514,6 +519,73 @@ function DriverHomeInner({ session, setWelcomeFor }) {
             </ScrollView>
   );
 
+  // Onglets de la barre du bas (Calendrier, Carte, Messages) : meme donnees, autre presentation. L'ecran Courses reste le comportement habituel.
+  if (view === 'calendar') {
+    return (
+      <View style={styles.activeScreen}>
+        <View style={[styles.listScreen, { gap: 14 }]}>{upcomingList()}</View>
+      </View>
+    );
+  }
+  if (view === 'map') {
+    const mapRide = activeRide ?? myRides[0] ?? null;
+    return (
+      <ScrollView style={styles.activeScreen} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 24 }}>
+        <Text style={styles.title}>Carte</Text>
+        {!mapRide ? (
+          <Card>
+            <Text style={styles.clientName}>Aucune course à afficher</Text>
+            <Text style={styles.mutedSmall}>Le trajet de votre course en cours, ou de votre prochaine réservation, apparaît ici.</Text>
+          </Card>
+        ) : (
+          <Card>
+            <RideHeader when={formatRideDateTime(mapRide.scheduled_at)} price={mapRide.price} />
+            <RideMiniMap pickupLat={mapRide.pickup_lat} pickupLng={mapRide.pickup_lng} dropoffLat={mapRide.dropoff_lat} dropoffLng={mapRide.dropoff_lng} />
+            <RouteBlock pickup={mapRide.pickup_address} dropoff={mapRide.dropoff_address} />
+            {activeRide && mapRide.id === activeRide.id ? (
+              <>
+                <Btn title={`Naviguer vers ${navTarget().label}`} onPress={() => setNavOpen(true)} />
+                {navOpen ? (
+                  <View style={{ gap: 8 }}>
+                    <SectionLabel>Choisir mon GPS</SectionLabel>
+                    <Btn title="Waze" onPress={() => handleNavigate('waze')} />
+                    <Btn title="Google Maps" variant="secondary" onPress={() => handleNavigate('google')} />
+                    <Btn title="Autre application GPS" variant="secondary" onPress={() => handleNavigate('other')} />
+                    <Btn title="Annuler" variant="secondary" onPress={() => setNavOpen(false)} />
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <Btn title="Ouvrir la course" chevron onPress={() => { openRide(mapRide.id); }} />
+            )}
+          </Card>
+        )}
+      </ScrollView>
+    );
+  }
+  if (view === 'messages') {
+    return (
+      <ScrollView style={styles.activeScreen} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 24 }}>
+        <Text style={styles.title}>Messages</Text>
+        {myRides.length === 0 ? (
+          <Card>
+            <Text style={styles.clientName}>Aucune conversation</Text>
+            <Text style={styles.mutedSmall}>La conversation avec le client s'ouvre dès que vous avez accepté une course.</Text>
+          </Card>
+        ) : (
+          myRides.map((item) => (
+            <Card key={item.id}>
+              <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
+              <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+              <Btn title={chatFor === item.id ? 'Fermer la conversation' : 'Ouvrir la conversation'} variant="secondary" onPress={() => setChatFor(chatFor === item.id ? null : item.id)} />
+              {chatFor === item.id ? <RideChat session={session} rideId={item.id} me="chauffeur" /> : null}
+            </Card>
+          ))
+        )}
+      </ScrollView>
+    );
+  }
+
   if (activeRide) {
     const seats = (activeRide.child_seats ?? 0) > 0 || (activeRide.booster_seats ?? 0) > 0;
     const mad = activeRide.service_type === 'mise_a_disposition';
@@ -664,6 +736,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
 
   return (
     <View style={styles.listScreen}>
+      {doneRide ? <EndRide ride={doneRide} onClose={() => setDoneRide(null)} /> : null}
       <View style={styles.tabRow}>
         <TabPill icon="car" active={tab === 'available'} label={`Courses disponibles (${pendingRides.length})`} onPress={() => setTab('available')} />
         <TabPill icon="calendar" active={tab === 'upcoming'} label={`Mes réservations à venir (${myRides.length + sharedRides.length})`} onPress={() => setTab('upcoming')} />
@@ -685,6 +758,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Card glow>
+              <OfferBanner />
               <RideHeader when={formatRideDateTime(item.scheduled_at)} price={item.price} />
               <View style={styles.pillRow}>
                 {item.leg ? <Pill highlight>{LEG_LABELS[item.leg]}</Pill> : null}
@@ -704,9 +778,7 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                 dropoffLng={item.dropoff_lng}
               />
               <FollowTransport ride={item} />
-              <Btn variant="accept" chevron title="Accepter la course" onPress={() => handleAccept(item.id)} />
-              {permissions.is_owner ? (
-                forwardFor === item.id ? (
+              {permissions.is_owner && forwardFor === item.id ? (
                   <View style={{ gap: 8 }}>
                     <SectionLabel>Dispatcher la course a</SectionLabel>
                     {[{ id: 'all', label: 'Tous les chauffeurs de la gamme (sauf moi)' }, ...colleagues.map((c) => ({ id: c.id, label: `${c.name} - ${VEHICLE_LABELS[c.vehicle_category] ?? c.vehicle_category}${c.online ? ' (en ligne)' : ''}` }))].map((opt) => (
@@ -717,12 +789,14 @@ function DriverHomeInner({ session, setWelcomeFor }) {
                     <Btn title="Confirmer le dispatch" onPress={() => postRideAction(item.id, 'forward', { assignTo: releaseTarget })} />
                     <Btn title="Annuler" variant="secondary" onPress={() => setForwardFor(null)} />
                   </View>
-                ) : (
-                  <>
-                    <Btn title="Dispatcher" variant="secondary" icon="ban" chevron onPress={() => openForward(item.id)} />
-                    <Btn title="Refuser la course" variant="secondary" icon="xcircle" chevron onPress={() => handleDecline(item.id)} />
-                  </>
-                )
+              ) : (
+                <View style={styles.offerBtns}>
+                  {permissions.is_owner ? <View style={{ flex: 1 }}><Btn title="Refuser" variant="secondary" icon="xcircle" onPress={() => handleDecline(item.id)} /></View> : null}
+                  <View style={{ flex: 1.3 }}><Btn variant="accept" chevron title="Accepter" onPress={() => handleAccept(item.id)} /></View>
+                </View>
+              )}
+              {permissions.is_owner && forwardFor !== item.id ? (
+                <TouchableOpacity onPress={() => openForward(item.id)} accessibilityRole="button"><Text style={styles.dispatchLink}>Dispatcher à un collègue</Text></TouchableOpacity>
               ) : null}
             </Card>
           )}
@@ -769,6 +843,8 @@ const styles = themedStyles(() => ({
   noteText: { color: theme.colors.text, fontSize: 15 },
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   activeContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  offerBtns: { flexDirection: 'row', gap: 10 },
+  dispatchLink: { color: theme.colors.textMuted, fontSize: 14, textAlign: 'center', paddingVertical: 8 },
   listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },
   container: { width: '100%', flex: 1, alignItems: 'center', gap: 12, backgroundColor: theme.colors.background, padding: 16 },
   list: { width: '100%' },
