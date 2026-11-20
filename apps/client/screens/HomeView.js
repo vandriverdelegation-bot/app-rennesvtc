@@ -185,9 +185,8 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.heroBox, { height: heroH }]}>
           <Image source={require('../assets/hero-rennes.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,12,11,0.18)' }]} />
-          <View pointerEvents="none" style={styles.fadeBottom}>
-            {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 12) ** 1.6})` }} />)}
+          <View pointerEvents="none" style={[styles.fadeBottom, { height: Math.round(heroH * 0.3) }]}>
+            {Array.from({ length: 16 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 16) ** 1.9})` }} />)}
           </View>
           <View style={[styles.heroTop, { top: topPad + 12 }]}>
             <TouchableOpacity onPress={onOpenAccount} style={styles.burger} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Menu">
@@ -231,8 +230,8 @@ const styles = themedStyles(() => ({
   accountChipText: { color: '#F2F2EE', fontSize: 14, fontFamily: FONT.semi },
   logo: { position: 'absolute', top: 54, alignSelf: 'center', width: 168, height: 126 },
   greeting: { position: 'absolute', left: 24, right: 24, bottom: 22 },
-  hello: { color: '#E8EAE6', fontSize: 20, fontFamily: FONT.body },
-  name: { color: '#FFFFFF', fontSize: 32, fontFamily: FONT.title, marginTop: 2 },
+  hello: { color: '#E8EAE6', fontSize: 20, fontFamily: FONT.body, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 8 },
+  name: { color: '#FFFFFF', fontSize: 32, fontFamily: FONT.title, marginTop: 2, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 8 },
   underline: { width: 44, height: 4, borderRadius: 2, backgroundColor: c.accent, marginTop: 8 },
   cards: { paddingHorizontal: 22, paddingTop: 6, gap: 12 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, backgroundColor: c.card, borderWidth: 1, borderColor: c.cardBorder, paddingVertical: 14, paddingHorizontal: 16 },
