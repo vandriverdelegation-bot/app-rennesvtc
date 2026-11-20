@@ -94,7 +94,7 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
   const [tracking, setTracking] = useState(false);
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0); // hauteur de la barre d'etat, meme quand Android ne la declare pas
-  const { height: winH } = useWindowDimensions();
+  const { width: winW, height: winH } = useWindowDimensions();
   const heroH = Math.min(440, Math.max(352, Math.round(winH * 0.42))); // la photo occupe environ 40 % de l'ecran, sous la barre d'etat
   const toRate = rideToRate(history);
   const trackRide = rides.find((r) => r.status === 'accepted' && ['en_route', 'on_site', 'on_board'].includes(r.ride_step)) ?? rides.find((r) => r.status === 'accepted');
@@ -184,7 +184,7 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
     <View style={styles.root}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.heroBox, { height: heroH }]}>
-          <Image source={require('../assets/hero-rennes.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image source={require('../assets/hero-rennes.jpg')} style={{ position: 'absolute', top: 0, left: 0, width: winW, height: heroH, resizeMode: 'cover' }} resizeMode="cover" />
           <View pointerEvents="none" style={[styles.fadeBottom, { height: Math.round(heroH * 0.3) }]}>
             {Array.from({ length: 16 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 16) ** 1.9})` }} />)}
           </View>

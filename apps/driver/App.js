@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { registerPushToken, fetchAppSettings, theme, themedStyles, useThemeMode, LaunchScreen, useLaunchDelay } from '@app-rennesvtc/shared';
 import { supabase } from './lib/supabase';
@@ -48,6 +49,7 @@ function AppContent() {
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState('courses'); // courses | map | calendar | messages | profile
   const [online, setOnline] = useState(false);
+  const { width: heroW } = useWindowDimensions();
   const launchDone = useLaunchDelay();
 
   useEffect(() => {
@@ -114,7 +116,7 @@ function AppContent() {
       <SafeAreaView key={mode} style={styles.sessionContainer}>
         {tab === 'courses' ? (
           <View style={styles.hero}>
-            <Image source={require('./assets/hero-chateau.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <Image source={require('./assets/hero-chateau.jpg')} style={{ position: 'absolute', top: 0, left: 0, width: heroW, height: 112, resizeMode: 'cover' }} resizeMode="cover" />
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,6,6,0.25)' }]} />
             <View pointerEvents="none" style={styles.heroFade}>
               {Array.from({ length: 8 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(5,6,6,${((i + 1) / 8) ** 1.6})` }} />)}
