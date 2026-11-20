@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
+  Platform,
+  StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -16,7 +18,7 @@ import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
 import DriverTabs from './screens/DriverTabs';
 import { HEADER_IMAGE, Icon } from './icons';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
 function renderAppName(appName) {
@@ -49,7 +51,11 @@ function AppContent() {
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState('courses'); // courses | map | calendar | messages | profile
   const [online, setOnline] = useState(false);
-  const { width: heroW } = useWindowDimensions();
+  const [fullName, setFullName] = useState('');
+  const insets = useSafeAreaInsets();
+  const { width: heroW, height: winH } = useWindowDimensions();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? RNStatusBar.currentHeight || 0 : 0); // barre d'etat, meme quand Android ne la declare pas
+  const heroH = Math.min(440, Math.max(352, Math.round(winH * 0.42))); // meme en-tete que l'appli client
   const launchDone = useLaunchDelay();
 
   useEffect(() => {
@@ -73,7 +79,7 @@ function AppContent() {
   // Pastille « En ligne » du bandeau : relue regulierement (le statut se change dans Profil > Gamme, statut...).
   useEffect(() => {
     if (!session) return undefined;
-    const load = () => supabase.from('profiles').select('online_status').eq('id', session.user.id).single().then(({ data }) => setOnline(!!data?.online_status));
+    const load = () => supabase.from('profiles').select('online_status, full_name').eq('id', session.user.id).single().then(({ data }) => { setOnline(!!data?.online_status); setFullName(data?.full_name ?? ''); });
     load();
     const t = setInterval(load, 20000);
     return () => clearInterval(t);
@@ -113,15 +119,14 @@ function AppContent() {
 
   if (session) {
     return (
-      <SafeAreaView key={mode} style={styles.sessionContainer}>
+      <SafeAreaView key={mode} style={styles.sessionContainer} edges={tab === 'courses' ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']}>
         {tab === 'courses' ? (
-          <View style={styles.hero}>
-            <Image source={require('./assets/hero-chateau.jpg')} style={{ position: 'absolute', top: 0, left: 0, width: heroW, height: 112, resizeMode: 'cover' }} resizeMode="cover" />
-            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,6,6,0.25)' }]} />
-            <View pointerEvents="none" style={styles.heroFade}>
-              {Array.from({ length: 8 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(5,6,6,${((i + 1) / 8) ** 1.6})` }} />)}
+          <View style={[styles.hero, { height: heroH }]}>
+            <Image source={require('./assets/hero-rennes.jpg')} style={{ position: 'absolute', top: 0, left: 0, width: heroW, height: heroH, resizeMode: 'cover' }} resizeMode="cover" />
+            <View pointerEvents="none" style={[styles.heroFade, { height: Math.round(heroH * 0.3) }]}>
+              {Array.from({ length: 16 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '5,6,6'},${((i + 1) / 16) ** 1.9})` }} />)}
             </View>
-            <View style={styles.heroTop}>
+            <View style={[styles.heroTop, { top: topPad + 12 }]}>
               <TouchableOpacity onPress={() => setTab('profile')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Ouvrir le profil">
                 <Icon name="menu" color="white" size={28} />
               </TouchableOpacity>
@@ -130,7 +135,12 @@ function AppContent() {
                 <Text style={styles.onlineText}>{online ? 'En ligne' : 'Hors ligne'}</Text>
               </View>
             </View>
-            <Image source={require('./assets/logo-rennesvtc.png')} style={styles.heroLogo} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+            <Image source={require('./assets/logo-rennesvtc.png')} style={[styles.heroLogo, { top: topPad + 66 }]} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+            <View style={styles.greeting}>
+              <Text style={styles.hello}>Bonjour,</Text>
+              <Text style={styles.name} numberOfLines={1}>{fullName || 'et bienvenue'}</Text>
+              <View style={styles.underline} />
+            </View>
           </View>
         ) : null}
         <View style={{ flex: 1, width: '100%', display: tab === 'profile' ? 'none' : 'flex' }}>
@@ -200,13 +210,17 @@ const styles = themedStyles(() => ({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  hero: { width: '100%', height: 112, overflow: 'hidden', backgroundColor: '#050606' },
-  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 70 },
-  heroTop: { position: 'absolute', top: 10, left: 18, right: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  onlineChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(5,6,6,0.65)' },
+  hero: { width: '100%', overflow: 'hidden', backgroundColor: '#050606' },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  heroTop: { position: 'absolute', top: 16, left: 22, right: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  onlineChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(10,12,10,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#38D159' },
   onlineText: { color: '#F2F2EE', fontSize: 14, fontWeight: '600' },
-  heroLogo: { position: 'absolute', top: 12, alignSelf: 'center', width: 96, height: 72 },
+  heroLogo: { position: 'absolute', top: 54, alignSelf: 'center', width: 168, height: 126 },
+  greeting: { position: 'absolute', left: 24, right: 24, bottom: 22 },
+  hello: { color: '#E8EAE6', fontSize: 20, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 8 },
+  name: { color: '#FFFFFF', fontSize: 32, fontWeight: '800', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 8 },
+  underline: { width: 44, height: 4, borderRadius: 2, backgroundColor: theme.colors.accent, marginTop: 8 },
   headerImage: { flex: 1, aspectRatio: 760 / 166, borderRadius: 4 },
   menuButton: {
     width: 58,
