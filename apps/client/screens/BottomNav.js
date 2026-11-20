@@ -1,5 +1,6 @@
 import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../icons';
 import { FONT } from '../ui';
 
@@ -12,8 +13,9 @@ const ITEMS = [
 
 // Barre de navigation flottante : Accueil, Mes courses, Notifications, Mon compte.
 export default function BottomNav({ active, onPress }) {
+  const insets = useSafeAreaInsets(); // la barre du telephone (Android) ne doit pas recouvrir les boutons
   return (
-    <View style={styles.nav}>
+    <View style={[styles.nav, { height: 62 + insets.bottom, paddingBottom: insets.bottom + 4 }]}>
       {ITEMS.map((it) => {
         const on = it.key === active;
         return (

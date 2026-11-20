@@ -176,3 +176,8 @@ Ne pas relancer de builds de diagnostic inutiles (quota). Ne pas remettre `react
 - **Chauffeur** : « Modifier le tarif » retiré de la course en cours (le nom du client est affiché à la place) ; il est désormais dans les réservations à venir et le calendrier.
 - **Ouverture** : image de l'écran d'ouverture à la taille exacte de l'écran (haut gauche, rognée sur les côtés si besoin). Android natif : petit logo seul (limite d'Android 12+).
 - **Builds** : en attente de l'abonnement Expo Starter sur rennesvtcs-team (ou du 01/12/2026). Aucun build à lancer avant validation de Jim dans Expo Go.
+
+## 20/11 — Corrections client / chauffeur / back-office mobile
+- **Client** : barre du bas au-dessus de la barre du téléphone (zones sûres) ; photo de l'accueil sous la barre d'état, environ 40 % de la hauteur de l'écran ; carte « Back-office » (ouvre /admin/) sur l'accueil pour le compte administrateur uniquement (profil role = admin).
+- **Chauffeur** : « Changer ma gamme de véhicule » retiré de l'accueil (reste dans Profil > Gamme, statut...) ; bandeau plus bas (112 px).
+- **Back-office sur téléphone** (déjà en ligne après push) : la fiche réservation ouverte depuis le calendrier prend tout l'écran, en-tête et pied compacts (Fermer + Enregistrer sur une ligne), onglets défilables, champs de 46 px, grilles en une colonne ; le calendrier du mois a 7 colonnes égales.

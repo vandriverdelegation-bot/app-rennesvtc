@@ -806,7 +806,6 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
           )}
         />
       )}
-      <LinkRow icon="car" title="Changer ma gamme de véhicule" onPress={() => setShowSettings(true)} />
     </View>
   );
 }

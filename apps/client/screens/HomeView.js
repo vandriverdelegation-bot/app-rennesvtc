@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { COMPANY_PHONE, euro, shortDay, timeOf } from '../lib/format';
 import { Icon } from '../icons';
@@ -87,10 +88,13 @@ function MenuCard({ icon, title, sub, onPress, main, dim }) {
 }
 
 // Accueil client : photo, logo, bonjour, puis Reserver / Mes courses / Suivi de ma course / Aide. La page « Mes courses » (a venir / passees) est une page a part.
-export default function HomeView({ session, appName, firstName, fullName, initials, rides, history, page = 'home', onOpenCourses, onBook, onShortcut, onChanged, onOpenAccount, onOpenNotifications, focus }) {
+export default function HomeView({ session, appName, firstName, fullName, isAdmin, initials, rides, history, page = 'home', onOpenCourses, onBook, onShortcut, onChanged, onOpenAccount, onOpenNotifications, focus }) {
   const [tab, setTab] = useState('upcoming');
   const [rateDismissed, setRateDismissed] = useState([]); // courses dont le client a ferme l'ecran de fin
   const [tracking, setTracking] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  const heroH = Math.min(440, Math.max(330, Math.round(winH * 0.42))); // la photo occupe environ 40 % de l'ecran, sous la barre d'etat
   const toRate = rideToRate(history);
   const trackRide = rides.find((r) => r.status === 'accepted' && ['en_route', 'on_site', 'on_board'].includes(r.ride_step)) ?? rides.find((r) => r.status === 'accepted');
 
@@ -124,7 +128,7 @@ export default function HomeView({ session, appName, firstName, fullName, initia
   if (page === 'courses') {
     return (
       <View style={styles.root}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingTop: 20 }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.pageTitle}>Mes courses</Text>
           <View style={styles.bookings}>
             <View style={styles.tabs}>
@@ -178,13 +182,13 @@ export default function HomeView({ session, appName, firstName, fullName, initia
   return (
     <View style={styles.root}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroBox}>
+        <View style={[styles.heroBox, { height: heroH }]}>
           <Image source={require('../assets/hero-rennes.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,12,11,0.18)' }]} />
           <View pointerEvents="none" style={styles.fadeBottom}>
             {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 12) ** 1.6})` }} />)}
           </View>
-          <View style={styles.heroTop}>
+          <View style={[styles.heroTop, { top: insets.top + 12 }]}>
             <TouchableOpacity onPress={onOpenAccount} style={styles.burger} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Menu">
               <View style={styles.burgerLine} /><View style={styles.burgerLine} /><View style={styles.burgerLine} />
             </TouchableOpacity>
@@ -193,7 +197,7 @@ export default function HomeView({ session, appName, firstName, fullName, initia
               <Text style={styles.accountChipText}>Mon compte</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../assets/logo-rennesvtc.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+          <Image source={require('../assets/logo-rennesvtc.png')} style={[styles.logo, { top: insets.top + 48 }]} resizeMode="contain" accessibilityLabel="Rennes VTC" />
           <View style={styles.greeting}>
             <Text style={styles.hello}>Bonjour,</Text>
             <Text style={styles.name} numberOfLines={1}>{fullName || firstName || 'et bienvenue'}</Text>
@@ -206,6 +210,7 @@ export default function HomeView({ session, appName, firstName, fullName, initia
           <MenuCard icon="history" title="Mes courses" sub="Consulter mon historique" onPress={onOpenCourses} />
           <MenuCard icon="pin" title="Suivi de ma course" sub="Suivre ma course en temps réel" onPress={openTracking} />
           <MenuCard icon="headset" title="Besoin d'aide ?" sub="Contactez-nous" onPress={askHelp} />
+          {isAdmin ? <MenuCard icon="user" title="Back-office" sub="Administration Rennes VTC" onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL}/admin/`)} /> : null}
         </View>
       </ScrollView>
       {endScreen}

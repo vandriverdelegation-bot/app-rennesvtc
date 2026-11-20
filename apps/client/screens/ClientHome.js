@@ -117,6 +117,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [fullName, setFullName] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false); // administrateur : acces au back-office depuis l'accueil
   const [prefillKey, setPrefillKey] = useState(0); // change a chaque pre-remplissage pour recreer les champs d'adresse
   const [homeMode, setHomeMode] = useState(false); // premier clic sur « Domicile » : la destination choisie sera memorisee
 
@@ -156,7 +157,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
   }, []);
 
   useEffect(() => {
-    supabase.from('profiles').select('full_name').eq('id', session.user.id).single().then(({ data }) => setFullName(data?.full_name ?? ''));
+    supabase.from('profiles').select('full_name, role').eq('id', session.user.id).single().then(({ data }) => { setFullName(data?.full_name ?? ''); setIsAdmin(data?.role === 'admin'); });
   }, []);
 
   useEffect(() => {
@@ -456,6 +457,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
         appName={appName}
         firstName={words[0] ?? ''}
         fullName={name.trim()}
+        isAdmin={isAdmin}
         page={page}
         onOpenCourses={onOpenCourses}
         initials={(words.length ? words.slice(0, 2).map((w) => w[0]).join('') : (session.user.email ?? '?')[0]).toUpperCase()}

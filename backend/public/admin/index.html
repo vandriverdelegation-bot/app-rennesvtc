@@ -344,6 +344,34 @@
   .cal-driver strong { font-size: 15px; }
   @media (max-width: 560px) { .cal-ride { flex-direction: column; align-items: stretch; } .cal-driver { max-width: none; text-align: left; } }
 
+  @media (max-width: 560px) { [data-calendar-day] { padding: 5px !important; min-height: 54px !important; } [data-calendar-day] > div:last-child:not(:first-child) { font-size: 11px; line-height: 1.2; } }
+
+  /* Telephone : la fiche reservation prend tout l'ecran et laisse la place au formulaire (en-tete et pied compacts, onglets defilables) */
+  @media (max-width: 640px) {
+    .modal-backdrop { padding: 0; align-items: stretch; }
+    .modal, .modal-backdrop .modal { width: 100%; max-width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; border: none; }
+    .modal-head { padding: 12px 14px 0; gap: 8px; }
+    .rm-head-badges { margin-bottom: 6px; }
+    .modal-route { font-size: 16px; }
+    .rm-head-actions { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    .rm-head-actions button { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; }
+    .modal-tabs { padding: 8px 14px 0; gap: 2px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .ride-tab-link { flex: 0 0 auto; white-space: nowrap; padding: 9px 12px; font-size: 14px; }
+    .modal-body { padding: 12px 14px 16px; }
+    .rm-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .rm-tile { padding: 10px 12px; }
+    .rm-section, .rm-section:first-child, .rm-section:last-child { padding: 14px; margin-bottom: 12px; }
+    .rm-section input:not([type=checkbox]):not([type=file]), .rm-section select { height: 46px; font-size: 16px; }
+    .rm-section textarea { font-size: 16px; }
+    .rm-grid, .rm-grid.four { grid-template-columns: minmax(0, 1fr); }
+    .rm-row > button, .rm-row > select, .rm-row > input:not([type=checkbox]) { flex: 1 1 100%; }
+    .modal-foot { flex-wrap: wrap; gap: 8px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+    .rm-dirty { flex: 1 1 100%; margin: 0; }
+    .rm-dirty:empty { display: none; }
+    .modal-foot #ride-modal-close { flex: 0 0 auto; }
+    .rm-save-all { flex: 1 1 0; min-width: 0; padding: 13px 10px; }
+  }
+
   /* Extraction Excel */
   .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .preset-row button { margin: 0; padding: 8px 14px; font-size: 13px; }
@@ -599,7 +627,7 @@
           <button class="secondary" id="calendar-next">Suivant &rarr;</button>
         </div>
         <h3 id="calendar-month-label"></h3>
-        <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
+        <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px"></div>
         <div id="calendar-day-detail" style="margin-top:16px"></div>
       </div>
 
