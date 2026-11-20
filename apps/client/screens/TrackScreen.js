@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Platform, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { COMPANY_PHONE, crowKm, cityMinutes, km1, shortDay, timeOf } from '../lib/format';
@@ -45,6 +45,7 @@ export default function TrackScreen({ ride, session, onBack, onChanged }) {
   const [driver, setDriver] = useState(null);
   const [detail, setDetail] = useState(false);
   const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0);
 
   useEffect(() => {
     let alive = true;
@@ -71,7 +72,7 @@ export default function TrackScreen({ ride, session, onBack, onChanged }) {
   if (detail) {
     return (
       <View style={styles.root}>
-        <View style={[styles.bar, { paddingTop: insets.top + 14 }]}>
+        <View style={[styles.bar, { paddingTop: topPad + 14 }]}>
           <TouchableOpacity onPress={() => setDetail(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Retour au suivi"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <Text style={styles.barTitle}>Détail de ma course</Text>
           <View style={{ width: 28 }} />
@@ -85,7 +86,7 @@ export default function TrackScreen({ ride, session, onBack, onChanged }) {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.bar, { paddingTop: insets.top + 14 }]}>
+      <View style={[styles.bar, { paddingTop: topPad + 14 }]}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
         <Text style={styles.barTitle}>Suivi de ma course</Text>
         <TouchableOpacity onPress={() => Linking.openURL(`tel:${COMPANY_PHONE}`)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Besoin d'aide ? Appeler Rennes VTC">

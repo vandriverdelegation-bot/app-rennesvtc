@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme, whatsappUrl, themedStyles } from '@app-rennesvtc/shared';
 import { COMPANY_PHONE, euro, shortDay, timeOf } from '../lib/format';
@@ -93,8 +93,9 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
   const [rateDismissed, setRateDismissed] = useState([]); // courses dont le client a ferme l'ecran de fin
   const [tracking, setTracking] = useState(false);
   const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0); // hauteur de la barre d'etat, meme quand Android ne la declare pas
   const { height: winH } = useWindowDimensions();
-  const heroH = Math.min(440, Math.max(330, Math.round(winH * 0.42))); // la photo occupe environ 40 % de l'ecran, sous la barre d'etat
+  const heroH = Math.min(440, Math.max(352, Math.round(winH * 0.42))); // la photo occupe environ 40 % de l'ecran, sous la barre d'etat
   const toRate = rideToRate(history);
   const trackRide = rides.find((r) => r.status === 'accepted' && ['en_route', 'on_site', 'on_board'].includes(r.ride_step)) ?? rides.find((r) => r.status === 'accepted');
 
@@ -188,7 +189,7 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
           <View pointerEvents="none" style={styles.fadeBottom}>
             {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${((i + 1) / 12) ** 1.6})` }} />)}
           </View>
-          <View style={[styles.heroTop, { top: insets.top + 12 }]}>
+          <View style={[styles.heroTop, { top: topPad + 12 }]}>
             <TouchableOpacity onPress={onOpenAccount} style={styles.burger} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Menu">
               <View style={styles.burgerLine} /><View style={styles.burgerLine} /><View style={styles.burgerLine} />
             </TouchableOpacity>
@@ -197,7 +198,7 @@ export default function HomeView({ session, appName, firstName, fullName, isAdmi
               <Text style={styles.accountChipText}>Mon compte</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../assets/logo-rennesvtc.png')} style={[styles.logo, { top: insets.top + 48 }]} resizeMode="contain" accessibilityLabel="Rennes VTC" />
+          <Image source={require('../assets/logo-rennesvtc.png')} style={[styles.logo, { top: topPad + 66 }]} resizeMode="contain" accessibilityLabel="Rennes VTC" />
           <View style={styles.greeting}>
             <Text style={styles.hello}>Bonjour,</Text>
             <Text style={styles.name} numberOfLines={1}>{fullName || firstName || 'et bienvenue'}</Text>
@@ -228,7 +229,7 @@ const styles = themedStyles(() => ({
   burgerLine: { width: 26, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
   accountChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(10,12,10,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   accountChipText: { color: '#F2F2EE', fontSize: 14, fontFamily: FONT.semi },
-  logo: { position: 'absolute', top: 54, alignSelf: 'center', width: 190, height: 143 },
+  logo: { position: 'absolute', top: 54, alignSelf: 'center', width: 168, height: 126 },
   greeting: { position: 'absolute', left: 24, right: 24, bottom: 22 },
   hello: { color: '#E8EAE6', fontSize: 20, fontFamily: FONT.body },
   name: { color: '#FFFFFF', fontSize: 32, fontFamily: FONT.title, marginTop: 2 },
