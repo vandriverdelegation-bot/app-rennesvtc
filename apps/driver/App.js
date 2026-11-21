@@ -17,6 +17,7 @@ import { supabase } from './lib/supabase';
 import DriverHome from './screens/DriverHome';
 import DriverMenu from './screens/DriverMenu';
 import DriverTabs from './screens/DriverTabs';
+import CompactHeader from './screens/CompactHeader';
 import { HEADER_IMAGE, Icon } from './icons';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,6 +32,8 @@ function renderAppName(appName) {
     </>
   );
 }
+
+const TAB_TITLES = { map: 'Carte', calendar: 'Mes réservations', messages: 'Messages' };
 
 export default function App() {
   return (
@@ -52,6 +55,7 @@ function AppContent() {
   const [tab, setTab] = useState('courses'); // courses | map | calendar | messages | profile
   const [online, setOnline] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [headerInfo, setHeaderInfo] = useState({ compact: false, title: '' }); // en-tete de l'onglet Courses : reduit quand une reservation est affichee
   const insets = useSafeAreaInsets();
   const { width: heroW, height: winH } = useWindowDimensions();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? RNStatusBar.currentHeight || 0 : 0); // barre d'etat, meme quand Android ne la declare pas
@@ -119,8 +123,11 @@ function AppContent() {
 
   if (session) {
     return (
-      <SafeAreaView key={mode} style={styles.sessionContainer} edges={tab === 'courses' ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']}>
-        {tab === 'courses' ? (
+      <SafeAreaView key={mode} style={styles.sessionContainer} edges={tab === 'profile' ? ['top', 'left', 'right', 'bottom'] : ['left', 'right', 'bottom']}>
+        {tab !== 'profile' && (tab !== 'courses' || headerInfo.compact) ? (
+          <CompactHeader title={tab === 'courses' ? headerInfo.title : TAB_TITLES[tab]} onBack={tab === 'courses' ? undefined : () => setTab('courses')} />
+        ) : null}
+        {tab === 'courses' && !headerInfo.compact ? (
           <View style={[styles.hero, { height: heroH }]}>
             <Image source={require('./assets/hero-rennes.jpg')} style={{ position: 'absolute', top: 0, left: 0, width: heroW, height: heroH, resizeMode: 'cover' }} resizeMode="cover" />
             <View pointerEvents="none" style={[styles.heroFade, { height: Math.round(heroH * 0.3) }]}>
@@ -144,7 +151,7 @@ function AppContent() {
           </View>
         ) : null}
         <View style={{ flex: 1, width: '100%', display: tab === 'profile' ? 'none' : 'flex' }}>
-          <DriverHome session={session} view={tab === 'profile' ? 'courses' : tab} />
+          <DriverHome session={session} view={tab === 'profile' ? 'courses' : tab} onHeader={setHeaderInfo} />
         </View>
         {tab === 'profile' ? <DriverMenu session={session} onClose={() => setTab('courses')} themePref={themePref} onThemePref={setThemePref} /> : null}
         <DriverTabs active={tab} onPress={setTab} />

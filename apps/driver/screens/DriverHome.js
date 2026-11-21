@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform, Alert } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, FlatList, ActivityIndicator, Linking, ScrollView, BackHandler, TextInput, Platform, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { theme, whatsappUrl, themedStyles, agendaUrl, transportUrl, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
@@ -46,17 +46,17 @@ function formatRideDateTime(scheduledAt) {
   return d.toLocaleDateString('fr-FR') + ' a ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function DriverHome({ session, view = 'courses' }) {
+export default function DriverHome({ session, view = 'courses', onHeader }) {
   const [welcomeFor, setWelcomeFor] = useState(null);
   return (
     <>
-      <DriverHomeInner session={session} view={view} setWelcomeFor={setWelcomeFor} />
+      <DriverHomeInner session={session} view={view} onHeader={onHeader} setWelcomeFor={setWelcomeFor} />
       {welcomeFor ? <WelcomeTablet rideId={welcomeFor} token={session.access_token} onClose={() => setWelcomeFor(null)} /> : null}
     </>
   );
 }
 
-function DriverHomeInner({ session, view, setWelcomeFor }) {
+function DriverHomeInner({ session, view, onHeader, setWelcomeFor }) {
   const [vehicleCategory, setVehicleCategory] = useState(undefined); // undefined = chargement initial
   const [permissions, setPermissions] = useState({ can_create_rides: false, is_owner: false });
   const [onlineStatus, setOnlineStatus] = useState(false);
@@ -84,6 +84,10 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
   const [doneRide, setDoneRide] = useState(null); // course qui vient d'etre terminee (ecran de fin)
   const selectedRef = useRef(null); // course ouverte depuis « Mes reservations » (lue par refresh, qui tourne dans un intervalle)
   const openRide = (id) => { selectedRef.current = id; refresh(); };
+
+  // Une course en cours, une course proposee ou la liste des reservations : l'en-tete de l'appli se reduit pour laisser la place.
+  const headerTitle = activeRide ? 'Course en cours' : pendingRides.length > 0 ? 'Nouvelle course' : tab === 'upcoming' ? 'Mes réservations' : '';
+  useEffect(() => { onHeader?.({ compact: !!headerTitle, title: headerTitle }); }, [headerTitle]);
 
   async function refresh() {
     const { data: mine } = await supabase
@@ -485,6 +489,10 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
                         <Pill icon="card">{PAYMENT_LABELS[item.payment_method]}</Pill>
                       </View>
                       <RouteBlock pickup={item.pickup_address} dropoff={item.dropoff_address} />
+                      <VehicleBlock category={item.vehicle_category} />
+                      <AgendaLink ride={item} />
+                      <FollowTransport ride={item} />
+                      {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
                       {permissions.can_edit_price ? (
                         priceEditing === item.id ? (
                           <View style={{ gap: 8 }}>
@@ -495,15 +503,12 @@ function DriverHomeInner({ session, view, setWelcomeFor }) {
                             </View>
                           </View>
                         ) : (
-                          <Btn title="Modifier le tarif" variant="secondary" onPress={() => { setNewPrice(String(item.price ?? '')); setPriceEditing(item.id); }} />
+                          <Btn title="Modifier le tarif" variant="secondary" icon="calendar" chevron onPress={() => { setNewPrice(String(item.price ?? '')); setPriceEditing(item.id); }} />
                         )
                       ) : null}
-                      <AgendaLink ride={item} />
-                      <FollowTransport ride={item} />
-                      <Btn title="Tablette d'accueil" variant="secondary" onPress={() => setWelcomeFor(item.id)} />
-                      {item.driver_note ? <ClientNote title="Note de Rennes VTC" text={item.driver_note} /> : null}
+                      <Btn title="Tablette d'accueil" variant="secondary" icon="tablet" chevron onPress={() => setWelcomeFor(item.id)} />
                       {!activeRide ? (
-                        <Btn title="Ouvrir la course" chevron onPress={() => openRide(item.id)} />
+                        <Btn title="Ouvrir la course" icon="eye" chevron onPress={() => openRide(item.id)} />
                       ) : item.id === activeRide.id ? (
                         <Btn title="Revenir à la course en cours" chevron onPress={() => setShowUpcoming(false)} />
                       ) : (
@@ -830,6 +835,28 @@ function AgendaLink({ ride }) {
   );
 }
 
+const VEHICLES = {
+  confort: { img: require('../assets/vehicle-confort.jpg'), name: 'Toyota Camry', sub: 'Berline confort' },
+  affaires: { img: require('../assets/vehicle-affaires.jpg'), name: 'Mercedes Classe E', sub: 'Berline haut de gamme' },
+  van: { img: require('../assets/vehicle-van.jpg'), name: 'Mercedes Classe V', sub: 'Van de luxe' },
+};
+
+// « Vehicule prevu » : photo et nom de la gamme demandee.
+function VehicleBlock({ category }) {
+  const v = VEHICLES[category];
+  if (!v) return null;
+  return (
+    <View style={styles.vehicleCard}>
+      <Image source={v.img} style={styles.vehicleImg} resizeMode="cover" />
+      <View style={styles.vehicleText}>
+        <Text style={styles.vehicleLabel}>Véhicule prévu</Text>
+        <Text style={styles.vehicleName}>{v.name}</Text>
+        <Text style={styles.vehicleSub}>{v.sub}</Text>
+      </View>
+    </View>
+  );
+}
+
 function ClientNote({ text, title = 'Information du client' }) {
   return (
     <View style={styles.noteBox}>
@@ -846,6 +873,12 @@ const styles = themedStyles(() => ({
   noteText: { color: theme.colors.text, fontSize: 15 },
   scroll: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   activeContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  vehicleCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, overflow: 'hidden' },
+  vehicleImg: { width: 150, height: 96 },
+  vehicleText: { flex: 1, paddingVertical: 8, paddingRight: 12, borderLeftWidth: 2, borderLeftColor: theme.colors.accent, paddingLeft: 12 },
+  vehicleLabel: { color: theme.colors.textMuted, fontSize: 13 },
+  vehicleName: { color: theme.colors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  vehicleSub: { color: theme.colors.textMuted, fontSize: 14, marginTop: 2 },
   offerBtns: { flexDirection: 'row', gap: 10 },
   dispatchLink: { color: theme.colors.textMuted, fontSize: 14, textAlign: 'center', paddingVertical: 8 },
   listScreen: { width: '100%', flex: 1, backgroundColor: theme.colors.background, padding: 16, gap: 14 },

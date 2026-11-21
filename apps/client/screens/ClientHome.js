@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert, useWindowDimensions } from 'react-native';
+import { Icon } from '../icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl, themedStyles, detectTransport, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
@@ -75,16 +76,20 @@ function VehicleChoice({ value, onChange, photos }) {
   );
 }
 
-function SectionCard({ title, children }) {
+function SectionCard({ title, icon, children }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionLabel}>{title}</Text>
+      <View style={styles.sectionHead}>
+        {icon ? <Icon name={icon} color="g" size={22} /> : null}
+        <Text style={styles.sectionLabel}>{title}</Text>
+      </View>
       {children}
     </View>
   );
 }
 
 export default function ClientHome({ session, appName, page, onOpenCourses, onViewChange, onOpenAccount, onOpenNotifications, focus }) {
+  const { width: winW } = useWindowDimensions();
   const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
   const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
@@ -479,12 +484,19 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       contentContainerStyle={styles.scrollContainer}
       keyboardShouldPersistTaps="handled"
     >
-      <TouchableOpacity onPress={() => setView('home')} style={{ alignSelf: 'flex-start' }}>
-        <Text style={styles.backLink}>← Mes reservations</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>Commander une course</Text>
+      <View style={styles.bookHeader}>
+        <Image source={require('../assets/header-van.jpg')} style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.62), height: 150, resizeMode: 'cover' }} resizeMode="cover" />
+        <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.62), height: 150, flexDirection: 'row' }}>
+          {Array.from({ length: 10 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${(1 - i / 9) ** 1.6})` }} />)}
+        </View>
+        <TouchableOpacity onPress={() => setView('home')} style={{ alignSelf: 'flex-start' }} accessibilityRole="button">
+          <Text style={styles.backLink}>← Mes réservations</Text>
+        </TouchableOpacity>
+        <Text style={styles.bookTitle}>Commander une course</Text>
+        <View style={styles.bookUnderline} />
+      </View>
 
-      <SectionCard title="Trajet">
+      <SectionCard title="Trajet" icon="pin">
         <AddressAutocomplete key={`p${prefillKey}`} value={pickup?.address} placeholder="Adresse de depart" onSelect={setPickup} />
         {detectTransport(pickup?.address) ? (
           <View style={{ gap: 6 }}>
@@ -535,7 +547,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       </SectionCard>
 
       {serviceType !== 'devis' && (
-        <SectionCard title="Date et heure">
+        <SectionCard title="Date et heure" icon="calendar">
           <TouchableOpacity style={styles.row} onPress={() => setAsap((v) => !v)}>
             <View style={[styles.checkbox, asap && styles.checkboxChecked]}>{asap ? <Text style={styles.checkboxMark}>✓</Text> : null}</View>
             <Text style={styles.inlineLabel}>Des que possible</Text>
@@ -550,21 +562,21 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       )}
 
       {serviceType !== 'devis' && (
-        <SectionCard title="Gamme de vehicule">
+        <SectionCard title="Gamme de véhicule" icon="van">
           <VehicleChoice value={vehicleCategory} onChange={setVehicleCategory} photos={vehiclePhotos} />
         </SectionCard>
       )}
 
-      <SectionCard title="Service">
-        <View style={styles.stack}>
+      <SectionCard title="Service" icon="settings">
+        <View style={styles.serviceRow}>
           {SERVICE_TYPES.map((o) => (
             <TouchableOpacity
               key={o.value}
-              style={[styles.stackRow, serviceType === o.value && styles.choiceOptionSelected]}
+              style={[styles.serviceTile, serviceType === o.value && styles.choiceOptionSelected]}
               onPress={() => setServiceType(o.value)}
             >
-              <Text style={styles.stackIcon}>{o.icon}</Text>
-              <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, styles.stackLabel]}>{o.label}</Text>
+              <Text style={styles.serviceIcon}>{o.icon}</Text>
+              <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, styles.serviceLabel]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -668,12 +680,12 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       </SectionCard>
 
       {serviceType !== 'devis' && (
-        <SectionCard title="Mode de reglement">
+        <SectionCard title="Mode de règlement" icon="wallet">
           <SegmentedChoice options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
         </SectionCard>
       )}
 
-      <SectionCard title={serviceType === 'devis' ? 'Communication libre' : 'Informations complementaires'}>
+      <SectionCard title={serviceType === 'devis' ? 'Communication libre' : 'Informations complémentaires'} icon="info">
         <TextInput
           style={[styles.noteInput, serviceType === 'devis' && { minHeight: 140 }]}
           value={clientNote}
@@ -692,7 +704,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       ) : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleRequestRide} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? '...' : serviceType === 'devis' ? 'Envoyer ma demande de devis' : 'Demander une course'}</Text>
+        <Text style={styles.buttonText}>{submitting ? '...' : serviceType === 'devis' ? '→  Envoyer ma demande de devis' : '→  Demander une course'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -759,6 +771,14 @@ const styles = themedStyles(() => ({
     borderRadius: theme.radius - 4,
     marginBottom: 4,
   },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bookHeader: { alignSelf: 'stretch', height: 150, marginHorizontal: -20, marginTop: -20, paddingHorizontal: 20, paddingTop: 22, justifyContent: 'flex-start', overflow: 'hidden' },
+  bookTitle: { color: theme.colors.text, fontSize: 26, fontWeight: '800', marginTop: 14, maxWidth: '62%' },
+  bookUnderline: { width: 56, height: 4, borderRadius: 2, backgroundColor: theme.colors.accent, marginTop: 8 },
+  serviceRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  serviceTile: { flex: 1, minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.input, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6 },
+  serviceIcon: { fontSize: 22 },
+  serviceLabel: { fontSize: 12.5, textAlign: 'center' },
   stack: { width: '100%', gap: 8 },
   stackRow: {
     width: '100%',

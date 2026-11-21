@@ -15,6 +15,8 @@ const ICONS = {
   plus: { w: require('./assets/ui/plus_w.png'), g: require('./assets/ui/plus_g.png'), m: require('./assets/ui/plus_m.png'), k: require('./assets/ui/plus_k.png') },
   xcircle: { w: require('./assets/ui/xcircle_w.png'), g: require('./assets/ui/xcircle_g.png'), m: require('./assets/ui/xcircle_m.png'), k: require('./assets/ui/xcircle_k.png') },
   car: { w: require('./assets/ui/car_w.png'), g: require('./assets/ui/car_g.png'), m: require('./assets/ui/car_m.png'), k: require('./assets/ui/car_k.png') },
+  tablet: { w: require('./assets/ui/tablet_w.png'), g: require('./assets/ui/tablet_g.png'), m: require('./assets/ui/tablet_m.png'), k: require('./assets/ui/tablet_k.png') },
+  eye: { w: require('./assets/ui/eye_w.png'), g: require('./assets/ui/eye_g.png'), m: require('./assets/ui/eye_m.png'), k: require('./assets/ui/eye_k.png') },
   message: { w: require('./assets/ui/message_w.png'), g: require('./assets/ui/message_g.png'), m: require('./assets/ui/message_m.png'), k: require('./assets/ui/message_k.png') },
   user: { w: require('./assets/ui/user_w.png'), g: require('./assets/ui/user_g.png'), m: require('./assets/ui/user_m.png'), k: require('./assets/ui/user_k.png') },
 };
