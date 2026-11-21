@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme, themedStyles } from '@app-rennesvtc/shared';
+import { Icon } from './icons';
 
 // Selecteurs de date et d'heure en JS pur (aucun module natif). Les valeurs gardent le format
 // des anciens champs texte : 'JJ/MM/AAAA' et 'HH:MM'.
@@ -8,9 +9,10 @@ const MONTHS = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet',
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const pad = (n) => String(n).padStart(2, '0');
 
-function Field({ value, placeholder, onPress, style }) {
+function Field({ value, placeholder, onPress, style, icon }) {
   return (
     <TouchableOpacity style={[styles.field, style]} onPress={onPress}>
+      {icon ? <Icon name={icon} color="w" size={22} /> : null}
       <Text style={value ? styles.fieldText : styles.fieldPlaceholder}>{value || placeholder}</Text>
     </TouchableOpacity>
   );
@@ -45,7 +47,7 @@ export function DateField({ value, onChange, placeholder = 'Choisir la date', st
 
   return (
     <>
-      <Field value={value} placeholder={placeholder} style={style} onPress={() => { setView(start); setOpen(true); }} />
+      <Field icon="calendar" value={value} placeholder={placeholder} style={style} onPress={() => { setView(start); setOpen(true); }} />
       <Sheet visible={open} onClose={() => setOpen(false)}>
         <View style={styles.head}>
           <TouchableOpacity onPress={() => shift(-1)} style={styles.nav}><Text style={styles.navText}>‹</Text></TouchableOpacity>
@@ -77,7 +79,7 @@ export function TimeField({ value, onChange, placeholder = "Choisir l'heure", st
 
   return (
     <>
-      <Field value={value} placeholder={placeholder} style={style} onPress={() => { setHour(isNaN(h) ? null : h); setOpen(true); }} />
+      <Field icon="clock" value={value} placeholder={placeholder} style={style} onPress={() => { setHour(isNaN(h) ? null : h); setOpen(true); }} />
       <Sheet visible={open} onClose={() => setOpen(false)}>
         <Text style={styles.title}>Heure</Text>
         <View style={styles.grid4}>
@@ -107,9 +109,9 @@ export function TimeField({ value, onChange, placeholder = "Choisir l'heure", st
 }
 
 const styles = themedStyles(() => ({
-  field: { borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: theme.radius, padding: 12, justifyContent: 'center', minHeight: 46 },
-  fieldText: { color: theme.colors.text },
-  fieldPlaceholder: { color: theme.colors.textMuted },
+  field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 56, borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: 18, paddingHorizontal: 14 },
+  fieldText: { color: theme.colors.text, fontSize: 16 },
+  fieldPlaceholder: { color: theme.colors.text, fontSize: 16 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },
   sheet: { backgroundColor: theme.colors.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: theme.colors.cardBorder },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },

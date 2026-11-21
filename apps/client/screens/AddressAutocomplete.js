@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { theme, themedStyles } from '@app-rennesvtc/shared';
 import { autocompleteAddress, getPlaceLocation } from '../lib/places';
+import { Icon } from '../icons';
 
-export default function AddressAutocomplete({ placeholder, value, onSelect }) {
+export default function AddressAutocomplete({ placeholder, value, onSelect, icon }) {
   const [input, setInput] = useState(value ?? '');
   const [suggestions, setSuggestions] = useState([]);
 
@@ -21,13 +22,16 @@ export default function AddressAutocomplete({ placeholder, value, onSelect }) {
 
   return (
     <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textMuted}
-        value={input}
-        onChangeText={handleChangeText}
-      />
+      <View style={styles.field}>
+        {icon ? <Icon name={icon} color="w" size={22} /> : null}
+        <TextInput
+          style={styles.fieldInput}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.textMuted}
+          value={input}
+          onChangeText={handleChangeText}
+        />
+      </View>
       {suggestions.length > 0 && (
         <View style={styles.suggestionsBox}>
           {suggestions.map((s) => (
@@ -43,6 +47,8 @@ export default function AddressAutocomplete({ placeholder, value, onSelect }) {
 
 const styles = themedStyles(() => ({
   container: { width: '100%' },
+  field: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: 18, paddingHorizontal: 16 },
+  fieldInput: { flex: 1, color: theme.colors.text, fontSize: 16, paddingVertical: 12 },
   input: {
     width: '100%',
     borderWidth: 1,

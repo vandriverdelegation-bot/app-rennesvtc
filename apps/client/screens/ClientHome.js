@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, ScrollView, Image, BackHandler, Alert, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
@@ -69,6 +70,7 @@ function VehicleChoice({ value, onChange, photos }) {
           {photos[o.value] ? (
             <Image source={{ uri: photos[o.value] }} style={styles.vehiclePhoto} resizeMode="cover" />
           ) : null}
+          {value === o.value ? <View style={styles.vehicleCheck}><Text style={styles.vehicleCheckText}>✓</Text></View> : null}
           <Text style={value === o.value ? styles.choiceTextSelected : styles.choiceText}>{o.label}</Text>
         </TouchableOpacity>
       ))}
@@ -90,6 +92,8 @@ function SectionCard({ title, icon, children }) {
 
 export default function ClientHome({ session, appName, page, onOpenCourses, onViewChange, onOpenAccount, onOpenNotifications, focus }) {
   const { width: winW } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0);
   const [rides, setRides] = useState(undefined); // reservations en cours ; undefined = chargement initial
   const [view, setView] = useState('home'); // 'home' = mes reservations, 'book' = formulaire de commande
   const [pickup, setPickup] = useState(null);
@@ -484,9 +488,9 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       contentContainerStyle={styles.scrollContainer}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.bookHeader}>
-        <Image source={require('../assets/header-van.jpg')} style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.62), height: 150, resizeMode: 'cover' }} resizeMode="cover" />
-        <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.62), height: 150, flexDirection: 'row' }}>
+      <View style={[styles.bookHeader, { height: topPad + 100, paddingTop: topPad + 8 }]}>
+        <Image source={require('../assets/header-van.jpg')} style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.55), height: topPad + 100, resizeMode: 'cover' }} resizeMode="cover" />
+        <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, width: Math.round(winW * 0.55), height: topPad + 100, flexDirection: 'row' }}>
           {Array.from({ length: 10 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${(1 - i / 9) ** 1.6})` }} />)}
         </View>
         <TouchableOpacity onPress={() => setView('home')} style={{ alignSelf: 'flex-start' }} accessibilityRole="button">
@@ -497,7 +501,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       </View>
 
       <SectionCard title="Trajet" icon="pin">
-        <AddressAutocomplete key={`p${prefillKey}`} value={pickup?.address} placeholder="Adresse de depart" onSelect={setPickup} />
+        <AddressAutocomplete key={`p${prefillKey}`} icon="pin" value={pickup?.address} placeholder="Adresse de départ" onSelect={setPickup} />
         {detectTransport(pickup?.address) ? (
           <View style={{ gap: 6 }}>
             <Text style={styles.mutedText}>{TRANSPORT_LABELS[detectTransport(pickup.address)].field} (facultatif) : votre chauffeur suivra son horaire d'arrivée.</Text>
@@ -526,11 +530,12 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
             </TouchableOpacity>
           </View>
         ))}
-        <TouchableOpacity onPress={() => setStops((prev) => [...prev, null])}>
-          <Text style={styles.link}>+ Ajouter un point d'arret</Text>
+        <TouchableOpacity onPress={() => setStops((prev) => [...prev, null])} style={styles.addStop} accessibilityRole="button">
+          <Icon name="plusc" size={28} />
+          <Text style={styles.addStopText}>Ajouter un point d'arrêt</Text>
         </TouchableOpacity>
         <View style={{ height: 8 }} />
-        <AddressAutocomplete key={`d${prefillKey}`} value={dropoff?.address} placeholder="Destination" onSelect={handleDropoff} />
+        <AddressAutocomplete key={`d${prefillKey}`} icon="flag" value={dropoff?.address} placeholder="Destination" onSelect={handleDropoff} />
         {homeMode ? <Text style={styles.mutedText}>Cette adresse sera mémorisée comme votre domicile.</Text> : null}
         <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
           <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
@@ -550,7 +555,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
         <SectionCard title="Date et heure" icon="calendar">
           <TouchableOpacity style={styles.row} onPress={() => setAsap((v) => !v)}>
             <View style={[styles.checkbox, asap && styles.checkboxChecked]}>{asap ? <Text style={styles.checkboxMark}>✓</Text> : null}</View>
-            <Text style={styles.inlineLabel}>Des que possible</Text>
+            <Text style={styles.inlineLabel}>Dès que possible</Text>
           </TouchableOpacity>
           {!asap && (
             <View style={styles.row}>
@@ -670,7 +675,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
                     onPress={() => setSelectedForfaitId(f.id)}
                   >
                     <Text style={[selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText, styles.stackLabel]}>{f.name}</Text>
-                    <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accentText }]}>{f.price} €</Text>
+                    <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accent }]}>{f.price} €</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -704,7 +709,8 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       ) : null}
       {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleRequestRide} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? '...' : serviceType === 'devis' ? '→  Envoyer ma demande de devis' : '→  Demander une course'}</Text>
+        {submitting ? null : <Icon name="arrow" color="white" size={26} />}
+        <Text style={styles.buttonText}>{submitting ? '...' : serviceType === 'devis' ? 'Envoyer ma demande de devis' : 'Demander une course'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -736,11 +742,11 @@ const styles = themedStyles(() => ({
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 24,
+    padding: 18,
     gap: 12,
   },
-  sectionLabel: { fontWeight: '800', color: theme.colors.textMuted, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionLabel: { fontWeight: '800', color: theme.colors.text, fontSize: 15, letterSpacing: 0.6, textTransform: 'uppercase' },
   mutedText: { color: theme.colors.textMuted },
   transportInput: { borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, color: theme.colors.text, borderRadius: theme.radius, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
@@ -772,9 +778,13 @@ const styles = themedStyles(() => ({
     marginBottom: 4,
   },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  bookHeader: { alignSelf: 'stretch', height: 150, marginHorizontal: -20, marginTop: -20, paddingHorizontal: 20, paddingTop: 22, justifyContent: 'flex-start', overflow: 'hidden' },
-  bookTitle: { color: theme.colors.text, fontSize: 26, fontWeight: '800', marginTop: 14, maxWidth: '62%' },
-  bookUnderline: { width: 56, height: 4, borderRadius: 2, backgroundColor: theme.colors.accent, marginTop: 8 },
+  bookHeader: { alignSelf: 'stretch', marginHorizontal: -20, marginTop: -20, paddingHorizontal: 20, justifyContent: 'flex-start', overflow: 'hidden' },
+  bookTitle: { color: theme.colors.text, fontSize: 25, fontWeight: '800', marginTop: 8, maxWidth: '66%' },
+  bookUnderline: { width: 64, height: 4, borderRadius: 2, backgroundColor: theme.colors.accent, marginTop: 6 },
+  addStop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 2 },
+  addStopText: { color: theme.colors.accent, fontSize: 16, fontWeight: '600' },
+  vehicleCheck: { position: 'absolute', top: 4, right: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
+  vehicleCheckText: { color: '#0B0C0B', fontWeight: '800', fontSize: 14 },
   serviceRow: { flexDirection: 'row', gap: 8, width: '100%' },
   serviceTile: { flex: 1, minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.input, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6 },
   serviceIcon: { fontSize: 22 },
@@ -806,10 +816,10 @@ const styles = themedStyles(() => ({
     color: theme.colors.text,
     textAlignVertical: 'top',
   },
-  choiceOptionSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  choiceOptionSelected: { backgroundColor: theme.colors.input, borderColor: theme.colors.accent, borderWidth: 2 },
   choiceIcon: { fontSize: 18, marginBottom: 2 },
   choiceText: { color: theme.colors.text, fontSize: 13 },
-  choiceTextSelected: { color: theme.colors.accentText, fontWeight: '700', fontSize: 13 },
+  choiceTextSelected: { color: theme.colors.text, fontWeight: '800', fontSize: 13 },
   inlineField: { marginTop: 4 },
   inlineLabel: { color: theme.colors.textMuted, marginBottom: 6, fontSize: 13 },
   durationInput: {
@@ -836,10 +846,10 @@ const styles = themedStyles(() => ({
   link: { color: theme.colors.accent, marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    borderWidth: 2,
     borderColor: theme.colors.inputBorder,
     alignItems: 'center',
     justifyContent: 'center',
@@ -862,12 +872,14 @@ const styles = themedStyles(() => ({
   button: {
     width: '100%',
     backgroundColor: theme.colors.accent,
-    borderRadius: 14,
-    minHeight: 54,
+    borderRadius: 30,
+    minHeight: 60,
+    flexDirection: 'row',
+    gap: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
   },
-  buttonText: { color: theme.colors.accentText, fontWeight: '800', fontSize: 16 },
+  buttonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 19 },
   error: { color: theme.colors.error },
 }));

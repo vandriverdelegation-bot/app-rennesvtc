@@ -182,7 +182,7 @@ function AppContent() {
 
   if (session) {
     return (
-      <SafeAreaView key={themeMode} style={styles.sessionContainer} edges={booking ? ['top', 'bottom', 'left', 'right'] : tab === 'home' ? ['left', 'right'] : ['top', 'left', 'right']}>
+      <SafeAreaView key={themeMode} style={styles.sessionContainer} edges={booking ? ['bottom', 'left', 'right'] : tab === 'home' ? ['left', 'right'] : ['top', 'left', 'right']}>
         {tab === 'account' ? (
           <ClientMenu key={menuView} session={session} initialView={menuView} onClose={() => setTab('home')} themePref={themePref} onThemePref={setThemePref} />
         ) : (
