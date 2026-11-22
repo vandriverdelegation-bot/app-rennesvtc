@@ -139,7 +139,7 @@ test('3c. un chauffeur sans droit « prix » ne peut pas changer le prix de sa c
 });
 
 test('4a. un candidat chauffeur (dossier non valide) ne voit ni n\'accepte une course dispatchee', async () => {
-  const ride = await serviceRide({ status: 'dispatched', dispatched_to: who.C.id });
+  const ride = await serviceRide({ status: 'dispatched', driver_id: null, dispatched_to: who.C.id });
   const { data: seen } = await who.C.db.from('rides').select('id').eq('id', ride.id);
   assert.equal((seen ?? []).length, 0, 'le candidat ne doit pas voir la course');
   await who.C.db.from('rides').update({ driver_id: who.C.id, status: 'accepted' }).eq('id', ride.id);

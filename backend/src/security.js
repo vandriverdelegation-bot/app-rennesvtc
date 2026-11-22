@@ -8,13 +8,16 @@ function safeEqual(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
+// Adresse reelle du visiteur : derriere Cloudflare + Render, req.ip peut changer d'une requete a l'autre (adresses des relais) ; Cloudflare indique la vraie dans CF-Connecting-IP.
+const clientIp = (req) => req.get('cf-connecting-ip') || req.ip;
+
 // Limite d'appels par fenetre de temps (compteur en memoire).
 // shortcut: compteur propre a ce serveur ; a remplacer par un stockage partage si on passe a plusieurs instances Render.
 function limit({ max, windowMs, by = 'ip', name = 'limite' }) {
   const hits = new Map();
   setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.reset <= now) hits.delete(k); }, Math.min(windowMs, 60000)).unref();
   return (req, res, next) => {
-    const key = by === 'user' ? req.user?.id ?? req.ip : by === 'ip' ? req.ip : by(req);
+    const key = by === 'user' ? req.user?.id ?? clientIp(req) : by === 'ip' ? clientIp(req) : by(req);
     const now = Date.now();
     let h = hits.get(key);
     if (!h || h.reset <= now) { h = { n: 0, reset: now + windowMs }; hits.set(key, h); }
@@ -66,4 +69,4 @@ function catchAsyncErrors(app) {
   }
 }
 
-module.exports = { safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors };
+module.exports = { clientIp, safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors };

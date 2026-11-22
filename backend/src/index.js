@@ -13,7 +13,7 @@ const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
 const { registerNavettes } = require('./navettes');
 const { registerExport } = require('./exportReservations');
-const { safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors } = require('./security');
+const { clientIp, safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors } = require('./security');
 const { registerAgendaTransport } = require('./agendaTransport');
 const { registerAvisCourse } = require('./avisCourse');
 const { buildRideMail } = require('./mailTemplate');
@@ -1333,7 +1333,7 @@ function limitPerMinute(max) {
   const hits = new Map();
   setInterval(() => hits.clear(), 60000).unref();
   return (req, res, next) => {
-    const ip = req.ip;
+    const ip = clientIp(req);
     const n = (hits.get(ip) ?? 0) + 1;
     hits.set(ip, n);
     if (n > max) return res.status(429).json({ error: 'Trop de requetes, reessayez dans une minute.' });
