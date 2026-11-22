@@ -2386,7 +2386,8 @@ async function renderAppSettings() {
   document.getElementById('app-contact-email').value = data.contact_email ?? '';
   document.getElementById('app-contact-phone').value = data.contact_phone ?? '';
   document.getElementById('app-contact-website').value = data.contact_website ?? '';
-  document.getElementById('app-admin-email').value = data.admin_email ?? '';
+  const { data: priv } = await supabase.from('admin_settings').select('admin_email').eq('id', true).maybeSingle(); // adresse privee : table reservee aux admins
+  document.getElementById('app-admin-email').value = priv?.admin_email ?? '';
   document.getElementById('app-facebook').value = data.facebook_url ?? '';
   document.getElementById('app-instagram').value = data.instagram_url ?? '';
   document.getElementById('app-x').value = data.x_url ?? '';
@@ -2459,7 +2460,6 @@ document.getElementById('app-settings-save').addEventListener('click', async () 
     contact_email: document.getElementById('app-contact-email').value.trim() || null,
     contact_phone: document.getElementById('app-contact-phone').value.trim() || null,
     contact_website: document.getElementById('app-contact-website').value.trim() || null,
-    admin_email: document.getElementById('app-admin-email').value.trim() || null,
     facebook_url: document.getElementById('app-facebook').value.trim() || null,
     instagram_url: document.getElementById('app-instagram').value.trim() || null,
     x_url: document.getElementById('app-x').value.trim() || null,
@@ -2478,7 +2478,8 @@ document.getElementById('app-settings-save').addEventListener('click', async () 
   if (logo_url) payload.logo_url = logo_url;
 
   const { error } = await supabase.from('app_settings').update(payload).eq('id', true);
-  statusEl.textContent = error ? error.message : 'Enregistre.';
+  const { error: mailError } = await supabase.from('admin_settings').upsert({ id: true, admin_email: document.getElementById('app-admin-email').value.trim() || null });
+  statusEl.textContent = (error || mailError) ? (error || mailError).message : 'Enregistre.';
   document.getElementById('app-logo-file').value = '';
   renderAppSettings();
 });

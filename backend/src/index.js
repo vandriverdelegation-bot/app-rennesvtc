@@ -13,6 +13,7 @@ const { registerBackup } = require('./backup');
 const { registerClients, saveClient } = require('./clients');
 const { registerNavettes } = require('./navettes');
 const { registerExport } = require('./exportReservations');
+const { safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors } = require('./security');
 const { registerAgendaTransport } = require('./agendaTransport');
 const { registerAvisCourse } = require('./avisCourse');
 const { buildRideMail } = require('./mailTemplate');
@@ -125,17 +126,22 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
 }
 
 // Lien signe vers le bon de commande : s'ouvre depuis l'e-mail sans connexion, valable uniquement pour ce chauffeur et cette course.
+const signSecret = () => process.env.LINK_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev';
+const oldSignSecret = () => process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev'; // liens deja envoyes par e-mail, signes avant LINK_SECRET
+const hmac = (secret, text) => crypto.createHmac('sha256', secret).update(text).digest('hex').slice(0, 40);
 function bonSignature(rideId, driverId) {
-  return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev').update(`${rideId}:${driverId}`).digest('hex').slice(0, 40);
+  return hmac(signSecret(), `${rideId}:${driverId}`);
 }
+const validBonSig = (rideId, driverId, sig) => safeEqual(sig, hmac(signSecret(), `${rideId}:${driverId}`)) || safeEqual(sig, hmac(oldSignSecret(), `${rideId}:${driverId}`));
 function bonUrl(rideId, driverId) {
   return `${BASE_URL}/public/bon-commande/${rideId}?d=${driverId}&sig=${bonSignature(rideId, driverId)}`;
 }
 
 // Tablette d'accueil : image de bienvenue avec le nom du client (ou le nom choisi dans le back-office).
 function accueilSignature(rideId) {
-  return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev').update(`accueil:${rideId}`).digest('hex').slice(0, 40);
+  return hmac(signSecret(), `accueil:${rideId}`);
 }
+const validAccueilSig = (rideId, sig) => safeEqual(sig, hmac(signSecret(), `accueil:${rideId}`)) || safeEqual(sig, hmac(oldSignSecret(), `accueil:${rideId}`));
 function accueilUrl(rideId, width) {
   return `${BASE_URL}/public/accueil/${rideId}?sig=${accueilSignature(rideId)}${width ? `&w=${width}` : ''}`;
 }
@@ -194,12 +200,15 @@ async function sendTrackingEmail(rideId, step) {
 }
 
 const app = express();
+catchAsyncErrors(app); // doit preceder toute route : une erreur dans une route ne plante plus le serveur
 const PORT = process.env.PORT || 3000;
+app.disable('x-powered-by');
 // Derriere le proxy de Render : req.ip doit etre l adresse du visiteur (limites par IP).
 app.set('trust proxy', 1);
 
-app.use(cors());
-app.use(express.json());
+app.use(securityHeaders);
+app.use(cors(corsOptions(BASE_URL)));
+app.use(express.json({ limit: '1mb' }));
 // Le back-office doit toujours se recharger a jour (sinon un navigateur ouvert garde l'ancienne version).
 app.use('/admin', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use(express.static(path.join(__dirname, '../public')));
@@ -209,7 +218,7 @@ app.get('/', (req, res) => {
 });
 
 async function requireSupabaseUser(req, res, next) {
-  const token = req.get('authorization')?.replace('Bearer ', '') || req.query.token;
+  const token = req.get('authorization')?.replace('Bearer ', '') || (req.method === 'GET' ? req.query.token : null);
   if (!token) return res.status(401).json({ error: 'Non authentifie' });
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return res.status(401).json({ error: 'Non authentifie' });
@@ -310,7 +319,8 @@ app.get('/rides/:rideId/messages', requireSupabaseUser, async (req, res) => {
   res.json({ open: !!ride.driver_id && ride.status === 'accepted', messages: await loadChat(ride.id) });
 });
 
-app.post('/rides/:rideId/messages', requireSupabaseUser, async (req, res) => {
+const chatLimit = limit({ max: 30, windowMs: 60000, by: 'user' });
+app.post('/rides/:rideId/messages', requireSupabaseUser, chatLimit, async (req, res) => {
   const { ride, role } = await chatRide(req, res);
   if (!ride) return;
   const result = await postChat(ride, role, req.user.id, req.body.body);
@@ -332,7 +342,7 @@ app.get('/public/track/:token/messages', async (req, res) => {
   res.json({ open: !!ride.driver_id && ride.status === 'accepted', messages: await loadChat(ride.id) });
 });
 
-app.post('/public/track/:token/messages', async (req, res) => {
+app.post('/public/track/:token/messages', limit({ max: 20, windowMs: 60000 }), async (req, res) => {
   const ride = await chatRideByToken(req, res);
   if (!ride) return;
   const result = await postChat(ride, 'donneur_ordre', null, req.body.body);
@@ -474,14 +484,29 @@ async function fetchBonCommandeData(rideId, asDriverId) {
 
 // Previent l'admin par email qu'une nouvelle demande de course attend un dispatch,
 // et confirme au client que sa demande a bien ete recue.
-app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
-  const { rideId, fromAdmin } = req.body;
+// Droits d'un compte connecte (lus cote serveur) : administrateur ou proprietaire.
+async function isStaffUser(userId) {
+  const { data } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', userId).single();
+  return data?.role === 'admin' || !!data?.is_owner;
+}
+const notifyLimit = limit({ max: 30, windowMs: 60000, by: 'user' });
+const newRideLimit = limit({ max: 8, windowMs: 3600000, by: 'user' }); // un client ne declenche pas plus de 8 annonces par heure (les admins ne sont pas limites)
+
+app.post('/notify/new-ride', requireSupabaseUser, notifyLimit, async (req, res) => {
+  const { rideId } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
     .select('pickup_address, dropoff_address, vehicle_category, price, payment_method, scheduled_at, client_id, client_email')
     .eq('id', rideId)
     .single();
   if (!ride) return res.json({ ok: true });
+  // Seul le client de la course, un admin ou le proprietaire peut annoncer une demande.
+  const staff = await isStaffUser(req.user.id);
+  if (ride.client_id !== req.user.id && !staff) return res.status(403).json({ error: 'Course non concernee' });
+  if (!staff) { newRideLimit(req, res, () => {}); if (res.headersSent) return; }
+  const fromAdmin = staff && !!req.body.fromAdmin;
+  const checked = await verifyRidePrice(rideId).catch((e) => { console.error('verification du prix :', e.message); return null; });
+  if (checked && checked.price !== undefined) ride.price = checked.price;
 
   autoDispatchPending().catch((e) => console.error('auto-dispatch', e));
   // Une reservation saisie par l'admin n'a pas besoin de le prevenir lui-meme.
@@ -504,14 +529,12 @@ app.post('/notify/new-ride', requireSupabaseUser, async (req, res) => {
 });
 
 // Previent le ou les chauffeurs concernes qu'une course leur a ete dispatchee.
-app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
+app.post('/notify/dispatch', requireSupabaseUser, notifyLimit, async (req, res) => {
   const { rideId, repeat } = req.body;
+  if (!(await isStaffUser(req.user.id))) return res.status(403).json({ error: 'Reserve a l administrateur' });
   if (repeat) {
-    // Relance chaque minute : reservee a l'admin ; les refus precedents sont oublies.
-    const { data: me } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', req.user.id).single();
-    if (me?.role === 'admin' || me?.is_owner) {
-      await supabaseAdmin.from('rides').update({ alert_until: new Date(Date.now() + RELANCE_MINUTES * 60000).toISOString(), declined_by: [] }).eq('id', rideId).eq('status', 'dispatched');
-    }
+    // Relance chaque minute : les refus precedents sont oublies.
+    await supabaseAdmin.from('rides').update({ alert_until: new Date(Date.now() + RELANCE_MINUTES * 60000).toISOString(), declined_by: [] }).eq('id', rideId).eq('status', 'dispatched');
   }
   const { data: ride } = await supabaseAdmin
     .from('rides')
@@ -531,8 +554,10 @@ app.post('/notify/dispatch', requireSupabaseUser, async (req, res) => {
 
 // Previent le client qu'un chauffeur a accepte sa course (push + email avec
 // les coordonnees du chauffeur et un rappel complet de la reservation).
-app.post('/notify/accepted', requireSupabaseUser, async (req, res) => {
+app.post('/notify/accepted', requireSupabaseUser, notifyLimit, async (req, res) => {
   const { data: assigned } = await supabaseAdmin.from('rides').select('driver_id, pickup_address, dropoff_address').eq('id', req.body.rideId).single();
+  if (!assigned) return res.status(404).json({ error: 'Course introuvable' });
+  if (assigned.driver_id !== req.user.id && !(await isStaffUser(req.user.id))) return res.status(403).json({ error: 'Course non attribuee a ce chauffeur' });
   if (assigned?.driver_id && assigned.driver_id !== req.user.id) {
     // Un chauffeur attribue par quelqu'un d'autre est prevenu ; reserve a l'admin pour qu'un compte client ne puisse pas declencher d'alerte.
     const { data: caller } = await supabaseAdmin.from('profiles').select('role, is_owner').eq('id', req.user.id).single();
@@ -992,7 +1017,7 @@ app.get('/driver/bon-commande/:rideId', requireSupabaseUser, async (req, res) =>
 // Lien signe (e-mail du chauffeur) : s'ouvre sans connexion.
 app.get('/public/accueil/:rideId', async (req, res) => {
   const sig = String(req.query.sig || '');
-  const ok = sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(accueilSignature(req.params.rideId)));
+  const ok = validAccueilSig(req.params.rideId, sig);
   if (!ok) return res.status(403).send('Lien invalide');
   await sendAccueil(res, req.params.rideId, req.query.w, req.query.download);
 });
@@ -1045,7 +1070,7 @@ app.get('/admin/rides/:id/bon-commande', requireAdmin, async (req, res) => {
 app.get('/public/bon-commande/:rideId', async (req, res) => {
   const d = String(req.query.d || '');
   const sig = String(req.query.sig || '');
-  const ok = d && sig.length === 40 && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(bonSignature(req.params.rideId, d)));
+  const ok = d && validBonSig(req.params.rideId, d, sig);
   if (!ok) return res.status(403).send('Lien invalide');
   const bonData = await fetchBonCommandeData(req.params.rideId, d);
   if (!bonData || !isRideDriver(bonData.ride, d)) return res.status(404).send('Course introuvable');
@@ -1057,7 +1082,7 @@ app.get('/public/bon-commande/:rideId', async (req, res) => {
 
 // Previent le client d'une majoration de prix ajoutee par l'admin.
 // Demande de devis d'un client : transmise par email a l'administrateur.
-app.post('/client/quote', requireSupabaseUser, async (req, res) => {
+app.post('/client/quote', requireSupabaseUser, limit({ max: 5, windowMs: 3600000, by: 'user' }), async (req, res) => {
   const message = String(req.body.message ?? '').trim().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'Message requis' });
   const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone, email').eq('id', req.user.id).single();
@@ -1118,7 +1143,7 @@ const STEP_PUSH = {
   no_show: ['Course cloturee', 'Votre chauffeur vous a attendu sur place sans vous rencontrer : la course est cloturee pour non-presentation.'],
   completed: ['Course terminee', 'Merci de votre confiance, a bientot avec Rennes VTC.'],
 };
-app.post('/notify/step', requireSupabaseUser, async (req, res) => {
+app.post('/notify/step', requireSupabaseUser, notifyLimit, async (req, res) => {
   const { rideId, step } = req.body;
   const message = STEP_PUSH[step];
   if (!message) return res.status(400).json({ error: 'Etape inconnue' });
@@ -1133,7 +1158,7 @@ app.post('/notify/step', requireSupabaseUser, async (req, res) => {
 });
 
 // Previent le client (push + email) quand le prix de sa course change (modification par le chauffeur).
-app.post('/notify/price', requireSupabaseUser, async (req, res) => {
+app.post('/notify/price', requireSupabaseUser, notifyLimit, async (req, res) => {
   const { rideId, oldPrice } = req.body;
   const { data: ride } = await supabaseAdmin
     .from('rides')
@@ -1161,8 +1186,12 @@ app.post('/notify/price', requireSupabaseUser, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/notify/surcharge', requireSupabaseUser, async (req, res) => {
-  const { rideId, amount, reason } = req.body;
+app.post('/notify/surcharge', requireSupabaseUser, notifyLimit, async (req, res) => {
+  if (!(await isStaffUser(req.user.id))) return res.status(403).json({ error: 'Reserve a l administrateur' });
+  const { rideId } = req.body;
+  const amount = Math.round(Number(req.body.amount) * 100) / 100;
+  const reason = String(req.body.reason ?? '').slice(0, 200);
+  if (!Number.isFinite(amount) || Math.abs(amount) > 10000) return res.status(400).json({ error: 'Montant invalide' });
   const { data: ride } = await supabaseAdmin
     .from('rides')
     .select('client_id, price')
@@ -1231,6 +1260,73 @@ async function getRouteServer(origin, destination) {
 }
 const getDistanceKmServer = async (origin, destination) => (await getRouteServer(origin, destination)).km;
 
+// ---- Prix verifie par le serveur ----
+// Le prix d'une course creee par un client (appli) est calcule sur son telephone : le serveur le recalcule avec les tarifs de la base et corrige tout ecart.
+// Renvoie le prix attendu, null (prix a fixer par l'equipe : devis, tarif non configure) ou undefined (rien a verifier).
+async function expectedPrice(ride) {
+  if (ride.service_type === 'forfait') {
+    const { data } = await supabaseAdmin.from('forfaits').select('price, vehicle_category, active').eq('id', ride.forfait_id).maybeSingle();
+    return data?.active && data.vehicle_category === ride.vehicle_category ? Number(data.price) : null;
+  }
+  if (ride.service_type === 'mise_a_disposition') {
+    const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', ride.vehicle_category).maybeSingle();
+    const hours = Number(ride.duration_hours);
+    if (!hourly || !(hours >= hourly.min_hours)) return null;
+    return Math.round(hours * hourly.price_per_hour * 100) / 100;
+  }
+  if (ride.service_type !== 'trajet_simple') return undefined;
+  const [{ data: pricing }, { data: zones }] = await Promise.all([
+    supabaseAdmin.from('pricing_simple').select('*').eq('vehicle_category', ride.vehicle_category).maybeSingle(),
+    supabaseAdmin.from('pricing_zones').select('*').eq('vehicle_category', ride.vehicle_category).eq('active', true),
+  ]);
+  if (!pricing || ride.pickup_lat == null || ride.dropoff_lat == null) return null;
+  const pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };
+  const dropoff = { lat: ride.dropoff_lat, lng: ride.dropoff_lng };
+  const km = await getDistanceKmServer(pickup, dropoff);
+  const result = computeTrajetSimplePrice({
+    pricing, zones: zones ?? [], pickup, dropoff, km, when: new Date(ride.created_at ?? Date.now()),
+    passengerCount: ride.passenger_count || 1, childSeats: ride.child_seats || 0, boosterSeats: ride.booster_seats || 0, stopsCount: (ride.stop_addresses ?? []).length,
+  });
+  return result.manual ? null : result.price;
+}
+
+// Verifie une course dont le prix vient d'un client. Corrige le prix si l'ecart depasse 0,50 EUR et previent l'admin. Renvoie { price } si la fiche a change.
+async function verifyRidePrice(rideId) {
+  const { data: ride } = await supabaseAdmin.from('rides').select('*').eq('id', rideId).single();
+  if (!ride || ride.price_checked) return null;
+  const expected = await expectedPrice(ride); // peut lever une erreur (Google indisponible) : la course reste « a verifier » et sera reprise
+  const patch = { price_checked: true };
+  let changed = false;
+  if (expected !== undefined) {
+    const declared = ride.price == null ? null : Number(ride.price);
+    if ((expected === null && declared !== null) || (expected !== null && (declared === null || Math.abs(declared - expected) > 0.5))) {
+      patch.price = expected;
+      changed = true;
+    }
+  }
+  const { error } = await supabaseAdmin.from('rides').update(patch).eq('id', ride.id).eq('price_checked', false);
+  if (error) throw error;
+  if (changed) {
+    await sendAdminEmail('Prix corrige automatiquement', `Course : ${ride.pickup_address} -> ${ride.dropoff_address}\nPrix envoye par le client : ${ride.price ?? 'aucun'} EUR\nPrix calcule par le serveur : ${expected ?? 'a fixer'} EUR\nLe prix du serveur a ete retenu.`).catch(() => {});
+    return { price: expected };
+  }
+  return {};
+}
+// Filet de securite : verifie les courses de clients restees « a verifier » (le client n'a pas appele le serveur, ou Google etait indisponible).
+// Apres 10 minutes sans reussite, la course est liberee et l'admin prevenu pour qu'il controle le prix lui-meme.
+async function verifyPendingPrices() {
+  const { data: rides } = await supabaseAdmin.from('rides').select('id, created_at, pickup_address, dropoff_address, price').eq('price_checked', false).lte('created_at', new Date(Date.now() - 20000).toISOString()).limit(20);
+  for (const r of rides ?? []) {
+    try { await verifyRidePrice(r.id); } catch (e) {
+      console.error('verification du prix (reprise) :', e.message);
+      if (Date.now() - new Date(r.created_at).getTime() > 600000) {
+        const { data: freed } = await supabaseAdmin.from('rides').update({ price_checked: true }).eq('id', r.id).eq('price_checked', false).select('id');
+        if (freed?.length) await sendAdminEmail('Prix a controler', `Le prix de cette course n'a pas pu etre verifie automatiquement : controlez-le avant de dispatcher.\n${r.pickup_address} -> ${r.dropoff_address} (${r.price ?? 'sans prix'} EUR)`).catch(() => {});
+      }
+    }
+  }
+}
+
 // Limite d'appels par adresse IP et par minute sur les routes qui consomment la cle Google (aucun compte requis).
 // shortcut: compteur en memoire (un seul serveur Render) ; a remplacer par un stockage partage si on passe a plusieurs instances.
 function limitPerMinute(max) {
@@ -1260,7 +1356,7 @@ app.post('/public/route', googleLimit, async (req, res) => {
 
 app.post('/public/places/autocomplete', googleLimit, async (req, res) => {
   const { input } = req.body;
-  if (!input || input.length < 3) return res.json({ suggestions: [] });
+  if (typeof input !== 'string' || input.length < 3 || input.length > 200) return res.json({ suggestions: [] });
   const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY },
@@ -1276,6 +1372,8 @@ app.post('/public/places/autocomplete', googleLimit, async (req, res) => {
 
 app.post('/public/places/details', googleLimit, async (req, res) => {
   const { placeId } = req.body;
+  // Identifiant Google seulement : sans cela, un texte pourrait viser une autre adresse de l'API avec notre cle.
+  if (!/^[A-Za-z0-9_-]{10,300}$/.test(String(placeId ?? ''))) return res.status(400).json({ error: 'Adresse introuvable' });
   const r = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: { 'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY, 'X-Goog-FieldMask': 'location,formattedAddress' },
   });
@@ -1284,7 +1382,8 @@ app.post('/public/places/details', googleLimit, async (req, res) => {
   res.json({ address: data.formattedAddress, lat: data.location.latitude, lng: data.location.longitude });
 });
 
-app.post('/public/estimate-price', async (req, res) => {
+const priceLimit = limit({ max: 40, windowMs: 60000 }); // chaque estimation appelle Google (payant)
+app.post('/public/estimate-price', priceLimit, async (req, res) => {
   const { vehicle_category, pickup, dropoff, when, passengerCount, childSeats, boosterSeats, service_type, duration_hours } = req.body;
   if (service_type === 'mise_a_disposition' && vehicle_category) {
     const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', vehicle_category).single();
@@ -1313,7 +1412,10 @@ app.post('/public/estimate-price', async (req, res) => {
 });
 
 // Cree une reservation depuis le module web public (pas de compte requis).
-app.post('/public/book', async (req, res) => {
+const bookLimit = limit({ max: 10, windowMs: 600000 }); // par adresse IP
+const bookDayLimit = limit({ max: 60, windowMs: 86400000 });
+const bookEmailLimit = limit({ max: 3, windowMs: 3600000, by: (req) => 'mail:' + String(req.body?.clientEmail ?? '').trim().toLowerCase() }); // ne pas inonder une adresse e-mail
+app.post('/public/book', bookLimit, bookDayLimit, bookEmailLimit, async (req, res) => {
   const { clientName, clientPhone, clientEmail, vehicleCategory, pickup, dropoff, scheduledAt, roundTrip, returnAt, paymentMethod, price, passengerCount, luggageCount, childSeats, boosterSeats, childAges, serviceType, durationHours, acceptedTerms } = req.body;
   if (!acceptedTerms) return res.status(400).json({ error: 'Veuillez accepter les CGV et CGU.' });
   const isMad = serviceType === 'mise_a_disposition';
@@ -1324,6 +1426,23 @@ app.post('/public/book', async (req, res) => {
   if (paymentMethod === 'compte') {
     return res.status(400).json({ error: 'Ce mode de règlement est réservé au back-office.' });
   }
+  if (!['confort', 'affaires', 'van'].includes(vehicleCategory) || !['carte_a_bord', 'especes'].includes(paymentMethod)) return res.status(400).json({ error: 'Champs invalides' });
+  const tooLong = (v, n) => String(v ?? '').length > n;
+  if (tooLong(clientName, 120) || tooLong(clientPhone, 30) || tooLong(clientEmail, 200) || tooLong(pickup?.address, 300) || tooLong(dropoff?.address, 300) || tooLong(childAges, 100)) return res.status(400).json({ error: 'Texte trop long' });
+  if (scheduledAt && !(new Date(scheduledAt).getTime() > Date.now() - 3600000)) return res.status(400).json({ error: 'Date invalide' });
+  if (!Number.isFinite(Number(pickup.lat)) || !Number.isFinite(Number(dropoff.lat))) return res.status(400).json({ error: 'Adresses invalides' });
+  // Le prix affiche par la page n'est pas cru : le serveur le recalcule avec les tarifs de la base.
+  let serverPrice;
+  try {
+    serverPrice = await expectedPrice({
+      service_type: isMad ? 'mise_a_disposition' : 'trajet_simple', vehicle_category: vehicleCategory, duration_hours: isMad ? parseFloat(durationHours) : null,
+      pickup_lat: Number(pickup.lat), pickup_lng: Number(pickup.lng), dropoff_lat: Number(dropoff.lat), dropoff_lng: Number(dropoff.lng),
+      passenger_count: Math.max(1, parseInt(passengerCount, 10) || 1), child_seats: Math.max(0, parseInt(childSeats, 10) || 0), booster_seats: Math.max(0, parseInt(boosterSeats, 10) || 0), stop_addresses: [], created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  if (serverPrice == null) return res.status(400).json({ error: 'Prix indisponible pour ce trajet : contactez-nous pour un devis.' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(clientEmail ?? '').trim())) {
     return res.status(400).json({ error: 'Une adresse email valide est requise.' });
   }
@@ -1352,7 +1471,7 @@ app.post('/public/book', async (req, res) => {
       payment_method: paymentMethod,
       service_type: isMad ? 'mise_a_disposition' : 'trajet_simple',
       duration_hours: isMad ? parseFloat(durationHours) : null,
-      price,
+      price: serverPrice,
       created_by: 'web',
       scheduled_at: scheduledAt || null,
       status: 'pending',
@@ -1387,6 +1506,7 @@ async function autoDispatchPending() {
     .from('rides')
     .select('id, pickup_address, dropoff_address, vehicle_category')
     .eq('status', 'pending')
+    .eq('price_checked', true)
     .is('driver_id', null)
     .not('vehicle_category', 'is', null)
     .lte('created_at', cutoff);
@@ -1399,7 +1519,9 @@ async function autoDispatchPending() {
     await sendAdminEmail('Course dispatchee automatiquement', `${ride.pickup_address} -> ${ride.dropoff_address}\nDispatch automatique vers tous les chauffeurs de la gamme ${ride.vehicle_category}.`);
   }
 }
-setInterval(() => autoDispatchPending().catch((e) => console.error('auto-dispatch', e)), 30000);
+// Taches de fond coupees pour les copies de test (DISABLE_JOBS=1) : elles ne doivent pas tourner en double sur la vraie base.
+const JOBS = !process.env.DISABLE_JOBS;
+if (JOBS) setInterval(() => autoDispatchPending().catch((e) => console.error('auto-dispatch', e)), 30000);
 // Rappel au chauffeur (et aux chauffeurs supplementaires) quand sa course acceptee commence dans moins d'1 h. Une seule fois par course.
 async function remindUpcomingRides() {
   const now = new Date();
@@ -1478,9 +1600,19 @@ async function checkNearArrival() {
     }
   } finally { nearRunning = false; }
 }
-setInterval(() => checkNearArrival().catch((e) => console.error('arrivee-proche', e)), 60000);
-setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
-setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
+if (JOBS) setInterval(() => verifyPendingPrices().catch((e) => console.error('verification des prix', e)), 30000);
+if (JOBS) setInterval(() => checkNearArrival().catch((e) => console.error('arrivee-proche', e)), 60000);
+if (JOBS) setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
+if (JOBS) setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
+
+// Derniere ligne de defense : une erreur imprevue renvoie une reponse propre et ne plante jamais le serveur.
+app.use((err, req, res, next) => {
+  console.error('erreur de route :', req.method, req.path, err && err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Erreur du serveur' });
+});
+process.on('unhandledRejection', (e) => console.error('promesse rejetee :', e && e.message));
+process.on('uncaughtException', (e) => console.error('exception :', e && e.message));
 
 app.listen(PORT, () => {
   console.log(`Backend demarre sur http://localhost:${PORT}`);

@@ -140,7 +140,11 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
 
   app.get('/inscription-chauffeur/:token', (req, res) => res.sendFile(require('path').join(__dirname, '../public/inscription-chauffeur/index.html')));
 
-  app.get('/public/driver-invite/:token', async (req, res) => {
+  const { limit } = require('./security');
+  const inviteRead = limit({ max: 30, windowMs: 60000 });
+  const inviteUpload = limit({ max: 30, windowMs: 600000 });
+  const inviteSubmit = limit({ max: 6, windowMs: 3600000 });
+  app.get('/public/driver-invite/:token', inviteRead, async (req, res) => {
     const { inv, error } = await loadUsableInvitation(req.params.token);
     if (error) return res.status(error[0]).json({ error: error[1] });
     const { data: settings } = await supabaseAdmin.from('app_settings').select('app_name, logo_url, accent_color, accent_contrast').eq('id', true).single();
@@ -152,7 +156,7 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
   });
 
   // URL d'envoi temporaire : le fichier part directement vers le stockage prive.
-  app.post('/public/driver-invite/:token/upload-url', async (req, res) => {
+  app.post('/public/driver-invite/:token/upload-url', inviteUpload, async (req, res) => {
     const { inv, error } = await loadUsableInvitation(req.params.token);
     if (error) return res.status(error[0]).json({ error: error[1] });
     const { type, filename } = req.body;
@@ -163,7 +167,7 @@ function registerDriverOnboarding(app, { supabaseAdmin, requireAdmin, sendEmail,
     res.json({ path, token: data.token });
   });
 
-  app.post('/public/driver-invite/:token/submit', async (req, res) => {
+  app.post('/public/driver-invite/:token/submit', inviteSubmit, async (req, res) => {
     const { inv, error } = await loadUsableInvitation(req.params.token);
     if (error) return res.status(error[0]).json({ error: error[1] });
     const b = req.body;

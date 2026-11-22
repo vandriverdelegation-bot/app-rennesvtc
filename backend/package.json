@@ -3,7 +3,8 @@
   "private": true,
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "securite": "node --test tests/securite.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",

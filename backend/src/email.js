@@ -50,7 +50,7 @@ async function sendAdminEmail(subject, text) {
   let to = ADMIN_EMAIL;
   try {
     const { supabaseAdmin } = require('./supabaseAdmin');
-    const { data } = await supabaseAdmin.from('app_settings').select('admin_email').eq('id', true).single();
+    const { data } = await supabaseAdmin.from('admin_settings').select('admin_email').eq('id', true).maybeSingle();
     if (data?.admin_email) to = data.admin_email;
   } catch (e) {
     console.log('Adresse des alertes admin illisible, adresse par defaut utilisee:', e.message);

@@ -587,7 +587,7 @@ async function purgeOldSignups() {
   const { data: gone } = await supabaseAdmin.from('navette_signups').delete().in('departure_id', deps.map((d) => d.id)).select('id');
   return gone?.length ?? 0;
 }
-setTimeout(() => purgeOldSignups().then((n) => n && console.log('navettes : ' + n + ' inscription(s) de plus de 30 jours supprimee(s)')).catch((e) => console.error('purge navettes :', e.message)), 60000).unref();
-setInterval(() => purgeOldSignups().catch((e) => console.error('purge navettes :', e.message)), 6 * 3600000).unref();
+if (!process.env.DISABLE_JOBS) setTimeout(() => purgeOldSignups().then((n) => n && console.log('navettes : ' + n + ' inscription(s) de plus de 30 jours supprimee(s)')).catch((e) => console.error('purge navettes :', e.message)), 60000).unref();
+if (!process.env.DISABLE_JOBS) setInterval(() => purgeOldSignups().catch((e) => console.error('purge navettes :', e.message)), 6 * 3600000).unref();
 
 module.exports = { purgeOldSignups, registerNavettes, parisToUtc, departureMinutes, toMinutes };

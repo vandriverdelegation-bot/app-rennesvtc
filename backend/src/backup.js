@@ -111,8 +111,10 @@ function registerBackup(app, { supabaseAdmin, requireAdmin, sendAdminEmail }) {
     const hour = Number(new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }));
     if (hour >= 3) run(false);
   };
-  setInterval(tick, 60 * 60 * 1000);
-  setTimeout(tick, 60 * 1000);
+  if (!process.env.DISABLE_JOBS) {
+    setInterval(tick, 60 * 60 * 1000);
+    setTimeout(tick, 60 * 1000);
+  }
 }
 
 module.exports = { registerBackup };
