@@ -27,12 +27,17 @@ npm run securite
 | 6 | Limites à l'inscription et abus | Fermée côté serveur / à vérifier côté Supabase | Limites d'appels sur réservation web, estimation, notifications, chat, devis, invitations ; serveur qui ne plante plus sur une requête piégée. L'e-mail doit être confirmé avant connexion | 6a, 6b, 6c |
 | 7 | Webhook de paiement | Sans objet | Aucun paiement en ligne, donc aucun webhook. **À refaire le jour où un paiement en ligne est ajouté** (signature, événements trop vieux, doublons) | – |
 
-## Ce qui reste à faire à la main (hors code)
+## Réglages faits à la main (22/11/2026)
 
-1. **Google Cloud** : sur la clé Maps, restreindre aux API utilisées (Directions, Places) et fixer un **plafond de dépense quotidien**.
-2. **Supabase > Authentication > Rate Limits** : vérifier les limites d'inscription, de connexion et d'envoi d'e-mails ; activer la protection contre les mots de passe compromis si disponible.
-3. **Render > Environment** : ajouter `LINK_SECRET` (une longue valeur aléatoire) pour signer les liens du bon de commande et de la tablette avec un secret dédié. Les anciens liens déjà envoyés par e-mail continuent de marcher.
-4. **Après toute fuite de clé** : la révoquer chez le fournisseur et en créer une nouvelle. La supprimer du code ne suffit pas.
+- **Google Cloud, clé Maps** : restreinte à Directions API et Places API (New) (les SDK Android et iOS ont été retirés). Plafonds par jour : Directions 1 000, Places Autocomplete 2 000, Places GetPlace 1 000 ; Directions 60 par minute. Budget « ALERTES MAPS » : alertes uniquement (pas de coupure), à vérifier dans Facturation > Budgets.
+- **Render** : variable `LINK_SECRET` ajoutée (signe les liens du bon de commande et de la tablette). Les anciens liens déjà envoyés restent valides (vérifié).
+- **Supabase** : limites d'e-mails et de connexion laissées aux valeurs par défaut (30 e-mails/h, 30 vérifications/5 min), jugées suffisantes.
+
+## Reste à faire
+
+1. **Supabase > Authentication > Sign In / Providers > Email** : longueur minimale du mot de passe à 8 avec lettres et chiffres.
+2. **Après toute fuite de clé** : la révoquer chez le fournisseur et en créer une nouvelle. La supprimer du code ne suffit pas.
+3. La protection contre les mots de passe déjà piratés demande un forfait Supabase payant.
 
 ## Règles à garder
 
