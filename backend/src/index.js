@@ -16,6 +16,7 @@ const { registerExport } = require('./exportReservations');
 const { clientIp, safeEqual, limit, securityHeaders, corsOptions, catchAsyncErrors } = require('./security');
 const { registerAgendaTransport } = require('./agendaTransport');
 const { registerAvisCourse } = require('./avisCourse');
+const { registerGoogleAgenda, syncAll: syncGoogleAgenda, syncSoon: syncGoogleAgendaSoon } = require('./googleAgenda');
 const { buildRideMail } = require('./mailTemplate');
 const { renderAccueil } = require('./accueil');
 
@@ -601,6 +602,7 @@ async function announceAccepted(rideId) {
     await sendDriverRideMail({ bonData, pdf });
   }
   await notifyExtraDrivers(rideId, ride.extra_driver_ids);
+  syncGoogleAgendaSoon(); // Google Agenda du proprietaire (sans effet s'il n'est pas connecte)
 }
 
 // Chauffeurs supplementaires d'une mission : alerte et bon de commande a leur nom (meme document que le principal).
@@ -645,6 +647,7 @@ registerNavettes(app, requireAdmin, BASE_URL);
 registerExport(app, requireAdmin);
 registerAgendaTransport(app, requireSupabaseUser);
 registerAvisCourse(app, requireSupabaseUser);
+registerGoogleAgenda(app, requireAdmin);
 
 async function requireDriver(req, res, next) {
   await requireSupabaseUser(req, res, async () => {
@@ -1604,6 +1607,7 @@ if (JOBS) setInterval(() => verifyPendingPrices().catch((e) => console.error('ve
 if (JOBS) setInterval(() => checkNearArrival().catch((e) => console.error('arrivee-proche', e)), 60000);
 if (JOBS) setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
 if (JOBS) setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
+if (JOBS) setInterval(() => syncGoogleAgenda().catch((e) => console.error('agenda Google', e.message)), 120000);
 
 // Derniere ligne de defense : une erreur imprevue renvoie une reponse propre et ne plante jamais le serveur.
 app.use((err, req, res, next) => {

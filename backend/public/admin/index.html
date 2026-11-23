@@ -457,6 +457,7 @@
 
         <div class="nav-group">Reglages</div>
         <a class="nav-link" data-page="apparence"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>Apparence</span></a>
+        <a class="nav-link" data-page="google-agenda"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Google Agenda</span></a>
         <a class="nav-link" data-page="reservation-web"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg><span>Reservation web</span></a>
       </nav>
       <div class="sidebar-foot">
@@ -593,6 +594,22 @@
 
         <button id="app-settings-save">Enregistrer</button>
         <p id="app-settings-status" style="color:var(--text-muted)"></p>
+      </div>
+
+      <div class="page" id="page-google-agenda">
+        <div class="page-head">
+          <h2>Google Agenda</h2>
+          <p>Vos reservations de chauffeur s'ajoutent toutes seules a votre Google Agenda : ajout, changement d'heure ou d'adresse, annulation.</p>
+        </div>
+        <div class="card">
+          <p id="gcal-status">Chargement...</p>
+          <div class="price-row">
+            <button id="gcal-connect">Connecter mon Google Agenda</button>
+            <button class="secondary" id="gcal-sync">Synchroniser maintenant</button>
+            <button class="secondary" id="gcal-disconnect">Deconnecter</button>
+          </div>
+          <p id="gcal-msg" class="hint"></p>
+        </div>
       </div>
 
       <div class="page" id="page-reservation-web">
@@ -1096,6 +1113,7 @@ function showPage(name) {
   document.querySelectorAll('.nav-link').forEach((l) => l.classList.toggle('active', l.dataset.page === name));
   document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${name}`));
   if (name === 'carte') initMap();
+  if (name === 'google-agenda') renderGcal();
   if (name === 'disponibilites') renderAvailability();
   if (name === 'calendrier') renderCalendar();
   if (name === 'vehicules') renderVehicles();
@@ -1104,6 +1122,38 @@ function showPage(name) {
   if (name === 'dashboard') window.renderNavettesShortcut?.();
   if (name === 'tarifs' && zoneMap) setTimeout(() => zoneMap.invalidateSize(), 50);
 }
+
+async function gcalCall(path, method = 'GET') {
+  const { data: { session: s } } = await supabase.auth.getSession();
+  const r = await fetch('/admin/gcal/' + path, { method, headers: { Authorization: 'Bearer ' + s.access_token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Erreur');
+  return j;
+}
+async function renderGcal() {
+  const st = document.getElementById('gcal-status'), msg = document.getElementById('gcal-msg');
+  try {
+    const j = await gcalCall('status');
+    st.textContent = !j.configured ? "Pas encore active sur le serveur : les identifiants Google doivent d'abord etre ajoutes." : j.connected ? 'Connecte' + (j.email ? ' : ' + j.email : '') + ' - ' + j.events + ' evenement(s) dans votre agenda.' : "Pas connecte : cliquez sur « Connecter » et autorisez l'acces a votre agenda.";
+    document.getElementById('gcal-connect').style.display = j.connected ? 'none' : '';
+    document.getElementById('gcal-sync').style.display = j.connected ? '' : 'none';
+    document.getElementById('gcal-disconnect').style.display = j.connected ? '' : 'none';
+    document.getElementById('gcal-connect').disabled = !j.configured;
+  } catch (e) { st.textContent = e.message; }
+  const back = new URLSearchParams(location.search).get('gcal');
+  if (back) msg.textContent = back === 'ok' ? 'Google Agenda connecte. Vos reservations sont en cours d\'ajout.' : 'La connexion a echoue (' + back + '). Reessayez.';
+}
+document.getElementById('gcal-connect').addEventListener('click', async () => {
+  try { location.href = (await gcalCall('connect', 'POST')).url; } catch (e) { document.getElementById('gcal-msg').textContent = e.message; }
+});
+document.getElementById('gcal-sync').addEventListener('click', async () => {
+  const msg = document.getElementById('gcal-msg'); msg.textContent = 'Synchronisation...';
+  try { const j = await gcalCall('sync', 'POST'); msg.textContent = j.added + ' ajoute(s), ' + j.updated + ' mis a jour, ' + j.removed + ' supprime(s)' + (j.errors ? ', ' + j.errors + ' erreur(s)' : '') + '.'; renderGcal(); } catch (e) { msg.textContent = e.message; }
+});
+document.getElementById('gcal-disconnect').addEventListener('click', async () => {
+  if (!confirm("Deconnecter Google Agenda ? Les evenements deja crees restent dans votre agenda.")) return;
+  try { await gcalCall('disconnect', 'POST'); renderGcal(); } catch (e) { document.getElementById('gcal-msg').textContent = e.message; }
+});
 
 async function handleLogin() {
   loginError.textContent = '';
