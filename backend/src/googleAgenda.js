@@ -80,14 +80,18 @@ async function gcal(conn, method, path, body) {
 
 const COLS = 'id, status, driver_id, scheduled_at, service_type, duration_hours, pickup_address, dropoff_address, stop_addresses, client_name, client_phone, passenger_count, price, payment_method, driver_note, tracking_token, transport_type, transport_number, gcal_event_id, gcal_hash';
 
+let last = { at: null, error: null }; // dernier resultat, affiche dans le back-office pour comprendre un probleme
+
 // Aligne l'agenda sur les reservations du chauffeur connecte : ajoute, met a jour, supprime. Renvoie les compteurs.
 async function syncAll() {
   const out = { added: 0, updated: 0, removed: 0, errors: 0 };
+  last = { at: new Date().toISOString(), error: null };
   if (!configured()) return out;
   const { data: conn } = await supabaseAdmin.from('gcal_connection').select('*').eq('id', true).maybeSingle();
   if (!conn) return out;
   const since = new Date(Date.now() - 2 * 864e5).toISOString();
-  const { data: mine } = await supabaseAdmin.from('rides').select(COLS).eq('driver_id', conn.driver_id).in('status', ['accepted', 'completed']).not('scheduled_at', 'is', null).gte('scheduled_at', since);
+  const { data: mine, error: mineError } = await supabaseAdmin.from('rides').select(COLS).eq('driver_id', conn.driver_id).in('status', ['accepted', 'completed']).not('scheduled_at', 'is', null).gte('scheduled_at', since);
+  if (mineError) { last.error = 'Lecture des courses : ' + mineError.message; out.errors++; return { ...out, error: last.error }; }
   for (const r of mine ?? []) {
     try {
       const ev = eventFor(r), h = hashOf(ev);
@@ -100,7 +104,7 @@ async function syncAll() {
         await supabaseAdmin.from('rides').update({ gcal_hash: h }).eq('id', r.id);
         out.updated++;
       }
-    } catch (e) { out.errors++; console.error('agenda Google :', r.id, e.message); }
+    } catch (e) { out.errors++; last.error = last.error || e.message; console.error('agenda Google :', r.id, e.message); }
   }
   // Courses annulees, reattribuees ou sans heure : on retire l'evenement.
   const keep = new Set((mine ?? []).map((r) => r.id));
@@ -110,9 +114,9 @@ async function syncAll() {
       await gcal(conn, 'DELETE', `/${encodeURIComponent(r.gcal_event_id)}`);
       await supabaseAdmin.from('rides').update({ gcal_event_id: null, gcal_hash: null }).eq('id', r.id);
       out.removed++;
-    } catch (e) { out.errors++; console.error('agenda Google (suppression) :', r.id, e.message); }
+    } catch (e) { out.errors++; last.error = last.error || e.message; console.error('agenda Google (suppression) :', r.id, e.message); }
   }
-  return out;
+  return { ...out, error: last.error };
 }
 
 let timer = null;
@@ -122,7 +126,7 @@ function registerGoogleAgenda(app, requireAdmin) {
   app.get('/admin/gcal/status', requireAdmin, async (req, res) => {
     const { data: conn } = await supabaseAdmin.from('gcal_connection').select('google_email, connected_at').eq('id', true).maybeSingle();
     const { count } = await supabaseAdmin.from('rides').select('id', { count: 'exact', head: true }).not('gcal_event_id', 'is', null);
-    res.json({ configured: configured(), connected: !!conn, email: conn?.google_email ?? null, events: count ?? 0 });
+    res.json({ configured: configured(), connected: !!conn, email: conn?.google_email ?? null, events: count ?? 0, last });
   });
 
   app.post('/admin/gcal/connect', requireAdmin, (req, res) => {
@@ -153,7 +157,7 @@ function registerGoogleAgenda(app, requireAdmin) {
   });
 
   app.post('/admin/gcal/sync', requireAdmin, async (req, res) => {
-    try { res.json({ ok: true, ...(await syncAll()) }); } catch (e) { res.status(500).json({ error: e.message }); }
+    try { res.json({ ok: true, ...(await syncAll()) }); } catch (e) { last.error = e.message; res.status(500).json({ error: e.message }); }
   });
 
   app.post('/admin/gcal/disconnect', requireAdmin, async (req, res) => {
