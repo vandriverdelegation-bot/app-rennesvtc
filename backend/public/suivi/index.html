@@ -9,41 +9,45 @@
 <style>
   :root {
     color-scheme: dark;
-    --bg: #0A0C0B; --card: #131715; --card-2: #1A1F1C; --border: #242B27;
-    --accent: #47C415; --accent-text: #0E0F10; --text: #F4F7F5; --muted: #9BA6A0;
+    --bg: #070908; --card: #101412; --card-2: #171c19; --border: #232a26;
+    --accent: #22C55E; --accent-text: #06130B; --text: #F4F7F5; --muted: #9BA6A0;
     --amber: #F5B83D; --error: #FF6B6B;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
-  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  header img { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 10px; }
-  header strong { font-size: 18px; font-weight: 800; }
-  .hero { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 14px; }
-  .hero small { color: var(--muted); font-weight: 600; }
-  .hero h1 { font-size: 24px; margin: 4px 0 6px; text-wrap: balance; }
-  .hero p { margin: 0; color: var(--muted); }
-  .live { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
-  .live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-out infinite; }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
-  .cancelled { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); border-radius: 12px; padding: 12px 14px; font-weight: 700; margin-bottom: 14px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 18px 20px 40px; }
+
+  /* En-tete */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+  .top img.logo { height: 56px; width: auto; display: block; }
+  .top-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+  .help { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 13px; line-height: 1.25; }
+  .help img { width: 30px; height: 30px; padding: 6px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .help small { display: block; color: var(--muted); }
+  .help b { color: var(--accent); }
+  .pill { padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600; background: var(--card); }
+  .pill:hover { border-color: var(--accent); }
+
+  h1.title { display: flex; align-items: center; gap: 12px; font-size: 30px; margin: 0 0 4px; letter-spacing: -.01em; }
+  h1.title::before { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .subtitle { margin: 0 0 20px; color: var(--muted); }
+  .cancelled { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); border-radius: 14px; padding: 12px 16px; font-weight: 700; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  .col { display: grid; gap: 18px; min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px; min-width: 0; }
   .card h2 { font-size: 15px; margin: 0 0 14px; }
-  #map { height: 300px; border-radius: 14px; border: 1px solid var(--border); }
+
+  /* Carte */
+  .mapbox { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+  #map { height: 400px; background: #0c100e; }
+  .map-badge { position: absolute; right: 12px; top: 12px; z-index: 500; display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px; border-radius: 999px; background: rgba(7,9,8,.88); border: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--accent); }
+  .map-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
   .map-note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
-  .steps { list-style: none; margin: 0; padding: 0; }
-  .step { display: flex; gap: 14px; position: relative; padding-bottom: 18px; }
-  .step:last-child { padding-bottom: 0; }
-  .step::before { content: ''; position: absolute; left: 11px; top: 26px; bottom: 0; width: 2px; background: var(--border); }
-  .step:last-child::before { display: none; }
-  .step.done::before { background: var(--accent); }
-  .dot { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--border); background: var(--bg); display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--accent-text); }
-  .step.done .dot { background: var(--accent); border-color: var(--accent); }
-  .step.current .dot { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
-  .step.todo { color: var(--muted); }
-  .step .label { font-weight: 700; }
-  .step .time { font-size: 13px; color: var(--muted); }
-  .route { display: grid; gap: 12px; }
+  .toggle { margin-top: 12px; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--card-2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+  .toggle:hover { border-color: var(--accent); }
+  .route { display: grid; gap: 14px; margin-top: 14px; }
   .stop { display: flex; gap: 12px; }
   .stop i { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; background: var(--accent); }
   .stop i.mid { background: var(--amber); }
@@ -51,52 +55,136 @@
   .stop small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
   .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .chip { padding: 4px 12px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--border); font-size: 13px; font-weight: 600; }
-  .driver { display: flex; align-items: center; gap: 14px; }
-  .avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 18px; }
-  .muted { color: var(--muted); font-size: 14px; }
-  .center { text-align: center; padding: 60px 16px; color: var(--muted); }
+
+  /* Chauffeur */
+  .drivers { display: grid; gap: 12px; }
+  .driver { display: grid; grid-template-columns: auto 1fr minmax(0, 220px); align-items: center; gap: 16px; padding: 14px; border-radius: 16px; background: var(--card-2); border: 1px solid var(--border); }
+  .avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: var(--accent); display: grid; place-items: center; color: var(--accent-text); font-weight: 800; font-size: 24px; }
+  .driver strong { font-size: 18px; }
+  .driver .role { color: var(--muted); font-size: 13px; }
+  .driver .car-line { margin-top: 6px; font-size: 14px; font-weight: 600; }
+  .plate { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 8px; border: 1px solid var(--accent); color: var(--accent); font-weight: 800; font-size: 13px; letter-spacing: .06em; }
+  .carphoto { width: 100%; height: 100px; object-fit: cover; border-radius: 12px; }
+
+  /* Etapes */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+  .step { position: relative; text-align: center; padding: 0 4px; }
+  .step::before { content: ''; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--border); }
+  .step:first-child::before { display: none; }
+  .step.done::before { background: var(--accent); }
+  .dot { position: relative; z-index: 1; width: 32px; height: 32px; margin: 0 auto 8px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); display: grid; place-items: center; font-size: 14px; font-weight: 800; color: var(--accent-text); }
+  .step.done .dot { background: var(--accent); border-color: var(--accent); }
+  .step.current .dot { border-color: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .step.todo { color: var(--muted); }
+  .step .label { font-size: 12.5px; font-weight: 700; line-height: 1.25; }
+  .step .time { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .step.current .label { color: var(--accent); }
+
+  /* Boutons */
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 14px; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; border: 1px solid var(--accent); color: var(--accent); background: transparent; }
+  .btn.solid { background: var(--accent); color: var(--accent-text); }
+  .btn:hover { filter: brightness(1.1); }
+
+  /* Messagerie */
+  .chat { position: sticky; top: 18px; display: flex; flex-direction: column; min-height: 520px; }
+  .chat h2 { margin: 0 0 4px; }
+  .chat .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .chat-list { display: flex; flex-direction: column; gap: 8px; flex: 1; max-height: 440px; overflow-y: auto; margin-bottom: 12px; }
+  .msg { max-width: 84%; padding: 9px 13px; border-radius: 16px; background: var(--card-2); border: 1px solid var(--border); align-self: flex-start; font-size: 14.5px; white-space: pre-wrap; word-break: break-word; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-color: transparent; }
+  .chat-empty { margin: auto; text-align: center; color: var(--muted); font-size: 14px; padding: 20px; }
+  .chat-form { display: flex; gap: 8px; }
+  .chat-form input { flex: 1; min-width: 0; padding: 13px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-2); color: inherit; font: inherit; }
+  .chat-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chat-form button { width: 48px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); font-size: 20px; font-weight: 800; cursor: pointer; }
+
+  .safe { text-align: center; color: var(--muted); font-size: 13px; margin-top: 26px; }
+  .center { text-align: center; padding: 80px 16px; color: var(--muted); }
+
   .car { width: 20px; height: 34px; border-radius: 9px; background: #0A0A0A; border: 2px solid #fff; display: flex; flex-direction: column; align-items: center; padding: 4px 0; gap: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
   .car b { width: 12px; border-radius: 3px; background: #6B7280; display: block; }
   .car b:nth-child(1) { height: 7px; } .car b:nth-child(2) { height: 8px; background: #1F2937; } .car b:nth-child(3) { height: 5px; }
-  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
-  .chat-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; margin: 10px 0; }
-  .msg { max-width: 82%; padding: 8px 12px; border-radius: 14px; background: var(--panel-2, #1B1C1E); align-self: flex-start; font-size: 15px; white-space: pre-wrap; word-break: break-word; }
-  .msg.me { align-self: flex-end; background: var(--accent); color: var(--accent-text); }
-  .chat-form { display: flex; gap: 8px; }
-  .chat-form input { flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: 1px solid #33353A; background: transparent; color: inherit; font: inherit; }
-  .chat-form button { padding: 0 18px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-text); font-weight: 700; font: inherit; cursor: pointer; }
+  .pin { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: rgba(7,9,8,.9); border: 2px solid var(--accent); white-space: nowrap; transform: translate(-50%, -150%); display: inline-block; }
+  .pin.end { border-color: var(--error); }
+  .pin.mid { border-color: var(--amber); }
+  .leaflet-container { font-family: inherit; }
+  /* Fond de carte OpenStreetMap assombri (les fonds sombres de tiers demandent une cle payante). */
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.55); }
+  @media (prefers-reduced-motion: reduce) { .map-badge::before { animation: none; } }
+
+  @media (max-width: 960px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .chat { position: static; min-height: 0; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 14px 14px 32px; }
+    .top img.logo { height: 44px; }
+    .top-right .help small, .top-right .pill { display: none; }
+    h1.title { font-size: 24px; }
+    #map { height: 300px; }
+    .driver { grid-template-columns: auto 1fr; }
+    .driver .carphoto { grid-column: 1 / -1; height: 150px; }
+    .steps { grid-template-columns: 1fr; gap: 0; }
+    .step { display: flex; gap: 14px; text-align: left; padding: 0 0 18px; }
+    .step:last-child { padding-bottom: 0; }
+    .step::before { left: 15px; top: 32px; bottom: 0; width: 2px; height: auto; }
+    .step:first-child::before { display: block; }
+    .step:last-child::before { display: none; }
+    .step::before { background: var(--border); }
+    .step.done:not(.current)::before { background: var(--accent); }
+    .dot { margin: 0; flex-shrink: 0; }
+    .actions { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap" id="root"><div class="center">Chargement du suivi...</div></div>
-<div class="wrap" id="chatwrap"></div>
+<div class="page" id="root"><div class="center">Chargement du suivi...</div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const token = location.pathname.split('/').filter(Boolean).pop();
 const esc = (t) => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
 const fmtTime = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const PHONE = '+33768425262';
 
-let map = null, carMarker = null, lastKey = '';
-let chatOpen = false, chatKey = '';
+let map = null, carMarker = null, lastKey = '', routeOpen = false;
+let chatOpen = false, chatKey = '', chatDraft = '';
 
-// Chat avec le chauffeur : hors de #root, qui est reconstruit a chaque changement (on ne perd pas la saisie).
+// Photo du vehicule attribue : celle du vehicule s'il en a une, sinon une photo de sa gamme (memes regles que les e-mails).
+function carPhoto(v) {
+  if (!v) return null;
+  if (v.photo_url) return v.photo_url;
+  const n = String(v.display_name || '').toLowerCase();
+  if (/camry/.test(n)) return '/mail/car_camry.jpg';
+  if (/classe\s*e/.test(n)) return '/mail/car_classe-e.jpg';
+  if (/classe\s*v|van|vito/.test(n) || v.vehicle_category === 'van') return '/mail/car_van.jpg';
+  return v.vehicle_category === 'confort' ? '/mail/car_camry.jpg' : '/mail/car_classe-e.jpg';
+}
+
+// Messagerie avec le chauffeur : fenetre fixe a droite, hors de la zone reconstruite a chaque changement.
+function chatHtml(active, hasDriver) {
+  const sub = active ? 'Echangez directement avec le chauffeur.' : hasDriver ? 'La messagerie est fermee : la mission est terminee.' : 'Disponible des qu\'un chauffeur est attribue.';
+  const empty = hasDriver ? 'Merci pour votre confiance.' : 'La messagerie s\'ouvrira ici des que votre chauffeur sera attribue.';
+  return `<section class="card chat">
+    <h2>Messagerie</h2>
+    <p class="sub">${sub}</p>
+    <div class="chat-list" id="chat-list">${active ? '' : '<div class="chat-empty">' + empty + '</div>'}</div>
+    ${active ? '<form class="chat-form" id="chat-form"><input id="chat-input" maxlength="1000" placeholder="Votre message..." autocomplete="off" aria-label="Votre message" /><button type="submit" aria-label="Envoyer">&#10148;</button></form>' : ''}
+  </section>`;
+}
+
 async function loadChat() {
-  const wrap = document.getElementById('chatwrap');
-  if (!chatOpen) { wrap.innerHTML = ''; chatKey = ''; return; }
+  const list = document.getElementById('chat-list');
+  if (!chatOpen || !list) return;
   try {
     const res = await fetch('/public/track/' + encodeURIComponent(token) + '/messages', { cache: 'no-store' });
     if (!res.ok) return;
     const { messages } = await res.json();
-    if (!wrap.firstChild) {
-      wrap.innerHTML = '<section class="card"><h2>Message au chauffeur</h2><div class="chat-list" id="chat-list"></div><form class="chat-form" id="chat-form"><input id="chat-input" maxlength="1000" placeholder="Votre message..." autocomplete="off" /><button type="submit">Envoyer</button></form></section>';
-      document.getElementById('chat-form').addEventListener('submit', sendChat);
-    }
     const key = JSON.stringify(messages.map((m) => m.id));
-    if (key === chatKey) return;
+    if (key === chatKey && list.firstChild) return;
     chatKey = key;
-    const list = document.getElementById('chat-list');
-    list.innerHTML = messages.length ? messages.map((m) => '<div class="msg ' + (m.role === 'donneur_ordre' ? 'me' : '') + '">' + esc(m.body) + '</div>').join('') : '<div class="map-note">Aucun message pour le moment.</div>';
+    list.innerHTML = messages.length ? messages.map((m) => '<div class="msg ' + (m.role === 'donneur_ordre' ? 'me' : '') + '">' + esc(m.body) + '</div>').join('') : '<div class="chat-empty">Aucun message pour le moment.</div>';
     list.scrollTop = list.scrollHeight;
   } catch (e) { /* reseau instable : prochain tour */ }
 }
@@ -109,6 +197,7 @@ async function sendChat(e) {
   input.value = '';
   const res = await fetch('/public/track/' + encodeURIComponent(token) + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) });
   if (!res.ok) { input.value = body; alert((await res.json().catch(() => ({}))).error || 'Envoi impossible.'); return; }
+  chatKey = '';
   loadChat();
 }
 
@@ -128,14 +217,14 @@ function progress(r) {
 }
 
 function headline(r, mad) {
-  if (r.status === 'cancelled') return ['Course annulee', ''];
-  if (r.ride_step === 'no_show') return ['Passager absent', 'Le chauffeur a attendu sur place : la course est cloturee pour non-presentation.'];
-  if (r.status === 'completed') return [mad ? 'Mission terminee' : 'Course terminee', 'Merci de votre confiance.'];
+  if (r.status === 'cancelled') return ['Mission annulee', ''];
+  if (r.ride_step === 'no_show') return ['Passager absent', 'Le chauffeur a attendu sur place : la mission est cloturee pour non-presentation.'];
+  if (r.status === 'completed') return ['Mission terminee', 'Merci de votre confiance.'];
   if (r.ride_step === 'dropped') return ['Passager depose', 'Il a ete depose a destination.'];
   if (r.ride_step === 'on_board' && nearOf(r)) return ['Arrivee proche', 'Le passager arrive dans quelques minutes : l\'accueil est prevenu.'];
   if (r.ride_step === 'on_board') {
     const eta = r.step_times && r.step_times.eta_at;
-    return ['Passager a bord', eta && new Date(eta) > new Date() ? 'Arrivee prevue vers ' + hhmm(eta) + '. Suivez sa position en direct ci-dessous.' : 'La course est en cours. Suivez sa position en direct ci-dessous.'];
+    return ['Passager a bord', eta && new Date(eta) > new Date() ? 'Arrivee prevue vers ' + hhmm(eta) + '. Suivez sa position en direct ci-dessous.' : 'La mission est en cours. Suivez sa position en direct ci-dessous.'];
   }
   if (r.ride_step === 'on_site') return mad ? ['Mission en cours', 'Le chauffeur est a votre disposition.'] : ['Le chauffeur est arrive', 'Il vous attend au point de prise en charge.'];
   if (r.ride_step === 'en_route') return ['Le chauffeur est en route', 'Suivez sa position en direct ci-dessous.'];
@@ -146,11 +235,10 @@ function headline(r, mad) {
 function render(r) {
   const mad = r.service_type === 'mise_a_disposition';
   const b = r.branding || {};
-  if (b.accent_color) document.documentElement.style.setProperty('--accent', b.accent_color);
-  if (b.accent_contrast) document.documentElement.style.setProperty('--accent-text', b.accent_contrast === 'white' ? '#FFFFFF' : '#0E0F10');
   document.title = 'Suivi de mission - ' + (b.app_name || 'Rennes VTC');
 
   const [title, sub] = headline(r, mad);
+  const cancelled = r.status === 'cancelled';
   const current = progress(r);
   const times = r.step_times || {};
   const steps = [
@@ -161,7 +249,7 @@ function render(r) {
     ['Passager a bord', times.on_board],
     ...(times.near !== 'ignore' ? [['Arrivee proche', nearOf(r)]] : []),
     ['Passager depose', times.dropped],
-    [mad ? 'Mission terminee' : 'Course terminee', times.completed],
+    ['Mission terminee', times.completed],
   ];
   const when = r.scheduled_at ? fmtTime(r.scheduled_at) : 'Des que possible';
   const driver = r.driver;
@@ -174,82 +262,125 @@ function render(r) {
     return '';
   };
   const stopsHtml = (r.stop_addresses || []).map((s, i) => `<div class="stop"><i class="mid"></i><div><small>Arret${esc(stopState(i))}</small>${esc(s)}</div></div>`).join('');
+  const drivers = driver ? [driver, ...(r.extraDrivers || [])] : [];
+  const chatActive = !!driver && r.status === 'accepted';
+  const finished = r.status === 'completed' || cancelled;
 
   document.getElementById('root').innerHTML = `
-    <header>
-      ${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="" />` : ''}
-      <strong>${esc(b.app_name || 'Rennes VTC')}</strong>
-    </header>
-    ${r.status === 'cancelled' ? '<div class="cancelled">Cette course a ete annulee.</div>' : ''}
-    <section class="hero">
-      <small>${mad ? 'Mise a disposition' : 'Course'} - ${esc(when)}</small>
-      <h1>${esc(title)}</h1>
-      ${sub ? `<p>${esc(sub)}</p>` : ''}
-      ${live ? '<span class="live">Position en direct</span>' : ''}
-    </section>
+    <div class="top">
+      <img class="logo" src="/suivi/logo.png" alt="${esc(b.app_name || 'Rennes VTC')}" />
+      <div class="top-right">
+        <a class="help" href="tel:${PHONE}"><img src="/mail/i_headset.png" alt="" /><span><small>Une question ?</small><b>+33 7 68 42 52 62</b></span></a>
+        <a class="pill" href="https://www.rennesvtc.com">&larr; Retour a l'accueil</a>
+      </div>
+    </div>
 
-    <section class="card">
-      <h2>Carte</h2>
-      <div id="map"></div>
-      <p class="map-note">${live ? 'La position du chauffeur est mise a jour en direct.' : r.status === 'completed' || r.status === 'cancelled' ? '' : 'La position du chauffeur s\'affichera ici des qu\'il sera en route.'}</p>
-    </section>
+    <h1 class="title">Suivi de mission</h1>
+    <p class="subtitle">${mad ? 'Mise a disposition' : 'Transfert'} - ${esc(when)}</p>
+    ${cancelled ? '<div class="cancelled">Cette mission a ete annulee.</div>' : ''}
 
-    <section class="card">
-      <h2>Deroulement</h2>
-      <ol class="steps">
-        ${steps.map(([label, t], i) => `
-          <li class="step ${i <= current && r.status !== 'cancelled' ? 'done' : 'todo'} ${i === current && r.status !== 'completed' && r.status !== 'cancelled' ? 'current' : ''}">
-            <span class="dot">${i <= current && r.status !== 'cancelled' ? '&#10003;' : ''}</span>
-            <div><div class="label">${label}</div><div class="time">${t && i <= current ? esc(fmtTime(t)) : ''}</div></div>
-          </li>`).join('')}
-      </ol>
-    </section>
+    <div class="grid">
+      <div class="col">
+        <section class="card">
+          <h2>${esc(title)}</h2>
+          ${sub ? `<p class="map-note" style="margin:-8px 0 14px">${esc(sub)}</p>` : ''}
+          <div class="mapbox">
+            ${live ? '<span class="map-badge">Position en direct</span>' : ''}
+            <div id="map"></div>
+          </div>
+          ${!live && !finished ? '<p class="map-note">La position du chauffeur s\'affichera ici des qu\'il sera en route.</p>' : ''}
+          <button type="button" class="toggle" id="route-toggle">${routeOpen ? 'Masquer le trajet' : 'Voir le trajet'}</button>
+          <div id="route-box" style="display:${routeOpen ? 'block' : 'none'}">
+            <div class="route">
+              <div class="stop"><i></i><div><small>Depart</small>${esc(r.pickup_address)}</div></div>
+              ${stopsHtml}
+              <div class="stop"><i class="end"></i><div><small>Destination${r.round_trip ? ' (aller-retour)' : ''}</small>${esc(r.dropoff_address)}</div></div>
+            </div>
+            <div class="meta">
+              ${r.client_name ? `<span class="chip">Passager : ${esc(r.client_name)}</span>` : ''}
+              ${mad && r.duration_hours ? `<span class="chip">Duree : ${esc(r.duration_hours)} h</span>` : ''}
+            </div>
+          </div>
+        </section>
 
-    ${driver ? `
-    <section class="card">
-      <h2>${(r.extraDrivers || []).length ? 'Vos chauffeurs' : 'Votre chauffeur'}</h2>
-      ${[driver, ...(r.extraDrivers || [])].map((d) => `<div class="driver" style="margin-bottom:10px">
-        <div class="avatar">${esc((d.firstName || 'C')[0].toUpperCase())}</div>
-        <div><strong>${esc(d.firstName || 'Chauffeur')}</strong>
-          ${d.vehicle ? `<div class="muted">${esc([d.vehicle.display_name, d.vehicle.color].filter(Boolean).join(' - '))}${d.vehicle.plate ? ` - <b>${esc(d.vehicle.plate)}</b>` : ''}</div>` : ''}
+        ${drivers.length ? `
+        <section class="card">
+          <h2>${drivers.length > 1 ? 'Vos chauffeurs' : 'Votre chauffeur'}</h2>
+          <div class="drivers">
+          ${drivers.map((d, i) => {
+            const v = d.vehicle, photo = carPhoto(v);
+            return `<div class="driver">
+              ${i === 0 ? '<img class="avatar" src="/mail/avatar.png" alt="" />' : `<div class="avatar">${esc((d.firstName || 'C')[0].toUpperCase())}</div>`}
+              <div>
+                <strong>${esc(d.firstName || 'Chauffeur')}</strong>
+                <div class="role">${i === 0 ? 'Votre chauffeur' : 'Chauffeur supplementaire'}</div>
+                ${v ? `<div class="car-line">${esc([v.display_name, v.color].filter(Boolean).join(' - '))}</div>${v.plate ? `<span class="plate">${esc(v.plate)}</span>` : ''}` : ''}
+              </div>
+              ${photo ? `<img class="carphoto" src="${esc(photo)}" alt="Vehicule attribue" />` : ''}
+            </div>`;
+          }).join('')}
+          </div>
+        </section>` : ''}
+
+        <section class="card">
+          <h2>Deroulement de la mission</h2>
+          <ol class="steps" style="--n:${steps.length}">
+            ${steps.map(([label, t], i) => {
+              const done = i <= current && !cancelled;
+              return `<li class="step ${done ? 'done' : 'todo'} ${i === current && !finished ? 'current' : ''}">
+                <span class="dot">${done ? '&#10003;' : ''}</span>
+                <div><div class="label">${label}</div><div class="time">${t && done ? esc(fmtTime(t)) : ''}</div></div>
+              </li>`;
+            }).join('')}
+          </ol>
+        </section>
+
+        <div class="actions">
+          ${chatActive ? '<button type="button" class="btn" id="write-driver">Ecrire au chauffeur</button>' : '<span></span>'}
+          <a class="btn solid" href="tel:${PHONE}">Contacter Rennes VTC</a>
         </div>
-      </div>`).join('')}
-    </section>` : ''}
-
-    <section class="card">
-      <h2>Trajet</h2>
-      <div class="route">
-        <div class="stop"><i></i><div><small>Depart</small>${esc(r.pickup_address)}</div></div>
-        ${stopsHtml}
-        <div class="stop"><i class="end"></i><div><small>Destination${r.round_trip ? ' (aller-retour)' : ''}</small>${esc(r.dropoff_address)}</div></div>
       </div>
-      <div class="meta">
-        ${r.client_name ? `<span class="chip">Passager : ${esc(r.client_name)}</span>` : ''}
-        ${mad && r.duration_hours ? `<span class="chip">Duree : ${esc(r.duration_hours)} h</span>` : ''}
-      </div>
-    </section>`;
 
+      ${chatHtml(chatActive, !!driver)}
+    </div>
+    <p class="safe">Votre securite, notre priorite.</p>`;
+
+  const draft = chatDraft;
+  const input = document.getElementById('chat-input');
+  if (input && draft) input.value = draft;
+  const form = document.getElementById('chat-form');
+  if (form) { form.addEventListener('submit', sendChat); input.addEventListener('input', () => { chatDraft = input.value; }); }
+  chatKey = '';
+  document.getElementById('route-toggle').addEventListener('click', () => {
+    routeOpen = !routeOpen;
+    document.getElementById('route-box').style.display = routeOpen ? 'block' : 'none';
+    document.getElementById('route-toggle').textContent = routeOpen ? 'Masquer le trajet' : 'Voir le trajet';
+  });
+  document.getElementById('write-driver')?.addEventListener('click', () => { const i = document.getElementById('chat-input'); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); i.focus(); });
   drawMap(r);
 }
 
 function carIcon() {
   return L.divIcon({ className: '', iconSize: [24, 38], iconAnchor: [12, 19], html: '<div class="car"><b></b><b></b><b></b></div>' });
 }
+const pinIcon = (label, cls) => L.divIcon({ className: '', iconSize: [0, 0], html: '<span class="pin ' + cls + '">' + esc(label) + '</span>' });
 
 function drawMap(r) {
   const el = document.getElementById('map');
   if (!el) return;
-  if (!r.pickup_lat || !r.pickup_lng) { el.style.display = 'none'; return; }
+  if (!r.pickup_lat || !r.pickup_lng) { el.parentElement.style.display = 'none'; return; }
   // render() reconstruit le DOM : on recree la carte a chaque rafraichissement.
   if (map) { map.remove(); map = null; carMarker = null; }
   map = L.map(el, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(map);
   const pts = [[r.pickup_lat, r.pickup_lng]];
-  L.circleMarker(pts[0], { radius: 9, color: '#fff', weight: 2, fillColor: '#47C415', fillOpacity: 1 }).addTo(map);
+  L.circleMarker(pts[0], { radius: 8, color: '#fff', weight: 2, fillColor: '#22C55E', fillOpacity: 1 }).addTo(map);
+  L.marker(pts[0], { icon: pinIcon('Depart', ''), interactive: false }).addTo(map);
   if (r.dropoff_lat && r.service_type !== 'mise_a_disposition') {
     pts.push([r.dropoff_lat, r.dropoff_lng]);
-    L.circleMarker(pts[1], { radius: 9, color: '#fff', weight: 2, fillColor: '#FF5C5C', fillOpacity: 1 }).addTo(map);
-    L.polyline(pts.slice(0, 2), { color: '#47C415', weight: 3, dashArray: '6 8' }).addTo(map);
+    L.circleMarker(pts[1], { radius: 8, color: '#fff', weight: 2, fillColor: '#FF6B6B', fillOpacity: 1 }).addTo(map);
+    L.marker(pts[1], { icon: pinIcon('Arrivee', 'end'), interactive: false }).addTo(map);
+    L.polyline(pts.slice(0, 2), { color: '#22C55E', weight: 4, opacity: .9 }).addTo(map);
   }
   if (r.driverPosition) {
     const p = [r.driverPosition.lat, r.driverPosition.lng];
@@ -257,7 +388,7 @@ function drawMap(r) {
     carMarker = L.marker(p, { icon: carIcon() }).addTo(map);
   }
   if (pts.length === 1) map.setView(pts[0], 14);
-  else map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+  else map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
 }
 
 async function load() {

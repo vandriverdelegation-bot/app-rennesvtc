@@ -25,7 +25,7 @@ const PAYMENT_LABELS = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 
 
 // Vehicule d'un chauffeur pour une course : celui de la gamme demandee (actif de preference), sinon le premier.
 async function pickVehicle(driverId, category) {
-  const { data } = await supabaseAdmin.from('vehicles').select('display_name, color, plate, vehicle_category, active').eq('driver_id', driverId).order('created_at', { ascending: true });
+  const { data } = await supabaseAdmin.from('vehicles').select('display_name, color, plate, vehicle_category, active, photo_url').eq('driver_id', driverId).order('created_at', { ascending: true });
   const all = data ?? [];
   const pool = all.some((v) => v.active) ? all.filter((v) => v.active) : all;
   return pool.find((v) => v.vehicle_category === category) ?? pool[0] ?? null;
@@ -35,7 +35,7 @@ async function pickVehicle(driverId, category) {
 async function loadExtraDrivers(ids, category) {
   return Promise.all((ids ?? []).map(async (id) => {
     const [{ data: p }, v] = await Promise.all([supabaseAdmin.from('profiles').select('full_name').eq('id', id).single(), pickVehicle(id, category)]);
-    return { firstName: (p?.full_name || '').split(' ')[0] || null, vehicleName: v?.display_name || null, plate: v?.plate || null };
+    return { firstName: (p?.full_name || '').split(' ')[0] || null, vehicleName: v?.display_name || null, plate: v?.plate || null, color: v?.color || null, photoUrl: v?.photo_url || null, category: v?.vehicle_category || null };
   }));
 }
 
@@ -1273,7 +1273,7 @@ app.get('/public/track/:token', async (req, res) => {
   }
   const { data: settings } = await supabaseAdmin.from('app_settings').select('app_name, logo_url, accent_color, accent_contrast').eq('id', true).single();
   const { driver_id, extra_driver_ids, driver_lat, driver_lng, ...rest } = ride;
-  const extraDrivers = driver ? (await loadExtraDrivers(extra_driver_ids, ride.vehicle_category)).map((e) => ({ firstName: e.firstName, vehicle: e.vehicleName ? { display_name: e.vehicleName, plate: e.plate } : null })) : [];
+  const extraDrivers = driver ? (await loadExtraDrivers(extra_driver_ids, ride.vehicle_category)).map((e) => ({ firstName: e.firstName, vehicle: e.vehicleName ? { display_name: e.vehicleName, plate: e.plate, color: e.color, photo_url: e.photoUrl, vehicle_category: e.category } : null })) : [];
   res.json({ ...rest, driver, extraDrivers, driverPosition: live ? { lat: driver_lat, lng: driver_lng } : null, branding: settings });
 });
 
