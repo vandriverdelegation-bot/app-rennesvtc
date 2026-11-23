@@ -299,6 +299,7 @@
   .modal-route { font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
   .rm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .rm-head-actions button { margin: 0; }
+  .rm-refuse { border-color: color-mix(in srgb, var(--error) 55%, var(--card-border)); color: var(--error); }
   .modal-tabs { padding: 18px 28px 0; }
   .modal-body { padding: 22px 28px 26px; background: var(--bg); }
   .rm-section, .rm-section:first-child, .rm-section:last-child { padding: 20px 22px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); }
@@ -1065,9 +1066,10 @@ const STATUS_META = {
   accepted: ['Acceptee', 'green'],
   completed: ['Terminee', 'muted'],
   cancelled: ['Annulee', 'red'],
+  refused: ['Refusee', 'red'],
 };
-function statusBadge(status) {
-  const [label, tone] = STATUS_META[status] ?? [status, 'muted'];
+function statusBadge(status, refusedAt) {
+  const [label, tone] = STATUS_META[refusedAt && status === 'cancelled' ? 'refused' : status] ?? [status, 'muted'];
   return `<span class="badge badge-${tone}">${label}</span>`;
 }
 
@@ -2695,6 +2697,7 @@ async function renderPending() {
           </select>
           <button class="secondary" data-dispatch-one="${ride.id}">Dispatcher a ce chauffeur</button>
           <button class="secondary" data-view-ride="${ride.id}">Voir la fiche</button>
+          <button class="secondary rm-refuse" data-refuse-ride="${ride.id}">Refuser</button>
         </div>
       </article>
     `;
@@ -2702,6 +2705,9 @@ async function renderPending() {
 
   container.querySelectorAll('[data-view-ride]').forEach((btn) => {
     btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
+  });
+  container.querySelectorAll('[data-refuse-ride]').forEach((btn) => {
+    btn.addEventListener('click', () => refuseRide(btn.dataset.refuseRide));
   });
   container.querySelectorAll('[data-dispatch-all]').forEach((btn) => {
     btn.addEventListener('click', () => dispatchRide(btn.dataset.dispatchAll, null));
@@ -2714,6 +2720,18 @@ async function renderPending() {
       dispatchRide(rideId, select.value);
     });
   });
+}
+
+// Refuse une reservation : le client recoit un e-mail d'excuses (apres confirmation).
+async function refuseRide(rideId) {
+  if (!confirm("Refuser cette reservation ?\n\nLe client recevra un e-mail d'excuses lui indiquant que sa reservation n'a pas pu etre acceptee. Cette action est definitive.")) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch('/admin/rides/' + rideId + '/refuse', { method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { alert(j.error || 'Erreur : la reservation n\'a pas ete refusee.'); return; }
+  alert(j.emailed?.length ? 'Reservation refusee. E-mail d\'excuses envoye a : ' + j.emailed.join(', ') : 'Reservation refusee. Aucune adresse e-mail connue : le client n\'a pas pu etre prevenu par e-mail.');
+  if (document.getElementById('ride-modal-backdrop').style.display === 'flex') closeRideModal(true);
+  refresh();
 }
 
 async function dispatchRide(rideId, driverId) {
@@ -3222,7 +3240,7 @@ function openZoneEditor(zone) {
 async function fetchHistoryRows() {
   let query = supabase
     .from('rides')
-    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone, tags, stop_addresses, round_trip, scheduled_at')
+    .select('id, pickup_address, dropoff_address, vehicle_category, status, service_type, payment_method, price, created_by, created_at, client_name, client_phone, tags, stop_addresses, round_trip, scheduled_at, refused_at')
     .order('scheduled_at', { ascending: false, nullsFirst: true })
     .limit(500);
 
@@ -3269,7 +3287,7 @@ async function renderHistory() {
             <td>${escapeHtml(r.client_name ?? r.client_phone ?? '(compte client)')}</td>
             <td>${escapeHtml(r.pickup_address)}${(r.stop_addresses ?? []).length ? ' (+' + r.stop_addresses.length + ' arret' + (r.stop_addresses.length > 1 ? 's' : '') + ')' : ''} &rarr; ${escapeHtml(r.dropoff_address)}${r.round_trip ? ' (A/R)' : ''}</td>
             <td>${VEHICLE_LABELS[r.vehicle_category]}</td>
-            <td>${statusBadge(r.status)}</td>
+            <td>${statusBadge(r.status, r.refused_at)}</td>
             <td>${PAYMENT_LABELS[r.payment_method] ?? ''}</td>
             <td>${r.price != null ? r.price + ' €' : '-'}</td>
             <td>${r.created_by}</td>
@@ -3674,13 +3692,14 @@ async function renderRideCourseTab() {
   const el = document.getElementById('ride-tab-course');
   document.getElementById('ride-modal-head').innerHTML = `
     <div class="rm-head-main">
-      <div class="rm-head-badges">${statusBadge(ride.status)}<span class="chip">${SERVICE_LABELS[ride.service_type] ?? ''}</span><span class="chip">${VEHICLE_LABELS[ride.vehicle_category] ?? ''}</span>${ride.ride_step && ride.ride_step !== 'not_started' ? `<span class="chip">${RIDE_STEP_LABELS[ride.ride_step] ?? ''}</span>` : ''}</div>
+      <div class="rm-head-badges">${statusBadge(ride.status, ride.refused_at)}<span class="chip">${SERVICE_LABELS[ride.service_type] ?? ''}</span><span class="chip">${VEHICLE_LABELS[ride.vehicle_category] ?? ''}</span>${ride.ride_step && ride.ride_step !== 'not_started' ? `<span class="chip">${RIDE_STEP_LABELS[ride.ride_step] ?? ''}</span>` : ''}</div>
       <h3 id="ride-modal-heading" class="modal-route">${escapeHtml(ride.pickup_address ?? '')} &rarr; ${escapeHtml(ride.dropoff_address ?? '')}</h3>
     </div>
     <div class="rm-head-actions">
       ${ride.tracking_token ? '<button type="button" class="secondary" id="rm-head-copy-tracking">Copier le lien de suivi</button>' : ''}
       <button type="button" class="secondary" id="rm-head-bon">Bon de commande</button>
       <button type="button" class="secondary" id="rm-head-duplicate">Dupliquer</button>
+      ${['pending', 'dispatched', 'accepted'].includes(ride.status) ? '<button type="button" class="secondary rm-refuse" id="rm-head-refuse">Refuser la reservation</button>' : ''}
     </div>
   `;
   document.getElementById('rm-head-bon').addEventListener('click', async () => {
@@ -3689,6 +3708,7 @@ async function renderRideCourseTab() {
   });
   document.getElementById('rm-head-copy-tracking')?.addEventListener('click', (e) => copyTrackingLink(ride.tracking_token, e.currentTarget));
   document.getElementById('rm-head-duplicate').addEventListener('click', () => duplicateRide(ride));
+  document.getElementById('rm-head-refuse')?.addEventListener('click', () => refuseRide(ride.id));
   const driverNames = ride.driver_id ? driverLabel : null;
   const clientLabel = ride.client_name || (ride.client_id ? 'Compte client' : 'Non renseigne');
   const dispatchLabel = ride.status === 'dispatched' ? (ride.dispatched_to ? `Dispatchee a ${nameOfDriver(ride.dispatched_to)}` : 'Dispatchee a tous') : 'Non attribue';

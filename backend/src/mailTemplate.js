@@ -23,6 +23,7 @@ const KINDS = {
   driver_accepted: { title: ['Course', 'confirmée'], intro: 'Vous avez accepté cette course. Retrouvez ci-dessous ses détails et votre bon de commande.' },
   no_show: { title: ['Passager', 'absent'], intro: 'Le chauffeur a attendu sur place : la course est clôturée pour non-présentation du passager.' },
   completed: { title: ['Course', 'terminée'], intro: 'Votre course est terminée. Merci de votre confiance.' },
+  refused: { title: ['Votre réservation', 'n’a pu être acceptée'], intro: 'Nous vous remercions de la confiance que vous nous avez témoignée. Malheureusement, nous ne sommes pas en mesure d’assurer la réservation ci-dessous, et nous en sommes sincèrement désolés. Nous vous prions de bien vouloir nous excuser pour la gêne occasionnée. Notre équipe reste à votre disposition pour étudier avec vous une autre date, un autre horaire ou une autre solution de transport.' },
 };
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -114,7 +115,7 @@ function buildRideMail({ kind, ride, driver, extraDrivers = [], trackingUrl, bon
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;max-width:640px;table-layout:fixed;${LIGHT('#ffffff')}border-radius:16px;overflow:hidden">
   <tr><td>${img(base, 'header.jpg', 640, 219, 'Rennes VTC - Votre temps mérite l’excellence', 'width:100%;max-width:640px;height:auto')}</td></tr>
   <tr><td class="pad" style="padding:0 28px 6px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td valign="middle" style="padding-right:20px">${ico(base, 'check.png', 70, 70)}</td>
+    ${kind === 'refused' ? '' : `<td valign="middle" style="padding-right:20px">${ico(base, 'check.png', 70, 70)}</td>`}
     <td valign="middle" class="ttl" style="border-left:3px solid ${GREEN};padding-left:20px;font-family:${FONT};font-size:34px;font-weight:700;line-height:1.06;color:#0c0d0d">${esc(k.title[0])}<br><span style="color:#35b00f">${esc(k.title[1])}</span></td>
   </tr></table></td></tr>
   <tr><td class="pad intro" style="padding:16px 28px 18px;font-family:${FONT};font-size:16px;color:#1a1d1b;line-height:1.55">Bonjour,<br>${esc(k.intro)}</td></tr>

@@ -98,14 +98,14 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
     .eq('id', rideId)
     .single();
   if (!ride) return;
-  const extraDrivers = kind !== 'received' ? await loadExtraDrivers(ride.extra_driver_ids, ride.vehicle_category) : [];
+  const extraDrivers = !['received', 'refused'].includes(kind) ? await loadExtraDrivers(ride.extra_driver_ids, ride.vehicle_category) : [];
   let passenger = ride.client_name;
   if (!passenger && ride.client_id) {
     const { data: p } = await supabaseAdmin.from('profiles').select('full_name').eq('id', ride.client_id).single();
     passenger = p?.full_name;
   }
   let driver = null;
-  if (ride.driver_id && kind !== 'received') {
+  if (ride.driver_id && !['received', 'refused'].includes(kind)) {
     const [{ data: profile }, vehicle] = await Promise.all([
       supabaseAdmin.from('profiles').select('full_name').eq('id', ride.driver_id).single(),
       pickVehicle(ride.driver_id, ride.vehicle_category),
@@ -117,7 +117,7 @@ async function sendRideMail({ rideId, to, subject, kind, audience }) {
     ride: {
       gamme: ride.vehicle_category, passenger, whenText: frenchWhen(ride.scheduled_at), pickup: ride.pickup_address, dropoff: ride.dropoff_address,
       mad: ride.service_type === 'mise_a_disposition', durationHours: ride.duration_hours, ref: String(ride.id).slice(0, 8).toUpperCase(),
-      showPrice: audience === 'client', price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '',
+      showPrice: audience === 'client' && kind !== 'refused', price: ride.price, paymentLabel: PAYMENT_LABELS[ride.payment_method] ?? '',
     },
     driver,
     extraDrivers,
@@ -530,6 +530,38 @@ app.post('/notify/new-ride', requireSupabaseUser, notifyLimit, async (req, res) 
 });
 
 // Previent le ou les chauffeurs concernes qu'une course leur a ete dispatchee.
+// Refus d'une reservation par l'administrateur : la course est cloturee, le client recoit un e-mail d'excuses.
+app.post('/admin/rides/:rideId/refuse', requireAdmin, async (req, res) => {
+  const { data: ride } = await supabaseAdmin
+    .from('rides')
+    .select('id, status, client_id, client_email, orderer_email, driver_id, extra_driver_ids, scheduled_at, pickup_address, dropoff_address')
+    .eq('id', req.params.rideId)
+    .single();
+  if (!ride) return res.status(404).json({ error: 'Reservation introuvable' });
+  if (!['pending', 'dispatched', 'accepted'].includes(ride.status)) return res.status(400).json({ error: 'Cette reservation ne peut plus etre refusee.' });
+  const { error } = await supabaseAdmin.from('rides').update({ status: 'cancelled', refused_at: new Date().toISOString(), driver_lat: null, driver_lng: null }).eq('id', ride.id);
+  if (error) return res.status(400).json({ error: error.message });
+
+  const trajet = `${ride.pickup_address} -> ${ride.dropoff_address}`;
+  const driverIds = [ride.driver_id, ...(ride.extra_driver_ids ?? [])].filter(Boolean);
+  if (driverIds.length) {
+    const { data: drivers } = await supabaseAdmin.from('profiles').select('push_token').in('id', driverIds);
+    await sendPush((drivers ?? []).map((d) => d.push_token), 'Course annulee', trajet, { channelId: 'courses_v2' });
+  }
+  let clientTo = ride.client_email;
+  if (ride.client_id) {
+    const { data: c } = await supabaseAdmin.from('profiles').select('email, push_token').eq('id', ride.client_id).single();
+    clientTo = clientTo || c?.email;
+    await sendPush([c?.push_token], 'Reservation non acceptee', 'Nous sommes desoles : votre reservation n’a pas pu etre acceptee.');
+  }
+  const recipients = [...new Set([clientTo, ride.orderer_email].filter(Boolean).map((a) => a.trim().toLowerCase()))];
+  for (const to of recipients) {
+    await sendRideMail({ rideId: ride.id, to, subject: 'Votre réservation Rennes VTC n’a pas pu être acceptée', kind: 'refused', audience: 'client' }).catch((e) => console.error('mail de refus', e.message));
+  }
+  syncGoogleAgendaSoon(); // retire l'evenement de Google Agenda
+  res.json({ ok: true, emailed: recipients });
+});
+
 app.post('/notify/dispatch', requireSupabaseUser, notifyLimit, async (req, res) => {
   const { rideId, repeat } = req.body;
   if (!(await isStaffUser(req.user.id))) return res.status(403).json({ error: 'Reserve a l administrateur' });
