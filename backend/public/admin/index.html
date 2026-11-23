@@ -2928,6 +2928,8 @@ async function renderPricing() {
     { label: 'Prise en charge', hint: 'Vide : même montant que le jour', cell: (c) => ttNum(sAttr(c, 'base_price_night'), sv(c, 'base_price_night')) },
     { label: 'Prix au kilomètre', hint: 'Vide : même prix que le jour', cell: (c) => ttNum(sAttr(c, 'price_per_km_night'), sv(c, 'price_per_km_night'), '€ / km') },
     { label: 'Course minimum', hint: 'Vide : même minimum que le jour', cell: (c) => ttNum(sAttr(c, 'min_price_night'), sv(c, 'min_price_night')) },
+    { group: 'Calcul du prix' },
+    { label: 'Mode manuel', hint: 'Pas de calcul : le prix est saisi par le chauffeur', cell: (c) => `<label class="tt-check"><input type="checkbox" ${sAttr(c, 'manual_mode', 'data-checkbox="1"')} ${sv(c, 'manual_mode') ? 'checked' : ''} /> Activé</label>` },
   ]);
   const surTable = ttTable([
     { group: 'En journée' },
@@ -2939,9 +2941,6 @@ async function renderPricing() {
     { label: 'Dimanche', cell: (c) => ttNum(sAttr(c, 'night_sunday_surcharge'), sv(c, 'night_sunday_surcharge') ?? 0, '€ en plus') },
     { label: 'Jour férié', cell: (c) => ttNum(sAttr(c, 'night_holiday_surcharge'), sv(c, 'night_holiday_surcharge') ?? 0, '€ en plus') },
   ]);
-  const manualTable = ttTable([
-    { label: 'Mode manuel', hint: 'Pas de calcul : le prix est saisi par le chauffeur', cell: (c) => `<label class="tt-check"><input type="checkbox" ${sAttr(c, 'manual_mode', 'data-checkbox="1"')} ${sv(c, 'manual_mode') ? 'checked' : ''} /> Activé</label>` },
-  ]);
   const hourlyTable = ttTable([
     { label: 'Prix par heure', cell: (c) => ttNum(`data-hourly="${c}" data-field="price_per_hour"`, H[c]?.price_per_hour ?? 0, '€ / h') },
     { label: 'Durée minimum', cell: (c) => ttNum(`data-hourly="${c}" data-field="min_hours"`, H[c]?.min_hours ?? 0, 'heures', '0.5') },
@@ -2950,7 +2949,7 @@ async function renderPricing() {
   container.innerHTML = `
     <p class="tt-intro">Chaque colonne est une gamme de véhicule. Le prix d'un trajet = <b>prise en charge + (prix au km × kilomètres)</b>, jamais moins que la course minimum. Les <b>arrêts intermédiaires sont comptés dans les kilomètres</b> du trajet, et il n'y a aucun supplément pour les passagers ou les sièges enfants.</p>
 
-    ${ttBlock('Trajet simple : tarif au kilomètre', 'Le tarif de nuit s\'applique entre l\'heure de début et l\'heure de fin de la nuit.', kmTable + manualTable + '<button id="save-simple">Enregistrer le tarif au kilomètre</button>')}
+    ${ttBlock('Trajet simple : tarif au kilomètre', 'Le tarif de nuit s\'applique entre l\'heure de début et l\'heure de fin de la nuit.', kmTable + '<button id="save-simple">Enregistrer le tarif au kilomètre</button>')}
     ${ttBlock('Majorations week-end et jours fériés', 'Montant ajouté au prix de la course (en plus du tarif de jour ou de nuit). 0 = pas de majoration.', surTable + '<button id="save-simple-2">Enregistrer les majorations</button>')}
 
     ${ttBlock('Tarification par zone', 'Une zone <b>prend le dessus sur le tarif au kilomètre</b> : si le trajet part (ou arrive) dans une zone, c\'est le prix de la zone qui s\'applique pour chaque gamme. Chaque zone peut aussi ajouter un <b>supplément de prise en charge</b>, identique pour toutes les gammes.', `
