@@ -1607,7 +1607,8 @@ if (JOBS) setInterval(() => verifyPendingPrices().catch((e) => console.error('ve
 if (JOBS) setInterval(() => checkNearArrival().catch((e) => console.error('arrivee-proche', e)), 60000);
 if (JOBS) setInterval(() => remindUpcomingRides().catch((e) => console.error('rappel-course', e)), 60000);
 if (JOBS) setInterval(() => repeatDispatchAlerts().catch((e) => console.error('relance-dispatch', e)), 60000);
-if (JOBS) setInterval(() => syncGoogleAgenda().catch((e) => console.error('agenda Google', e.message)), 120000);
+// Google Agenda : mise a jour automatique toutes les 3 heures (et tout de suite apres une course acceptee, ou avec le bouton du back-office).
+if (JOBS) setInterval(() => syncGoogleAgenda().catch((e) => console.error('agenda Google', e.message)), 3 * 3600 * 1000);
 
 // Derniere ligne de defense : une erreur imprevue renvoie une reponse propre et ne plante jamais le serveur.
 app.use((err, req, res, next) => {

@@ -636,7 +636,10 @@
       </div>
 
       <div class="page" id="page-calendrier">
-        <h2>Calendrier</h2>
+        <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">Calendrier
+          <button class="secondary" id="cal-gcal-sync" style="margin:0;padding:6px 12px;font-size:13px">Synchroniser Google Agenda</button>
+          <small id="cal-gcal-msg" class="hint" style="font-weight:400"></small>
+        </h2>
         <div class="price-row">
           <select id="calendar-driver-filter"><option value="">Tous les chauffeurs</option></select>
           <button class="secondary" id="calendar-prev">&larr; Precedent</button>
@@ -1150,6 +1153,17 @@ document.getElementById('gcal-connect').addEventListener('click', async () => {
 document.getElementById('gcal-sync').addEventListener('click', async () => {
   const msg = document.getElementById('gcal-msg'); msg.textContent = 'Synchronisation...';
   try { const j = await gcalCall('sync', 'POST'); msg.textContent = j.added + ' ajoute(s), ' + j.updated + ' mis a jour, ' + j.removed + ' supprime(s)' + (j.errors ? ', ' + j.errors + ' erreur(s) : ' + (j.error || '') : '') + '.'; renderGcal(); } catch (e) { msg.textContent = e.message; }
+});
+// Petit bouton en haut de la page Calendrier : met Google Agenda a jour tout de suite.
+document.getElementById('cal-gcal-sync').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget, msg = document.getElementById('cal-gcal-msg');
+  btn.disabled = true; msg.textContent = 'Synchronisation...';
+  try {
+    const st = await gcalCall('status');
+    if (!st.connected) { msg.textContent = "Google Agenda n'est pas connecte : menu Reglages > Google Agenda."; return; }
+    const j = await gcalCall('sync', 'POST');
+    msg.textContent = j.errors ? 'Erreur : ' + (j.error || j.errors + ' erreur(s)') : j.added + ' ajoute(s), ' + j.updated + ' mis a jour, ' + j.removed + ' supprime(s) - ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) { msg.textContent = e.message; } finally { btn.disabled = false; }
 });
 document.getElementById('gcal-disconnect').addEventListener('click', async () => {
   if (!confirm("Deconnecter Google Agenda ? Les evenements deja crees restent dans votre agenda.")) return;
