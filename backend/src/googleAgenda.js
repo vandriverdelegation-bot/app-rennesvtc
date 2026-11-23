@@ -21,10 +21,10 @@ function checkState(s, now = Date.now()) {
   return good.length === sig.length && crypto.timingSafeEqual(Buffer.from(good), Buffer.from(sig));
 }
 
-const TRANSPORT = (r) => (r.transport_number ? `${r.transport_type === 'train' ? 'Train' : 'Vol'} ${r.transport_number}` : null);
-const PAYMENT = { carte_a_bord: 'CB a bord', especes: 'Especes', compte: 'En compte' };
+const VEHICLE = { confort: 'Confort', affaires: 'Affaires', van: 'Van' };
 
-// Evenement Google Agenda d'une reservation (fonction pure, testee).
+// Evenement Google Agenda d'une reservation (fonction pure, testee) : seulement le depart, la destination, les horaires
+// (ceux de l'evenement) et le type de vehicule. Ni tarif, ni client, ni lien de suivi.
 function eventFor(r) {
   const start = new Date(r.scheduled_at);
   const hours = r.service_type === 'mise_a_disposition' && r.duration_hours > 0 ? Number(r.duration_hours) : 1;
@@ -32,14 +32,8 @@ function eventFor(r) {
   const short = (s) => String(s ?? '').split(',').slice(0, 2).join(',').trim();
   const lines = [
     `Depart : ${r.pickup_address}`,
-    ...(r.stop_addresses ?? []).map((s) => `Arret : ${s}`),
     `Destination : ${r.dropoff_address}`,
-    TRANSPORT(r),
-    r.client_name ? `Client : ${r.client_name}${r.client_phone ? ' (' + r.client_phone + ')' : ''}` : null,
-    r.passenger_count ? `Passagers : ${r.passenger_count}` : null,
-    r.price != null ? `Prix : ${r.price} EUR (${PAYMENT[r.payment_method] ?? ''})` : null,
-    r.driver_note ? `Note : ${r.driver_note}` : null,
-    r.tracking_token ? `Suivi : ${BASE()}/transport/${r.tracking_token}` : null,
+    VEHICLE[r.vehicle_category] ? `Vehicule : ${VEHICLE[r.vehicle_category]}` : null,
   ].filter(Boolean);
   return {
     summary: `Rennes VTC : ${short(r.pickup_address)} > ${short(r.dropoff_address)}`,
@@ -78,7 +72,7 @@ async function gcal(conn, method, path, body) {
   return j;
 }
 
-const COLS = 'id, status, driver_id, scheduled_at, service_type, duration_hours, pickup_address, dropoff_address, stop_addresses, client_name, client_phone, passenger_count, price, payment_method, driver_note, tracking_token, transport_type, transport_number, gcal_event_id, gcal_hash';
+const COLS = 'id, status, driver_id, scheduled_at, service_type, duration_hours, pickup_address, dropoff_address, vehicle_category, gcal_event_id, gcal_hash';
 
 let last = { at: null, error: null }; // dernier resultat, affiche dans le back-office pour comprendre un probleme
 
