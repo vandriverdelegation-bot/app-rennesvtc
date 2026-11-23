@@ -1142,7 +1142,7 @@ async function renderGcal() {
     if (j.last && j.last.error) st.textContent += ' Derniere erreur : ' + j.last.error;
   } catch (e) { st.textContent = e.message; }
   const back = new URLSearchParams(location.search).get('gcal');
-  if (back) msg.textContent = back === 'mauvais-compte' ? "Ce n'est pas le bon compte Google : choisissez rennesvtc@gmail.com au moment de l'autorisation." : back === 'ok' ? 'Google Agenda connecte. Vos reservations sont en cours d\'ajout.' : 'La connexion a echoue (' + back + '). Reessayez.';
+  if (back) msg.textContent = back === 'droit-agenda-manquant' ? "Google n'a pas donne le droit sur l'agenda : sur l'ecran d'autorisation, cochez la case « Voir, modifier, partager et supprimer definitivement les evenements de tous les agendas » puis continuez." : back === 'mauvais-compte' ? "Ce n'est pas le bon compte Google : choisissez rennesvtc@gmail.com au moment de l'autorisation." : back === 'ok' ? 'Google Agenda connecte. Vos reservations sont en cours d\'ajout.' : 'La connexion a echoue (' + back + '). Reessayez.';
 }
 document.getElementById('gcal-connect').addEventListener('click', async () => {
   try { location.href = (await gcalCall('connect', 'POST')).url; } catch (e) { document.getElementById('gcal-msg').textContent = e.message; }

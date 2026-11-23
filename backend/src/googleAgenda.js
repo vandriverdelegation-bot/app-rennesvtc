@@ -145,6 +145,8 @@ function registerGoogleAgenda(app, requireAdmin) {
         body: new URLSearchParams({ code: String(req.query.code), client_id: process.env.GOOGLE_OAUTH_CLIENT_ID, client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET, redirect_uri: REDIRECT(), grant_type: 'authorization_code' }),
       })).json();
       if (!tok.refresh_token) return back('sans-jeton');
+      // Google laisse decocher le droit « agenda » sur l'ecran d'autorisation : sans lui, tout ajout serait refuse (403).
+      if (!String(tok.scope ?? '').includes('auth/calendar')) return back('droit-agenda-manquant');
       const email = tok.id_token ? JSON.parse(Buffer.from(tok.id_token.split('.')[1], 'base64url').toString()).email : null;
       if (!email || email.toLowerCase() !== WANTED()) return back('mauvais-compte');
       const { data: owner } = await supabaseAdmin.from('profiles').select('id').eq('is_owner', true).limit(1).maybeSingle();
