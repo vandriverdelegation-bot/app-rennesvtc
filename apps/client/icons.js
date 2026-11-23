@@ -29,6 +29,11 @@ const ICONS = {
   history: { w: require('./assets/ui/history_w.png'), g: require('./assets/ui/history_g.png'), m: require('./assets/ui/history_m.png'), k: require('./assets/ui/history_k.png') },
   pin: { w: require('./assets/ui/pin_w.png'), g: require('./assets/ui/pin_g.png'), m: require('./assets/ui/pin_m.png'), k: require('./assets/ui/pin_k.png') },
   headset: { w: require('./assets/ui/headset_w.png'), g: require('./assets/ui/headset_g.png'), m: require('./assets/ui/headset_m.png'), k: require('./assets/ui/headset_k.png') },
+  cash: { w: require('./assets/ui/cash_w.png'), g: require('./assets/ui/cash_g.png'), m: require('./assets/ui/cash_m.png'), k: require('./assets/ui/cash_k.png') },
+  tag: { w: require('./assets/ui/tag_w.png'), g: require('./assets/ui/tag_g.png'), m: require('./assets/ui/tag_m.png'), k: require('./assets/ui/tag_k.png') },
+  mail: { w: require('./assets/ui/mail_w.png'), g: require('./assets/ui/mail_g.png'), m: require('./assets/ui/mail_m.png'), k: require('./assets/ui/mail_k.png') },
+  check: { w: require('./assets/ui/check_w.png'), g: require('./assets/ui/check_g.png'), m: require('./assets/ui/check_m.png'), k: require('./assets/ui/check_k.png') },
+  back: { w: require('./assets/ui/back_w.png'), g: require('./assets/ui/back_g.png'), m: require('./assets/ui/back_m.png'), k: require('./assets/ui/back_k.png') },
 };
 
 // color : w = adaptatif (blanc en mode sombre, texte en mode clair), white = toujours blanc (sur fond vert), g = vert, m = gris, k = noir (texte du bouton vert).

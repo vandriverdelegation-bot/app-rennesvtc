@@ -121,7 +121,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
     ]).then(async ([{ data: pricing }, { data: zones }]) => {
       if (!pricing) return setPriceError(`Tarif introuvable pour la gamme ${rideCategory}.`);
       try {
-        const km = await getDistanceKm(pickup, dropoff);
+        const km = await getDistanceKm(pickup, dropoff, stops.filter(Boolean)); // arrets compris dans le kilometrage
         const result = computeTrajetSimplePrice({
           pricing,
           zones: zones ?? [],
@@ -129,10 +129,6 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
           dropoff,
           km,
           when,
-          passengerCount: parseInt(passengerCount, 10) || 1,
-          childSeats,
-          boosterSeats,
-          stopsCount: stops.length,
         });
         setPrice(result.price);
         setPriceManual(result.manual);
@@ -140,7 +136,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
         setPriceError(`Impossible de calculer le prix : ${e.message}`);
       }
     });
-  }, [serviceType, durationHours, pickup, dropoff, laterDate, laterTime, passengerCount, childSeats, boosterSeats, stops, rideCategory]);
+  }, [serviceType, durationHours, pickup, dropoff, laterDate, laterTime, stops, rideCategory]);
 
   function parseScheduledAt() {
     if (!laterDate && !laterTime) return null;

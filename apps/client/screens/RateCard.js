@@ -67,7 +67,7 @@ export default function EndScreen({ ride, session, onClose, onHistory }) {
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={styles.root}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.check}><Text style={styles.checkMark}>✓</Text></View>
+          <View style={styles.check}><Icon name="check" color="g" size={64} /></View>
           <Text style={styles.title}>Course terminée !</Text>
           <Text style={styles.sub}>Merci pour votre confiance</Text>
 

@@ -18,8 +18,8 @@ const STATUS_LABELS = {
 };
 
 const PAYMENT_METHODS = [
-  { value: 'carte_a_bord', label: 'CB a bord', icon: '💳' },
-  { value: 'especes', label: 'Especes', icon: '💶' },
+  { value: 'carte_a_bord', label: 'CB a bord', icon: 'wallet' },
+  { value: 'especes', label: 'Especes', icon: 'cash' },
 ];
 
 const HOME_KEY = 'home_address';
@@ -35,10 +35,10 @@ function parseDateTime(dateStr, timeStr) {
 }
 
 const SERVICE_TYPES = [
-  { value: 'trajet_simple', label: 'Trajet simple', icon: '📍' },
-  { value: 'mise_a_disposition', label: 'Mise a disposition', icon: '⏱️' },
-  { value: 'forfait', label: 'Forfait', icon: '🏷️' },
-  { value: 'devis', label: 'Demander un devis', icon: '✉️' },
+  { value: 'trajet_simple', label: 'Trajet simple', icon: 'pin' },
+  { value: 'mise_a_disposition', label: 'Mise a disposition', icon: 'clock' },
+  { value: 'forfait', label: 'Forfait', icon: 'tag' },
+  { value: 'devis', label: 'Demander un devis', icon: 'mail' },
 ];
 
 function SegmentedChoice({ options, value, onChange }) {
@@ -50,7 +50,7 @@ function SegmentedChoice({ options, value, onChange }) {
           style={[styles.choiceOption, value === o.value && styles.choiceOptionSelected]}
           onPress={() => onChange(o.value)}
         >
-          {o.icon ? <Text style={styles.choiceIcon}>{o.icon}</Text> : null}
+          {o.icon ? <Icon name={o.icon} color={value === o.value ? 'g' : 'm'} size={22} style={styles.choiceIcon} /> : null}
           <Text style={[value === o.value ? styles.choiceTextSelected : styles.choiceText, { textAlign: 'center' }]}>{o.label}</Text>
         </TouchableOpacity>
       ))}
@@ -70,7 +70,7 @@ function VehicleChoice({ value, onChange, photos }) {
           {photos[o.value] ? (
             <Image source={{ uri: photos[o.value] }} style={styles.vehiclePhoto} resizeMode="cover" />
           ) : null}
-          {value === o.value ? <View style={styles.vehicleCheck}><Text style={styles.vehicleCheckText}>✓</Text></View> : null}
+          {value === o.value ? <View style={styles.vehicleCheck}><Icon name="check" color="k" size={14} /></View> : null}
           <Text style={value === o.value ? styles.choiceTextSelected : styles.choiceText}>{o.label}</Text>
         </TouchableOpacity>
       ))}
@@ -277,7 +277,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       ]).then(async ([{ data: pricing }, { data: zones }]) => {
         if (!pricing) return;
         try {
-          const km = await getDistanceKm(pickup, dropoff);
+          const km = await getDistanceKm(pickup, dropoff, stops.filter(Boolean)); // arrets compris dans le kilometrage
           const result = computeTrajetSimplePrice({
             pricing,
             zones: zones ?? [],
@@ -285,10 +285,6 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
             dropoff,
             km,
             when: new Date(),
-            passengerCount: parseInt(passengerCount, 10) || 1,
-            childSeats,
-            boosterSeats,
-            stopsCount: stops.length,
           });
           setPrice(result.price);
           setPriceManual(result.manual);
@@ -297,7 +293,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
         }
       });
     }
-  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, passengerCount, childSeats, boosterSeats, stops]);
+  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, stops]);
 
   async function handleQuote() {
     setErrorMsg('');
@@ -494,7 +490,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
           {Array.from({ length: 10 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: `rgba(${theme.mode === 'light' ? '245,245,240' : '11,12,11'},${(1 - i / 9) ** 1.6})` }} />)}
         </View>
         <TouchableOpacity onPress={() => setView('home')} style={{ alignSelf: 'flex-start' }} accessibilityRole="button">
-          <Text style={styles.backLink}>← Mes réservations</Text>
+          <View style={styles.backRow}><Icon name="back" color="g" size={18} /><Text style={styles.backLink}>Mes réservations</Text></View>
         </TouchableOpacity>
         <Text style={styles.bookTitle}>Commander une course</Text>
         <View style={styles.bookUnderline} />
@@ -526,7 +522,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
               />
             </View>
             <TouchableOpacity onPress={() => setStops((prev) => prev.filter((_, idx) => idx !== i))}>
-              <Text style={styles.removeStop}>✕</Text>
+              <Icon name="close" color="m" size={22} style={styles.removeStop} />
             </TouchableOpacity>
           </View>
         ))}
@@ -539,7 +535,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
         {homeMode ? <Text style={styles.mutedText}>Cette adresse sera mémorisée comme votre domicile.</Text> : null}
         <TouchableOpacity style={styles.row} onPress={() => setRoundTrip((v) => !v)}>
           <View style={[styles.checkbox, roundTrip && styles.checkboxChecked]}>
-            {roundTrip ? <Text style={styles.checkboxMark}>✓</Text> : null}
+            {roundTrip ? <Icon name="check" color="k" size={14} /> : null}
           </View>
           <Text style={styles.inlineLabel}>Aller-retour</Text>
         </TouchableOpacity>
@@ -554,7 +550,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       {serviceType !== 'devis' && (
         <SectionCard title="Date et heure" icon="calendar">
           <TouchableOpacity style={styles.row} onPress={() => setAsap((v) => !v)}>
-            <View style={[styles.checkbox, asap && styles.checkboxChecked]}>{asap ? <Text style={styles.checkboxMark}>✓</Text> : null}</View>
+            <View style={[styles.checkbox, asap && styles.checkboxChecked]}>{asap ? <Icon name="check" color="k" size={14} /> : null}</View>
             <Text style={styles.inlineLabel}>Dès que possible</Text>
           </TouchableOpacity>
           {!asap && (
@@ -580,7 +576,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
               style={[styles.serviceTile, serviceType === o.value && styles.choiceOptionSelected]}
               onPress={() => setServiceType(o.value)}
             >
-              <Text style={styles.serviceIcon}>{o.icon}</Text>
+              <Icon name={o.icon} color={serviceType === o.value ? 'g' : 'm'} size={26} />
               <Text style={[serviceType === o.value ? styles.choiceTextSelected : styles.choiceText, styles.serviceLabel]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
@@ -718,7 +714,8 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
 
 const styles = themedStyles(() => ({
   container: { width: '100%', flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
-  backLink: { color: theme.colors.accent, fontWeight: '700', paddingVertical: 4 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  backLink: { color: theme.colors.accent, fontWeight: '700' },
   scrollView: { width: '100%', flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { width: '100%', alignItems: 'center', gap: 14, padding: 20, backgroundColor: theme.colors.background },
   map: { width: '100%', flex: 1 },
@@ -787,7 +784,6 @@ const styles = themedStyles(() => ({
   vehicleCheckText: { color: '#0B0C0B', fontWeight: '800', fontSize: 14 },
   serviceRow: { flexDirection: 'row', gap: 8, width: '100%' },
   serviceTile: { flex: 1, minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.input, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6 },
-  serviceIcon: { fontSize: 22 },
   serviceLabel: { fontSize: 12.5, textAlign: 'center' },
   stack: { width: '100%', gap: 8 },
   stackRow: {
@@ -817,7 +813,7 @@ const styles = themedStyles(() => ({
     textAlignVertical: 'top',
   },
   choiceOptionSelected: { backgroundColor: theme.colors.input, borderColor: theme.colors.accent, borderWidth: 2 },
-  choiceIcon: { fontSize: 18, marginBottom: 2 },
+  choiceIcon: { marginBottom: 2 },
   choiceText: { color: theme.colors.text, fontSize: 13 },
   choiceTextSelected: { color: theme.colors.text, fontWeight: '800', fontSize: 13 },
   inlineField: { marginTop: 4 },
@@ -842,7 +838,7 @@ const styles = themedStyles(() => ({
   },
   priceEstimate: { fontFamily: theme.fonts.title, fontSize: 20, color: theme.colors.accent, marginTop: 4 },
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  removeStop: { color: theme.colors.error, fontSize: 16, paddingHorizontal: 6 },
+  removeStop: { marginHorizontal: 6 },
   link: { color: theme.colors.accent, marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   checkbox: {

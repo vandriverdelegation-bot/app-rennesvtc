@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, BackHandler, ScrollView, StyleSheet, Switch, 
 import { registerPushToken, theme, themedStyles, ThemeSwitch } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { Btn, Card } from '../ui';
+import { Icon } from '../icons';
 
 const STATUS_LABELS = {
   pending: 'En attente',
@@ -21,7 +22,7 @@ function formatDate(ride) {
 function BackLink({ onPress }) {
   return (
     <TouchableOpacity onPress={onPress}>
-      <Text style={styles.back}>← Retour</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="back" color="g" size={18} /><Text style={styles.back}>Retour</Text></View>
     </TouchableOpacity>
   );
 }
