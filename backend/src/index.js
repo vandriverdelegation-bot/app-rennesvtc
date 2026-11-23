@@ -1282,18 +1282,20 @@ app.get('/public/track/:token', async (req, res) => {
 // appels passent par le serveur, qui la detient seule.
 
 // Distance (km) et duree (min) d'un trajet via l'API Directions ; 2 essais.
-async function getRouteServer(origin, destination) {
-  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+// waypoints : arrets intermediaires ({lat,lng} ou adresse texte) ; la distance est celle du trajet complet, arrets compris.
+async function getRouteServer(origin, destination, waypoints = []) {
+  const wp = waypoints.map((w) => (typeof w === 'string' ? w : `${w.lat},${w.lng}`)).filter(Boolean).slice(0, 10);
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${wp.length ? `&waypoints=${encodeURIComponent(wp.join('|'))}` : ''}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
   for (let attempt = 0; attempt < 2; attempt++) {
     const data = await fetch(url).then((r) => r.json()).catch(() => ({}));
-    const leg = data.routes?.[0]?.legs?.[0];
-    if (leg?.distance?.value) return { km: leg.distance.value / 1000, durationMin: Math.round(leg.duration.value / 60) };
+    const legs = data.routes?.[0]?.legs ?? [];
+    if (legs[0]?.distance?.value) return { km: legs.reduce((t, l) => t + l.distance.value, 0) / 1000, durationMin: Math.round(legs.reduce((t, l) => t + l.duration.value, 0) / 60) };
     console.error('Directions API :', data.status, data.error_message || '');
     await new Promise((r) => setTimeout(r, 600));
   }
   throw new Error("Impossible de calculer l'itinéraire, réessayez dans un instant.");
 }
-const getDistanceKmServer = async (origin, destination) => (await getRouteServer(origin, destination)).km;
+const getDistanceKmServer = async (origin, destination, waypoints) => (await getRouteServer(origin, destination, waypoints)).km;
 
 // ---- Prix verifie par le serveur ----
 // Le prix d'une course creee par un client (appli) est calcule sur son telephone : le serveur le recalcule avec les tarifs de la base et corrige tout ecart.
@@ -1317,11 +1319,8 @@ async function expectedPrice(ride) {
   if (!pricing || ride.pickup_lat == null || ride.dropoff_lat == null) return null;
   const pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };
   const dropoff = { lat: ride.dropoff_lat, lng: ride.dropoff_lng };
-  const km = await getDistanceKmServer(pickup, dropoff);
-  const result = computeTrajetSimplePrice({
-    pricing, zones: zones ?? [], pickup, dropoff, km, when: new Date(ride.created_at ?? Date.now()),
-    passengerCount: ride.passenger_count || 1, childSeats: ride.child_seats || 0, boosterSeats: ride.booster_seats || 0, stopsCount: (ride.stop_addresses ?? []).length,
-  });
+  const km = await getDistanceKmServer(pickup, dropoff, ride.stop_addresses ?? []);
+  const result = computeTrajetSimplePrice({ pricing, zones: zones ?? [], pickup, dropoff, km, when: new Date(ride.created_at ?? Date.now()) });
   return result.manual ? null : result.price;
 }
 
@@ -1379,11 +1378,12 @@ const googleLimit = limitPerMinute(120);
 
 // Itineraire pour les applis (distance et duree) : la cle Google reste sur le serveur.
 app.post('/public/route', googleLimit, async (req, res) => {
-  const { origin, destination } = req.body;
+  const { origin, destination, waypoints } = req.body;
   const ok = (p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
   if (!ok(origin) || !ok(destination)) return res.status(400).json({ error: 'Points de depart et d arrivee requis' });
   try {
-    res.json(await getRouteServer({ lat: Number(origin.lat), lng: Number(origin.lng) }, { lat: Number(destination.lat), lng: Number(destination.lng) }));
+    const stops = (Array.isArray(waypoints) ? waypoints : []).filter(ok).map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+    res.json(await getRouteServer({ lat: Number(origin.lat), lng: Number(origin.lng) }, { lat: Number(destination.lat), lng: Number(destination.lng) }, stops));
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
@@ -1419,7 +1419,7 @@ app.post('/public/places/details', googleLimit, async (req, res) => {
 
 const priceLimit = limit({ max: 40, windowMs: 60000 }); // chaque estimation appelle Google (payant)
 app.post('/public/estimate-price', priceLimit, async (req, res) => {
-  const { vehicle_category, pickup, dropoff, when, passengerCount, childSeats, boosterSeats, service_type, duration_hours } = req.body;
+  const { vehicle_category, pickup, dropoff, when, service_type, duration_hours } = req.body;
   if (service_type === 'mise_a_disposition' && vehicle_category) {
     const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', vehicle_category).single();
     const hours = parseFloat(duration_hours);
@@ -1438,7 +1438,6 @@ app.post('/public/estimate-price', priceLimit, async (req, res) => {
     const result = computeTrajetSimplePrice({
       pricing, zones: zones ?? [], pickup, dropoff, km,
       when: when ? new Date(when) : new Date(),
-      passengerCount: passengerCount || 1, childSeats: childSeats || 0, boosterSeats: boosterSeats || 0, stopsCount: 0,
     });
     res.json(result);
   } catch (e) {

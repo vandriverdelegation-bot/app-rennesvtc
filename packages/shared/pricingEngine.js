@@ -1,8 +1,10 @@
 // Calcul du prix d'un trajet simple, fidele a l'ancien back-office :
 // tarif jour/nuit (chacun avec ses propres majorations samedi/dimanche/
 // ferie), zones a tarif fixe (chaque zone a son propre tarif jour/nuit),
-// supplements (passagers, sieges auto, rehausseurs, points d'arret),
-// prise en charge, et mode Manuel (pas de calcul automatique).
+// et mode Manuel (pas de calcul automatique).
+// Pas de supplement : passagers et sieges enfants ne sont pas factures, et les arrets intermediaires
+// sont deja dans le kilometrage (km = trajet complet, arrets compris). Seule la zone peut ajouter
+// un supplement de prise en charge (identique pour toutes les gammes).
 
 function easterSunday(year) {
   // Algorithme de Meeus/Jones/Butcher.
@@ -62,8 +64,9 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// Une zone sans tarif (jour et nuit a 0) pour cette gamme n'est pas concernee : le calcul classique s'applique.
 function findMatchingZone(zones, point) {
-  return (zones ?? []).find((z) => haversineKm({ lat: z.lat, lng: z.lng }, point) <= z.radius_km);
+  return (zones ?? []).find((z) => (Number(z.day_price) > 0 || Number(z.night_price) > 0) && haversineKm({ lat: z.lat, lng: z.lng }, point) <= z.radius_km);
 }
 
 function toMinutes(t) {
@@ -90,7 +93,7 @@ function applyWeekendSurcharge(price, when, surcharges) {
 }
 
 // Retourne { price, manual, zoneUsed } ou price est null si manual=true (prix a fixer manuellement).
-function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when, passengerCount, childSeats, boosterSeats, stopsCount }) {
+function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when }) {
   if (pricing.manual_mode) {
     return { price: null, manual: true, zoneUsed: null };
   }
@@ -100,20 +103,17 @@ function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when, p
   const zoneUsed = zonePickup ?? zoneDropoff ?? null;
 
   let price;
-  let passengerThreshold;
-  let pricePerPassenger;
-  let pickupFee;
+  let zoneFee = 0;
 
   if (zoneUsed) {
     const useNight = isNightTime(zoneUsed.night_start, zoneUsed.night_end, when);
-    price = useNight ? zoneUsed.night_price : zoneUsed.day_price;
-    price = Math.max(price, useNight ? zoneUsed.min_price_night : zoneUsed.min_price_day);
+    // Un tarif de nuit laisse a 0 reprend celui de jour.
+    price = (useNight && Number(zoneUsed.night_price) > 0) ? zoneUsed.night_price : zoneUsed.day_price;
+    price = Math.max(price, (useNight ? zoneUsed.min_price_night : zoneUsed.min_price_day) || 0);
     price = applyWeekendSurcharge(price, when, useNight
       ? { saturday: zoneUsed.night_saturday_surcharge, sunday: zoneUsed.night_sunday_surcharge, holiday: zoneUsed.night_holiday_surcharge }
       : { saturday: zoneUsed.day_saturday_surcharge, sunday: zoneUsed.day_sunday_surcharge, holiday: zoneUsed.day_holiday_surcharge });
-    passengerThreshold = zoneUsed.passenger_threshold;
-    pricePerPassenger = zoneUsed.price_per_passenger;
-    pickupFee = zoneUsed.pickup_fee;
+    zoneFee = Number(zoneUsed.pickup_fee) || 0;
   } else {
     const night = isNightTime(pricing.night_start, pricing.night_end, when);
     const base = night ? pricing.base_price_night ?? pricing.base_price : pricing.base_price;
@@ -123,18 +123,9 @@ function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when, p
     price = applyWeekendSurcharge(price, when, night
       ? { saturday: pricing.night_saturday_surcharge, sunday: pricing.night_sunday_surcharge, holiday: pricing.night_holiday_surcharge }
       : { saturday: pricing.day_saturday_surcharge, sunday: pricing.day_sunday_surcharge, holiday: pricing.day_holiday_surcharge });
-    passengerThreshold = pricing.passenger_threshold;
-    pricePerPassenger = pricing.price_per_passenger;
-    pickupFee = pricing.pickup_fee;
   }
 
-  if (passengerCount > passengerThreshold) {
-    price += (passengerCount - passengerThreshold) * pricePerPassenger;
-  }
-  price += (childSeats ?? 0) * pricing.child_seat_price;
-  price += (boosterSeats ?? 0) * pricing.booster_seat_price;
-  price += (stopsCount ?? 0) * pricing.stop_price;
-  price += pickupFee;
+  price += zoneFee;
 
   return { price: Math.round(price * 100) / 100, manual: false, zoneUsed };
 }
