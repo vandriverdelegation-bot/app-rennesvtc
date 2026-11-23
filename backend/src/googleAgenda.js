@@ -7,6 +7,8 @@ const { supabaseAdmin } = require('./supabaseAdmin');
 const SCOPE = 'https://www.googleapis.com/auth/calendar.events openid email';
 const BASE = () => (process.env.PUBLIC_URL || 'https://app-rennesvtc.onrender.com').replace(/\/$/, '');
 const REDIRECT = () => `${BASE()}/admin/gcal/callback`;
+// Compte Google dont l'agenda est utilise (reglable avec GOOGLE_AGENDA_COMPTE) ; tout autre compte est refuse.
+const WANTED = () => (process.env.GOOGLE_AGENDA_COMPTE || 'rennesvtc@gmail.com').toLowerCase();
 const configured = () => !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
 const stateKey = () => process.env.LINK_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev';
 
@@ -125,7 +127,7 @@ function registerGoogleAgenda(app, requireAdmin) {
 
   app.post('/admin/gcal/connect', requireAdmin, (req, res) => {
     if (!configured()) return res.status(400).json({ error: "Google Agenda n'est pas encore active sur le serveur (identifiants Google manquants)." });
-    const q = new URLSearchParams({ client_id: process.env.GOOGLE_OAUTH_CLIENT_ID, redirect_uri: REDIRECT(), response_type: 'code', scope: SCOPE, access_type: 'offline', prompt: 'consent', state: signState() });
+    const q = new URLSearchParams({ client_id: process.env.GOOGLE_OAUTH_CLIENT_ID, redirect_uri: REDIRECT(), response_type: 'code', scope: SCOPE, access_type: 'offline', prompt: 'consent', state: signState(), login_hint: WANTED() });
     res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${q}` });
   });
 
@@ -140,6 +142,7 @@ function registerGoogleAgenda(app, requireAdmin) {
       })).json();
       if (!tok.refresh_token) return back('sans-jeton');
       const email = tok.id_token ? JSON.parse(Buffer.from(tok.id_token.split('.')[1], 'base64url').toString()).email : null;
+      if (!email || email.toLowerCase() !== WANTED()) return back('mauvais-compte');
       const { data: owner } = await supabaseAdmin.from('profiles').select('id').eq('is_owner', true).limit(1).maybeSingle();
       if (!owner) return back('sans-proprietaire');
       await supabaseAdmin.from('gcal_connection').upsert({ id: true, refresh_token: tok.refresh_token, calendar_id: 'primary', google_email: email, driver_id: owner.id });
@@ -160,4 +163,4 @@ function registerGoogleAgenda(app, requireAdmin) {
   });
 }
 
-module.exports = { registerGoogleAgenda, syncAll, syncSoon, eventFor, signState, checkState, hashOf };
+module.exports = { WANTED, registerGoogleAgenda, syncAll, syncSoon, eventFor, signState, checkState, hashOf };

@@ -30,3 +30,8 @@ test('state de connexion : valide 10 min, refuse une falsification', () => {
   assert.ok(!checkState(s.replace(/.$/, (c) => (c === '0' ? '1' : '0')), 1000 + 1000));
   assert.ok(!checkState('', 1000));
 });
+
+test('compte Google attendu : rennesvtc@gmail.com par defaut', () => {
+  delete process.env.GOOGLE_AGENDA_COMPTE;
+  assert.strictEqual(require('../src/googleAgenda').WANTED(), 'rennesvtc@gmail.com');
+});

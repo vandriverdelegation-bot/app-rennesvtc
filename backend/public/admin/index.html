@@ -1141,7 +1141,7 @@ async function renderGcal() {
     document.getElementById('gcal-connect').disabled = !j.configured;
   } catch (e) { st.textContent = e.message; }
   const back = new URLSearchParams(location.search).get('gcal');
-  if (back) msg.textContent = back === 'ok' ? 'Google Agenda connecte. Vos reservations sont en cours d\'ajout.' : 'La connexion a echoue (' + back + '). Reessayez.';
+  if (back) msg.textContent = back === 'mauvais-compte' ? "Ce n'est pas le bon compte Google : choisissez rennesvtc@gmail.com au moment de l'autorisation." : back === 'ok' ? 'Google Agenda connecte. Vos reservations sont en cours d\'ajout.' : 'La connexion a echoue (' + back + '). Reessayez.';
 }
 document.getElementById('gcal-connect').addEventListener('click', async () => {
   try { location.href = (await gcalCall('connect', 'POST')).url; } catch (e) { document.getElementById('gcal-msg').textContent = e.message; }
