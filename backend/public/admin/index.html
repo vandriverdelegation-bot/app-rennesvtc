@@ -1246,6 +1246,22 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
   renderBackupStatus();
 });
 
+// Les listes sont relues toutes les 5 s : on ne les reconstruit que si leur contenu a change, et jamais pendant une saisie
+// (sinon la liste deroulante se referme et les choix sont effaces). Renvoie false quand rien n'a ete redessine.
+const lastListHtml = new WeakMap();
+function setListHtml(container, html) {
+  if (lastListHtml.get(container) === html && container.childElementCount) return false;
+  if (container.contains(document.activeElement) && document.activeElement.matches('input, select, textarea')) return false;
+  const chosen = [...container.querySelectorAll('[data-driver-select]')].map((el) => [el.dataset.driverSelect, el.value]);
+  container.innerHTML = html;
+  lastListHtml.set(container, html);
+  chosen.forEach(([id, value]) => {
+    const el = container.querySelector(`[data-driver-select="${id}"]`);
+    if (el && value && [...el.options].some((o) => o.value === value)) el.value = value;
+  });
+  return true;
+}
+
 let refreshing = false;
 async function refresh() {
   if (refreshing) return;
@@ -1896,7 +1912,7 @@ async function renderAvailability() {
     .order('email', { ascending: true });
 
   if (!drivers || drivers.length === 0) {
-    container.innerHTML = '<p>Aucun chauffeur pour le moment.</p>';
+    setListHtml(container, '<p>Aucun chauffeur pour le moment.</p>');
     return;
   }
 
@@ -2083,7 +2099,7 @@ async function renderChauffeurs() {
     return;
   }
 
-  container.innerHTML = `
+  const redrawn = setListHtml(container, `
     <table>
       <thead><tr><th>Chauffeur</th><th>Gammes</th><th>Vehicule</th><th>Role</th><th>Autorisations</th><th>Notifications</th><th>Inscrit le</th><th>Infos legales (bon de commande)</th><th></th></tr></thead>
       <tbody>
@@ -2115,7 +2131,8 @@ async function renderChauffeurs() {
         `).join('')}
       </tbody>
     </table>
-  `;
+  `);
+  if (!redrawn) return;
 
   container.querySelectorAll('.password-chauffeur').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -2675,7 +2692,7 @@ async function renderPending() {
   setCount('pending', rides?.length ?? 0);
   const container = document.getElementById('pending-list');
   if (!rides || rides.length === 0) {
-    container.innerHTML = '<div class="empty">Aucune nouvelle demande pour le moment.</div>';
+    setListHtml(container, '<div class="empty">Aucune nouvelle demande pour le moment.</div>');
     return;
   }
 
@@ -2686,7 +2703,8 @@ async function renderPending() {
         .from('profiles')
         .select('id, email, online_status')
         .eq('role', 'chauffeur')
-        .contains('vehicle_categories', [ride.vehicle_category]);
+        .contains('vehicle_categories', [ride.vehicle_category])
+        .order('email'); // ordre fixe : la liste ne doit pas changer d'une lecture a l'autre
       driversByCategory[ride.vehicle_category] = drivers ?? [];
     }
   }
@@ -2698,7 +2716,7 @@ async function renderPending() {
     (people ?? []).forEach((p) => { waitingNames[p.id] = p.full_name || p.email || 'Chauffeur'; });
   }
 
-  container.innerHTML = rides.map((ride) => {
+  const redrawn = setListHtml(container, rides.map((ride) => {
     const drivers = driversByCategory[ride.vehicle_category];
     const waiting = ride.status === 'dispatched'; // deja dispatchee, aucun chauffeur n'a encore accepte
     const onlineCount = drivers.filter((d) => d.online_status).length;
@@ -2734,7 +2752,8 @@ async function renderPending() {
         </div>
       </article>
     `;
-  }).join('');
+  }).join(''));
+  if (!redrawn) return; // rien n'a bouge : les boutons gardent leurs actions
 
   container.querySelectorAll('[data-view-ride]').forEach((btn) => {
     btn.addEventListener('click', () => openRideModal(btn.dataset.viewRide));
