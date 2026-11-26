@@ -470,7 +470,7 @@ async function updatePrice() {
   const result = await fetch('/public/estimate-price', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(isMad()
-      ? { vehicle_category: vehicleCategory, service_type: 'mise_a_disposition', duration_hours: duration }
+      ? { vehicle_category: vehicleCategory, service_type: 'mise_a_disposition', duration_hours: duration, when }
       : { vehicle_category: vehicleCategory, pickup, dropoff, when, ...seatsPayload() }),
   }).then((r) => r.json()).catch(() => ({ error: t('price_retry') }));
   if (mine !== priceSeq) return;

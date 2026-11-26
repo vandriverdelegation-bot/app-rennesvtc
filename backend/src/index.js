@@ -1,3 +1,5 @@
+// Tarifs de nuit, dimanches, jours feries et heures affichees : toujours a l'heure francaise (le serveur tourne en UTC).
+process.env.TZ = 'Europe/Paris';
 const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -6,7 +8,7 @@ const cors = require('cors');
 const { supabaseAdmin } = require('./supabaseAdmin');
 const { sendEmail, sendAdminEmail } = require('./email');
 const { sendPush } = require('./push');
-const { computeTrajetSimplePrice } = require('../../packages/shared/pricingEngine');
+const { computeTrajetSimplePrice, applyEventSurcharge } = require('../../packages/shared/pricingEngine');
 const { buildBonCommandePdf } = require('./bonCommande');
 const { registerDriverOnboarding } = require('./driverOnboarding');
 const { registerBackup } = require('./backup');
@@ -1300,16 +1302,25 @@ const getDistanceKmServer = async (origin, destination, waypoints) => (await get
 // ---- Prix verifie par le serveur ----
 // Le prix d'une course creee par un client (appli) est calcule sur son telephone : le serveur le recalcule avec les tarifs de la base et corrige tout ecart.
 // Renvoie le prix attendu, null (prix a fixer par l'equipe : devis, tarif non configure) ou undefined (rien a verifier).
+// Majorations d'evenement (salons...) saisies dans le back-office.
+async function loadPriceEvents() {
+  const { data, error } = await supabaseAdmin.from('pricing_events').select('*');
+  if (error) throw new Error('Majorations illisibles : ' + error.message);
+  return data ?? [];
+}
+
 async function expectedPrice(ride) {
+  // Le tarif depend de la date de la course, pas de celle de la saisie.
+  const when = new Date(ride.scheduled_at ?? ride.created_at ?? Date.now());
   if (ride.service_type === 'forfait') {
     const { data } = await supabaseAdmin.from('forfaits').select('price, vehicle_category, active').eq('id', ride.forfait_id).maybeSingle();
-    return data?.active && data.vehicle_category === ride.vehicle_category ? Number(data.price) : null;
+    return data?.active && data.vehicle_category === ride.vehicle_category ? applyEventSurcharge(Number(data.price), await loadPriceEvents(), ride.vehicle_category, when) : null;
   }
   if (ride.service_type === 'mise_a_disposition') {
     const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', ride.vehicle_category).maybeSingle();
     const hours = Number(ride.duration_hours);
     if (!hourly || !(hours >= hourly.min_hours)) return null;
-    return Math.round(hours * hourly.price_per_hour * 100) / 100;
+    return applyEventSurcharge(hours * hourly.price_per_hour, await loadPriceEvents(), ride.vehicle_category, when);
   }
   if (ride.service_type !== 'trajet_simple') return undefined;
   const [{ data: pricing }, { data: zones }] = await Promise.all([
@@ -1320,7 +1331,7 @@ async function expectedPrice(ride) {
   const pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };
   const dropoff = { lat: ride.dropoff_lat, lng: ride.dropoff_lng };
   const km = await getDistanceKmServer(pickup, dropoff, ride.stop_addresses ?? []);
-  const result = computeTrajetSimplePrice({ pricing, zones: zones ?? [], pickup, dropoff, km, when: new Date(ride.created_at ?? Date.now()) });
+  const result = computeTrajetSimplePrice({ pricing, zones: zones ?? [], pickup, dropoff, km, when, events: await loadPriceEvents() });
   return result.manual ? null : result.price;
 }
 
@@ -1420,12 +1431,13 @@ app.post('/public/places/details', googleLimit, async (req, res) => {
 const priceLimit = limit({ max: 40, windowMs: 60000 }); // chaque estimation appelle Google (payant)
 app.post('/public/estimate-price', priceLimit, async (req, res) => {
   const { vehicle_category, pickup, dropoff, when, service_type, duration_hours } = req.body;
+  const rideDate = when ? new Date(when) : new Date();
   if (service_type === 'mise_a_disposition' && vehicle_category) {
     const { data: hourly } = await supabaseAdmin.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', vehicle_category).single();
     const hours = parseFloat(duration_hours);
     if (!hourly || !hours) return res.status(400).json({ error: 'Indiquez la durée de la mise à disposition.' });
     if (hours < hourly.min_hours) return res.status(400).json({ error: `Durée minimum : ${hourly.min_hours} h` });
-    return res.json({ price: Math.round(hours * hourly.price_per_hour * 100) / 100 });
+    return res.json({ price: applyEventSurcharge(hours * hourly.price_per_hour, await loadPriceEvents(), vehicle_category, rideDate) });
   }
   if (!vehicle_category || !pickup || !dropoff) return res.status(400).json({ error: 'Paramètres manquants' });
   const [{ data: pricing }, { data: zones }] = await Promise.all([
@@ -1437,7 +1449,7 @@ app.post('/public/estimate-price', priceLimit, async (req, res) => {
     const km = await getDistanceKmServer(pickup, dropoff);
     const result = computeTrajetSimplePrice({
       pricing, zones: zones ?? [], pickup, dropoff, km,
-      when: when ? new Date(when) : new Date(),
+      when: rideDate, events: await loadPriceEvents(),
     });
     res.json(result);
   } catch (e) {
@@ -1471,7 +1483,7 @@ app.post('/public/book', bookLimit, bookDayLimit, bookEmailLimit, async (req, re
     serverPrice = await expectedPrice({
       service_type: isMad ? 'mise_a_disposition' : 'trajet_simple', vehicle_category: vehicleCategory, duration_hours: isMad ? parseFloat(durationHours) : null,
       pickup_lat: Number(pickup.lat), pickup_lng: Number(pickup.lng), dropoff_lat: Number(dropoff.lat), dropoff_lng: Number(dropoff.lng),
-      passenger_count: Math.max(1, parseInt(passengerCount, 10) || 1), child_seats: Math.max(0, parseInt(childSeats, 10) || 0), booster_seats: Math.max(0, parseInt(boosterSeats, 10) || 0), stop_addresses: [], created_at: new Date().toISOString(),
+      passenger_count: Math.max(1, parseInt(passengerCount, 10) || 1), child_seats: Math.max(0, parseInt(childSeats, 10) || 0), booster_seats: Math.max(0, parseInt(boosterSeats, 10) || 0), stop_addresses: [], scheduled_at: scheduledAt || null, created_at: new Date().toISOString(),
     });
   } catch (e) {
     return res.status(400).json({ error: e.message });

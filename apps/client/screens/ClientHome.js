@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, whatsappUrl, themedStyles, detectTransport, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
+import { VEHICLE_CATEGORIES, theme, computeTrajetSimplePrice, applyEventSurcharge, whatsappUrl, themedStyles, detectTransport, TRANSPORT_LABELS } from '@app-rennesvtc/shared';
 import { getDistanceKm } from '../lib/directions';
 import { autocompleteAddress, getPlaceLocation } from '../lib/places';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -99,6 +99,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [stops, setStops] = useState([]); // points d'arret intermediaires
+  const [priceEvents, setPriceEvents] = useState([]); // majorations d'evenement (salons...)
   const [roundTrip, setRoundTrip] = useState(false);
   const [returnDate, setReturnDate] = useState('');
   const [returnTime, setReturnTime] = useState('');
@@ -237,6 +238,9 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
       .then(({ data }) => setForfaits(data ?? []));
   }, [vehicleCategory]);
 
+  // Date de la course : le tarif (nuit, dimanche, ferie, evenement) est le sien, pas celui du moment de la saisie.
+  const rideWhen = () => (!asap && parseDateTime(rideDate, rideTime)) || new Date();
+
   // Calcule automatiquement le prix estime des que les informations necessaires sont disponibles.
   useEffect(() => {
     setPrice(null);
@@ -246,7 +250,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
 
     if (serviceType === 'forfait') {
       const forfait = forfaits.find((f) => f.id === selectedForfaitId);
-      if (forfait) setPrice(forfait.price);
+      if (forfait) setPrice(applyEventSurcharge(Number(forfait.price), priceEvents, vehicleCategory, rideWhen()));
       return;
     }
 
@@ -264,7 +268,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
             setPriceError(`Duree minimum : ${data.min_hours}h`);
             return;
           }
-          setPrice(Math.round(hours * data.price_per_hour * 100) / 100);
+          setPrice(applyEventSurcharge(hours * data.price_per_hour, priceEvents, vehicleCategory, rideWhen()));
         });
       return;
     }
@@ -284,7 +288,8 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
             pickup,
             dropoff,
             km,
-            when: new Date(),
+            when: rideWhen(),
+            events: priceEvents,
           });
           setPrice(result.price);
           setPriceManual(result.manual);
@@ -293,7 +298,11 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
         }
       });
     }
-  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, stops]);
+  }, [vehicleCategory, serviceType, pickup, dropoff, durationHours, selectedForfaitId, forfaits, stops, asap, rideDate, rideTime, priceEvents]);
+
+  useEffect(() => {
+    supabase.from('pricing_events').select('*').gte('ends_at', new Date().toISOString()).then(({ data }) => setPriceEvents(data ?? []));
+  }, [view]);
 
   async function handleQuote() {
     setErrorMsg('');
@@ -671,7 +680,7 @@ export default function ClientHome({ session, appName, page, onOpenCourses, onVi
                     onPress={() => setSelectedForfaitId(f.id)}
                   >
                     <Text style={[selectedForfaitId === f.id ? styles.choiceTextSelected : styles.choiceText, styles.stackLabel]}>{f.name}</Text>
-                    <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accent }]}>{f.price} €</Text>
+                    <Text style={[styles.forfaitPrice, selectedForfaitId === f.id && { color: theme.colors.accent }]}>{applyEventSurcharge(Number(f.price), priceEvents, vehicleCategory, rideWhen())} €</Text>
                   </TouchableOpacity>
                 ))}
               </View>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
-import { theme, computeTrajetSimplePrice, themedStyles } from '@app-rennesvtc/shared';
+import { theme, computeTrajetSimplePrice, applyEventSurcharge, themedStyles } from '@app-rennesvtc/shared';
 import { supabase } from '../lib/supabase';
 import { getDistanceKm } from '../lib/directions';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -106,10 +106,11 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
     if (serviceType === 'mise_a_disposition') {
       const hours = parseFloat(durationHours);
       if (!hours) return;
-      supabase.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', rideCategory).single().then(({ data }) => {
+      supabase.from('pricing_hourly').select('price_per_hour, min_hours').eq('vehicle_category', rideCategory).single().then(async ({ data }) => {
         if (!data) return;
         if (hours < data.min_hours) return setPriceError(`Duree minimum : ${data.min_hours}h`);
-        setPrice(Math.round(hours * data.price_per_hour * 100) / 100);
+        const { data: events } = await supabase.from('pricing_events').select('*');
+        setPrice(applyEventSurcharge(hours * data.price_per_hour, events, rideCategory, parseDateTime(laterDate, laterTime) || new Date()));
       });
       return;
     }
@@ -118,7 +119,8 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
     Promise.all([
       supabase.from('pricing_simple').select('*').eq('vehicle_category', rideCategory).single(),
       supabase.from('pricing_zones').select('*').eq('vehicle_category', rideCategory).eq('active', true),
-    ]).then(async ([{ data: pricing }, { data: zones }]) => {
+      supabase.from('pricing_events').select('*'),
+    ]).then(async ([{ data: pricing }, { data: zones }, { data: events }]) => {
       if (!pricing) return setPriceError(`Tarif introuvable pour la gamme ${rideCategory}.`);
       try {
         const km = await getDistanceKm(pickup, dropoff, stops.filter(Boolean)); // arrets compris dans le kilometrage
@@ -129,6 +131,7 @@ export default function CreateRide({ session, vehicleCategory, categories = [], 
           dropoff,
           km,
           when,
+          events,
         });
         setPrice(result.price);
         setPriceManual(result.manual);

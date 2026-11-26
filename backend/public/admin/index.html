@@ -1382,9 +1382,10 @@ async function updateNewRidePrice() {
   const date = document.getElementById('new-ride-date').value;
   const time = document.getElementById('new-ride-time').value;
   const num = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+  const when = date && time ? new Date(`${date}T${time}`).toISOString() : null;
   const body = mad
-    ? { vehicle_category: category, service_type: 'mise_a_disposition', duration_hours: duration }
-    : { vehicle_category: category, pickup: newRidePickup, dropoff: newRideDropoff, when: date && time ? new Date(`${date}T${time}`).toISOString() : null,
+    ? { vehicle_category: category, service_type: 'mise_a_disposition', duration_hours: duration, when }
+    : { vehicle_category: category, pickup: newRidePickup, dropoff: newRideDropoff, when,
         passengerCount: Math.max(1, num('new-ride-passengers')), childSeats: num('new-ride-child-seats'), boosterSeats: num('new-ride-booster-seats') };
   const mine = ++newRidePriceSeq;
   hint.textContent = 'Calcul du prix...';
@@ -2929,10 +2930,11 @@ const ttTime = (attrs, value) => `<div class="tt-in"><input type="time" ${attrs}
 const ttBlock = (title, help, body) => `<section class="tt-card"><h3>${title}</h3>${help ? `<p class="tt-help">${help}</p>` : ''}${body}</section>`;
 
 async function renderPricing() {
-  const [{ data: simple }, { data: hourly }, { data: forfaits }] = await Promise.all([
+  const [{ data: simple }, { data: hourly }, { data: forfaits }, { data: events }] = await Promise.all([
     supabase.from('pricing_simple').select('*'),
     supabase.from('pricing_hourly').select('*'),
     supabase.from('forfaits').select('*').order('created_at', { ascending: true }),
+    supabase.from('pricing_events').select('*').order('starts_at', { ascending: true }),
   ]);
   const container = document.getElementById('pricing-section');
   const S = Object.fromEntries((simple ?? []).map((s) => [s.vehicle_category, s]));
@@ -2946,7 +2948,7 @@ async function renderPricing() {
     { label: 'Prise en charge', hint: 'Montant de départ de la course', cell: (c) => ttNum(sAttr(c, 'base_price'), sv(c, 'base_price') ?? 0) },
     { label: 'Prix au kilomètre', cell: (c) => ttNum(sAttr(c, 'price_per_km'), sv(c, 'price_per_km') ?? 0, '€ / km') },
     { label: 'Course minimum', hint: 'Prix plancher', cell: (c) => ttNum(sAttr(c, 'min_price'), sv(c, 'min_price') ?? 0) },
-    { group: 'Tarif de nuit' },
+    { group: 'Tarif de nuit, dimanches et jours fériés' },
     { label: 'Début de la nuit', hint: 'Laissez vide : pas de tarif de nuit', cell: (c) => ttTime(sAttr(c, 'night_start'), sv(c, 'night_start')) },
     { label: 'Fin de la nuit', cell: (c) => ttTime(sAttr(c, 'night_end'), sv(c, 'night_end')) },
     { label: 'Prise en charge', hint: 'Vide : même montant que le jour', cell: (c) => ttNum(sAttr(c, 'base_price_night'), sv(c, 'base_price_night')) },
@@ -2954,16 +2956,6 @@ async function renderPricing() {
     { label: 'Course minimum', hint: 'Vide : même minimum que le jour', cell: (c) => ttNum(sAttr(c, 'min_price_night'), sv(c, 'min_price_night')) },
     { group: 'Calcul du prix' },
     { label: 'Mode manuel', hint: 'Pas de calcul : le prix est saisi par le chauffeur', cell: (c) => `<label class="tt-check"><input type="checkbox" ${sAttr(c, 'manual_mode', 'data-checkbox="1"')} ${sv(c, 'manual_mode') ? 'checked' : ''} /> Activé</label>` },
-  ]);
-  const surTable = ttTable([
-    { group: 'En journée' },
-    { label: 'Samedi', cell: (c) => ttNum(sAttr(c, 'day_saturday_surcharge'), sv(c, 'day_saturday_surcharge') ?? 0, '€ en plus') },
-    { label: 'Dimanche', cell: (c) => ttNum(sAttr(c, 'day_sunday_surcharge'), sv(c, 'day_sunday_surcharge') ?? 0, '€ en plus') },
-    { label: 'Jour férié', cell: (c) => ttNum(sAttr(c, 'day_holiday_surcharge'), sv(c, 'day_holiday_surcharge') ?? 0, '€ en plus') },
-    { group: 'La nuit' },
-    { label: 'Samedi', cell: (c) => ttNum(sAttr(c, 'night_saturday_surcharge'), sv(c, 'night_saturday_surcharge') ?? 0, '€ en plus') },
-    { label: 'Dimanche', cell: (c) => ttNum(sAttr(c, 'night_sunday_surcharge'), sv(c, 'night_sunday_surcharge') ?? 0, '€ en plus') },
-    { label: 'Jour férié', cell: (c) => ttNum(sAttr(c, 'night_holiday_surcharge'), sv(c, 'night_holiday_surcharge') ?? 0, '€ en plus') },
   ]);
   const hourlyTable = ttTable([
     { label: 'Prix par heure', cell: (c) => ttNum(`data-hourly="${c}" data-field="price_per_hour"`, H[c]?.price_per_hour ?? 0, '€ / h') },
@@ -2973,13 +2965,13 @@ async function renderPricing() {
   container.innerHTML = `
     <p class="tt-intro">Chaque colonne est une gamme de véhicule. Le prix d'un trajet = <b>prise en charge + (prix au km × kilomètres)</b>, jamais moins que la course minimum. Les <b>arrêts intermédiaires sont comptés dans les kilomètres</b> du trajet, et il n'y a aucun supplément pour les passagers ou les sièges enfants.</p>
 
-    ${ttBlock('Trajet simple : tarif au kilomètre', 'Le tarif de nuit s\'applique entre l\'heure de début et l\'heure de fin de la nuit.', kmTable + '<button id="save-simple">Enregistrer le tarif au kilomètre</button>')}
-    ${ttBlock('Majorations week-end et jours fériés', 'Montant ajouté au prix de la course (en plus du tarif de jour ou de nuit). 0 = pas de majoration.', surTable + '<button id="save-simple-2">Enregistrer les majorations</button>')}
+    ${ttBlock('Trajet simple : tarif au kilomètre', 'Le tarif de nuit s\'applique entre l\'heure de début et l\'heure de fin de la nuit, et <b>toute la journée les dimanches et jours fériés</b>. Le samedi est au tarif de la semaine.', kmTable + '<button id="save-simple">Enregistrer le tarif au kilomètre</button>')}
+    ${eventsBlock(events ?? [])}
 
     ${ttBlock('Tarification par zone', 'Une zone <b>prend le dessus sur le tarif au kilomètre</b> : si le trajet part (ou arrive) dans une zone, c\'est le prix de la zone qui s\'applique pour chaque gamme. Chaque zone peut aussi ajouter un <b>supplément de prise en charge</b>, identique pour toutes les gammes.', `
       <div class="tt-flags">
-        <label><input type="checkbox" id="zone-flag-pickup" ${zonesOn('zone_pricing_pickup') ? 'checked' : ''} /> Appliquer la zone quand le <b>départ</b> est dans la zone</label>
-        <label><input type="checkbox" id="zone-flag-dropoff" ${zonesOn('zone_pricing_dropoff') ? 'checked' : ''} /> Appliquer la zone quand l'<b>arrivée</b> est dans la zone</label>
+        <label><input type="checkbox" id="zone-flag-pickup" ${zonesOn('zone_pricing_pickup') ? 'checked' : ''} /> <span>Appliquer la zone quand le <b>départ</b> est dans la zone</span></label>
+        <label><input type="checkbox" id="zone-flag-dropoff" ${zonesOn('zone_pricing_dropoff') ? 'checked' : ''} /> <span>Appliquer la zone quand l'<b>arrivée</b> est dans la zone</span></label>
       </div>
       <p class="tt-help">Cliquez sur « Ajouter une zone » puis sur la carte pour la placer. Faites glisser le point sur le bord du cercle pour régler son rayon, et le point central pour la déplacer.</p>
       <div class="price-row"><button class="secondary" id="zone-add-mode">+ Ajouter une zone</button></div>
@@ -3019,12 +3011,11 @@ async function renderPricing() {
       else if (NULLABLE.includes(field)) byCategory[cat][field] = input.value === '' ? null : parseFloat(input.value) || 0;
       else byCategory[cat][field] = parseFloat(input.value) || 0;
     });
-    // Les deux boutons enregistrent la meme feuille de tarifs : rien n'est perdu si l'on n'en utilise qu'un.
     const { error } = await supabase.from('pricing_simple').upsert(Object.values(byCategory));
     alert(error ? error.message : 'Tarifs enregistrés.');
   };
   document.getElementById('save-simple').addEventListener('click', saveSimple);
-  document.getElementById('save-simple-2').addEventListener('click', saveSimple);
+  bindEvents(container);
 
   ['pickup', 'dropoff'].forEach((which) => {
     document.getElementById('zone-flag-' + which).addEventListener('change', async (e) => {
@@ -3068,12 +3059,61 @@ async function renderPricing() {
   });
 }
 
+// ---- Majorations d'evenement (salons...) : un pourcentage par gamme pendant une periode ----
+
+const frWhen = (iso) => new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+function eventsBlock(events) {
+  const now = Date.now();
+  const state = (e) => (Date.parse(e.ends_at) < now ? 'Terminé' : Date.parse(e.starts_at) > now ? 'À venir' : 'En cours');
+  return ttBlock('Majorations salons et événements', 'Augmentez les prix d\'un pourcentage pendant une période précise. La majoration vaut pour les courses <b>dont la date de départ tombe dans la période</b> (trajets, zones, mise à disposition et forfaits). Si deux périodes se chevauchent, seule la plus forte s\'applique.', `
+    <div class="tt-wrap"><table class="tt tt-events"><thead><tr><th>Événement</th><th>Du</th><th>Au</th>${CATEGORIES.map((c) => `<th>${VEHICLE_LABELS[c]}</th>`).join('')}<th>État</th><th></th></tr></thead><tbody>
+      ${events.map((e) => `<tr><th scope="row">${escapeHtml(e.name)}</th><td>${frWhen(e.starts_at)}</td><td>${frWhen(e.ends_at)}</td>
+        ${CATEGORIES.map((c) => `<td>+${Number(e['pct_' + c])} %</td>`).join('')}<td>${state(e)}</td>
+        <td><button class="secondary" data-delete-event="${e.id}">Supprimer</button></td></tr>`).join('') || `<tr><td colspan="${CATEGORIES.length + 5}" class="tt-empty">Aucune majoration programmée.</td></tr>`}
+    </tbody></table></div>
+    <div class="tt-fields">
+      <label>Nom de l'événement<input id="event-name" placeholder="Ex : Salon SPACE" maxlength="80" /></label>
+      <label>Début<input id="event-start" type="datetime-local" /></label>
+      <label>Fin<input id="event-end" type="datetime-local" /></label>
+      <label>Toutes les gammes<span class="tt-in"><input id="event-all" type="number" min="0" max="300" step="1" /><span>%</span></span><small>Remplit les cases des trois gammes.</small></label>
+      ${CATEGORIES.map((c) => `<label>${VEHICLE_LABELS[c]}<span class="tt-in"><input data-event-pct="${c}" type="number" min="0" max="300" step="1" value="0" /><span>%</span></span></label>`).join('')}
+    </div>
+    <button id="add-event">Programmer la majoration</button>`);
+}
+
+function bindEvents(container) {
+  document.getElementById('event-all').addEventListener('input', (e) => {
+    container.querySelectorAll('[data-event-pct]').forEach((input) => { input.value = e.target.value || 0; });
+  });
+  document.getElementById('add-event').addEventListener('click', async () => {
+    const name = document.getElementById('event-name').value.trim();
+    const start = document.getElementById('event-start').value;
+    const end = document.getElementById('event-end').value;
+    const row = { name };
+    container.querySelectorAll('[data-event-pct]').forEach((input) => { row['pct_' + input.dataset.eventPct] = parseFloat(input.value) || 0; });
+    if (!name || !start || !end) { alert('Indiquez le nom, le début et la fin.'); return; }
+    if (new Date(end) <= new Date(start)) { alert('La fin doit être après le début.'); return; }
+    const percents = CATEGORIES.map((c) => row['pct_' + c]);
+    if (percents.some((p) => p < 0 || p > 300) || !percents.some((p) => p > 0)) { alert('Indiquez un pourcentage entre 1 et 300 pour au moins une gamme.'); return; }
+    const { error } = await supabase.from('pricing_events').insert({ ...row, starts_at: new Date(start).toISOString(), ends_at: new Date(end).toISOString() });
+    if (error) { alert(error.message); return; }
+    renderPricing();
+  });
+  container.querySelectorAll('[data-delete-event]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Supprimer cette majoration ?')) return;
+      const { error } = await supabase.from('pricing_events').delete().eq('id', btn.dataset.deleteEvent);
+      if (error) { alert(error.message); return; }
+      renderPricing();
+    });
+  });
+}
+
 // ---- Zones de tarif : une zone = les trois gammes (une ligne par gamme en base, regroupees par zone_group) ----
 
 const ZONE_COLORS = ['#E53935', '#43A047', '#1E88E5', '#8E24AA', '#FB8C00', '#00897B'];
-const ZONE_RATE_FIELDS = ['day_price', 'min_price_day', 'night_price', 'min_price_night',
-  'day_saturday_surcharge', 'day_sunday_surcharge', 'day_holiday_surcharge',
-  'night_saturday_surcharge', 'night_sunday_surcharge', 'night_holiday_surcharge'];
+const ZONE_RATE_FIELDS = ['day_price', 'min_price_day', 'night_price', 'min_price_night'];
 
 let zoneMap = null;
 let zoneLayers = {}; // id de zone -> { circle, centerMarker, edgeMarker, lat, lng, radius_km }
@@ -3170,15 +3210,9 @@ function openZoneEditor(zone) {
     { group: 'Tarif de jour' },
     { label: 'Prix de la zone', hint: '0 = la gamme n\'est pas concernée par cette zone', cell: (c) => ttNum(zAttr(c, 'day_price'), rowVal(c, 'day_price')) },
     { label: 'Minimum', cell: (c) => ttNum(zAttr(c, 'min_price_day'), rowVal(c, 'min_price_day')) },
-    { label: 'Majoration samedi', cell: (c) => ttNum(zAttr(c, 'day_saturday_surcharge'), rowVal(c, 'day_saturday_surcharge'), '€ en plus') },
-    { label: 'Majoration dimanche', cell: (c) => ttNum(zAttr(c, 'day_sunday_surcharge'), rowVal(c, 'day_sunday_surcharge'), '€ en plus') },
-    { label: 'Majoration jour férié', cell: (c) => ttNum(zAttr(c, 'day_holiday_surcharge'), rowVal(c, 'day_holiday_surcharge'), '€ en plus') },
-    { group: 'Tarif de nuit' },
+    { group: 'Tarif de nuit, dimanches et jours fériés' },
     { label: 'Prix de la zone', hint: '0 = même prix que le jour', cell: (c) => ttNum(zAttr(c, 'night_price'), rowVal(c, 'night_price')) },
     { label: 'Minimum', cell: (c) => ttNum(zAttr(c, 'min_price_night'), rowVal(c, 'min_price_night')) },
-    { label: 'Majoration samedi', cell: (c) => ttNum(zAttr(c, 'night_saturday_surcharge'), rowVal(c, 'night_saturday_surcharge'), '€ en plus') },
-    { label: 'Majoration dimanche', cell: (c) => ttNum(zAttr(c, 'night_sunday_surcharge'), rowVal(c, 'night_sunday_surcharge'), '€ en plus') },
-    { label: 'Majoration jour férié', cell: (c) => ttNum(zAttr(c, 'night_holiday_surcharge'), rowVal(c, 'night_holiday_surcharge'), '€ en plus') },
   ]);
   document.getElementById('zone-editor').innerHTML = `
     <section class="tt-card tt-editor">

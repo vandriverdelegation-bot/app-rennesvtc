@@ -4,7 +4,7 @@
 const zlib = require('zlib');
 const { S3Client, PutObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 
-const TABLES = ['app_settings', 'profiles', 'rides', 'vehicles', 'pricing_simple', 'pricing_hourly', 'pricing_zones', 'forfaits',
+const TABLES = ['app_settings', 'profiles', 'rides', 'vehicles', 'pricing_simple', 'pricing_hourly', 'pricing_zones', 'pricing_events', 'forfaits',
   'driver_availability', 'driver_invitations', 'driver_documents', 'email_log'];
 const KEEP_DAYS = 14;
 const DOCS_BUCKET = 'driver-documents';
