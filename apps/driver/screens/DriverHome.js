@@ -609,10 +609,18 @@ function DriverHomeInner({ session, view, onHeader, setWelcomeFor }) {
     const mad = activeRide.service_type === 'mise_a_disposition';
     const upcomingCount = myRides.filter((r) => r.id !== activeRide.id).length + sharedRides.length;
     const topTabs = (
-      <View style={[styles.tabRow, { paddingHorizontal: 16, paddingTop: 8 }]}>
-        <TabPill icon="car" active={!showUpcoming} label="Course en cours" onPress={() => setShowUpcoming(false)} />
-        <TabPill icon="calendar" active={showUpcoming} label={`Mes réservations à venir (${upcomingCount})`} onPress={() => setShowUpcoming(true)} />
-      </View>
+      <>
+        <View style={[styles.tabRow, { paddingHorizontal: 16, paddingTop: 8 }]}>
+          <TabPill icon="car" active={!showUpcoming} label="Course en cours" onPress={() => setShowUpcoming(false)} />
+          <TabPill icon="calendar" active={showUpcoming} label={`Mes réservations à venir (${upcomingCount})`} onPress={() => setShowUpcoming(true)} />
+        </View>
+        {/* La saisie reste possible pendant une course (la position continue d'etre envoyee). */}
+        {permissions.can_create_rides ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+            <ActionRow title="Saisir une réservation" onPress={() => setShowCreateRide(true)} />
+          </View>
+        ) : null}
+      </>
     );
     if (showUpcoming) {
       return (
