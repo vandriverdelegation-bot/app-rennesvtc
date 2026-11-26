@@ -2968,7 +2968,7 @@ async function renderPricing() {
     ${ttBlock('Trajet simple : tarif au kilomètre', 'Le tarif de nuit s\'applique entre l\'heure de début et l\'heure de fin de la nuit, et <b>toute la journée les dimanches et jours fériés</b>. Le samedi est au tarif de la semaine.', kmTable + '<button id="save-simple">Enregistrer le tarif au kilomètre</button>')}
     ${eventsBlock(events ?? [])}
 
-    ${ttBlock('Tarification par zone', 'Une zone <b>prend le dessus sur le tarif au kilomètre</b> : si le trajet part (ou arrive) dans une zone, c\'est le prix de la zone qui s\'applique pour chaque gamme. Chaque zone peut aussi ajouter un <b>supplément de prise en charge</b>, identique pour toutes les gammes.', `
+    ${ttBlock('Tarification par zone', 'Une zone <b>prend le dessus sur le tarif classique</b> : si le trajet part (ou arrive) dans une zone, on applique le <b>prix au kilomètre et la course minimum de la zone</b>. Calcul : prise en charge de la gamme + (prix au km de la zone × kilomètres), jamais moins que le minimum de la zone, puis on ajoute le <b>supplément de prise en charge</b> de la zone, identique pour toutes les gammes.', `
       <div class="tt-flags">
         <label><input type="checkbox" id="zone-flag-pickup" ${zonesOn('zone_pricing_pickup') ? 'checked' : ''} /> <span>Appliquer la zone quand le <b>départ</b> est dans la zone</span></label>
         <label><input type="checkbox" id="zone-flag-dropoff" ${zonesOn('zone_pricing_dropoff') ? 'checked' : ''} /> <span>Appliquer la zone quand l'<b>arrivée</b> est dans la zone</span></label>
@@ -3113,7 +3113,7 @@ function bindEvents(container) {
 // ---- Zones de tarif : une zone = les trois gammes (une ligne par gamme en base, regroupees par zone_group) ----
 
 const ZONE_COLORS = ['#E53935', '#43A047', '#1E88E5', '#8E24AA', '#FB8C00', '#00897B'];
-const ZONE_RATE_FIELDS = ['day_price', 'min_price_day', 'night_price', 'min_price_night'];
+const ZONE_RATE_FIELDS = ['price_per_km_day', 'min_price_day', 'price_per_km_night', 'min_price_night'];
 
 let zoneMap = null;
 let zoneLayers = {}; // id de zone -> { circle, centerMarker, edgeMarker, lat, lng, radius_km }
@@ -3193,10 +3193,10 @@ function drawZone(zone) {
 function renderZoneList(zones) {
   const list = document.getElementById('zone-list');
   if (!zones.length) { list.innerHTML = '<p class="tt-empty">Aucune zone pour le moment.</p>'; return; }
-  list.innerHTML = `<div class="tt-wrap"><table class="tt tt-zones"><thead><tr><th>Zone</th><th>Rayon</th><th>Supplément prise en charge</th>${CATEGORIES.map((c) => `<th>${VEHICLE_LABELS[c]} (jour / nuit)</th>`).join('')}<th></th></tr></thead><tbody>
+  list.innerHTML = `<div class="tt-wrap"><table class="tt tt-zones"><thead><tr><th>Zone</th><th>Rayon</th><th>Supplément prise en charge</th>${CATEGORIES.map((c) => `<th>${VEHICLE_LABELS[c]} (jour)</th>`).join('')}<th></th></tr></thead><tbody>
     ${zones.map((z) => `<tr>
       <th scope="row">${escapeHtml(z.name)}</th><td>${z.radius_km.toFixed(1)} km</td><td>${z.pickup_fee} €</td>
-      ${CATEGORIES.map((c) => { const r = z.rows[c]; return `<td>${r && (r.day_price > 0 || r.night_price > 0) ? `${r.day_price} € / ${r.night_price > 0 ? r.night_price : r.day_price} €` : '<span class="tt-none">non concernée</span>'}</td>`; }).join('')}
+      ${CATEGORIES.map((c) => { const r = z.rows[c]; return `<td>${r && r.price_per_km_day > 0 ? `${r.price_per_km_day} €/km · mini ${r.min_price_day} €` : '<span class="tt-none">non concernée</span>'}</td>`; }).join('')}
       <td><button class="secondary" data-edit-zone="${z.id}">Modifier</button></td></tr>`).join('')}
   </tbody></table></div>`;
   list.querySelectorAll('[data-edit-zone]').forEach((btn) => btn.addEventListener('click', () => openZoneEditor(zonesById[btn.dataset.editZone])));
@@ -3208,18 +3208,18 @@ function openZoneEditor(zone) {
   const zAttr = (cat, field) => `data-zone-cat="${cat}" data-zone-field="${field}"`;
   const ratesTable = ttTable([
     { group: 'Tarif de jour' },
-    { label: 'Prix de la zone', hint: '0 = la gamme n\'est pas concernée par cette zone', cell: (c) => ttNum(zAttr(c, 'day_price'), rowVal(c, 'day_price')) },
-    { label: 'Minimum', cell: (c) => ttNum(zAttr(c, 'min_price_day'), rowVal(c, 'min_price_day')) },
+    { label: 'Prix au kilomètre', hint: '0 = la gamme n\'est pas concernée par cette zone', cell: (c) => ttNum(zAttr(c, 'price_per_km_day'), rowVal(c, 'price_per_km_day'), '€ / km') },
+    { label: 'Course minimum', hint: 'Prix plancher dans la zone', cell: (c) => ttNum(zAttr(c, 'min_price_day'), rowVal(c, 'min_price_day')) },
     { group: 'Tarif de nuit, dimanches et jours fériés' },
-    { label: 'Prix de la zone', hint: '0 = même prix que le jour', cell: (c) => ttNum(zAttr(c, 'night_price'), rowVal(c, 'night_price')) },
-    { label: 'Minimum', cell: (c) => ttNum(zAttr(c, 'min_price_night'), rowVal(c, 'min_price_night')) },
+    { label: 'Prix au kilomètre', hint: '0 = même prix que le jour', cell: (c) => ttNum(zAttr(c, 'price_per_km_night'), rowVal(c, 'price_per_km_night'), '€ / km') },
+    { label: 'Course minimum', hint: '0 = même minimum que le jour', cell: (c) => ttNum(zAttr(c, 'min_price_night'), rowVal(c, 'min_price_night')) },
   ]);
   document.getElementById('zone-editor').innerHTML = `
     <section class="tt-card tt-editor">
       <h3>${zone.id === 'new' ? 'Nouvelle zone' : 'Modifier la zone'}</h3>
       <div class="tt-fields">
         <label>Nom de la zone<input id="zone-name" value="${escapeHtml(zone.name)}" placeholder="Ex : Aéroport" /></label>
-        <label>Supplément de prise en charge<span class="tt-in"><input id="zone-fee" type="number" step="0.01" min="0" value="${zone.pickup_fee ?? 0}" /><span>€</span></span><small>Ajouté au prix de la zone. Identique pour toutes les gammes.</small></label>
+        <label>Supplément de prise en charge<span class="tt-in"><input id="zone-fee" type="number" step="0.01" min="0" value="${zone.pickup_fee ?? 0}" /><span>€</span></span><small>Ajouté à la prise en charge normale. Identique pour toutes les gammes.</small></label>
         <label>Début de la nuit<input id="zone-night-start" type="time" value="${String(zone.night_start ?? '19:00').slice(0, 5)}" /></label>
         <label>Fin de la nuit<input id="zone-night-end" type="time" value="${String(zone.night_end ?? '07:00').slice(0, 5)}" /></label>
       </div>
@@ -3252,6 +3252,9 @@ function openZoneEditor(zone) {
     }));
     const failed = results.find((r) => r.error);
     if (failed) { alert(failed.error.message); return; }
+    if (!document.getElementById('zone-flag-pickup').checked && !document.getElementById('zone-flag-dropoff').checked) {
+      alert('Zone enregistrée. Attention : cochez « Appliquer la zone quand le départ (ou l\'arrivée) est dans la zone », sinon elle ne sera pas utilisée.');
+    }
     zoneEditingId = null;
     document.getElementById('zone-editor').innerHTML = '';
     loadZones();

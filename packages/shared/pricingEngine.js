@@ -1,6 +1,6 @@
 // Calcul du prix d'un trajet simple, fidele a l'ancien back-office :
 // tarif jour/nuit (dimanches et jours feries au tarif de nuit), majorations
-// d'evenement en pourcentage, zones a tarif fixe (chaque zone a son propre tarif jour/nuit),
+// d'evenement en pourcentage, zones avec leur propre prix au km et minimum (chaque zone a son propre tarif jour/nuit),
 // et mode Manuel (pas de calcul automatique).
 // Pas de supplement : passagers et sieges enfants ne sont pas factures, et les arrets intermediaires
 // sont deja dans le kilometrage (km = trajet complet, arrets compris). Seule la zone peut ajouter
@@ -64,9 +64,9 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-// Une zone sans tarif (jour et nuit a 0) pour cette gamme n'est pas concernee : le calcul classique s'applique.
+// Une zone sans prix au km pour cette gamme n'est pas concernee : le calcul classique s'applique.
 function findMatchingZone(zones, point) {
-  return (zones ?? []).find((z) => (Number(z.day_price) > 0 || Number(z.night_price) > 0) && haversineKm({ lat: z.lat, lng: z.lng }, point) <= z.radius_km);
+  return (zones ?? []).find((z) => Number(z.price_per_km_day) > 0 && haversineKm({ lat: z.lat, lng: z.lng }, point) <= z.radius_km);
 }
 
 function toMinutes(t) {
@@ -117,9 +117,11 @@ function computeTrajetSimplePrice({ pricing, zones, pickup, dropoff, km, when, e
 
   if (zoneUsed) {
     const useNight = isNightRate(zoneUsed.night_start, zoneUsed.night_end, when);
-    // Un tarif de nuit laisse a 0 reprend celui de jour.
-    price = (useNight && Number(zoneUsed.night_price) > 0) ? zoneUsed.night_price : zoneUsed.day_price;
-    price = Math.max(price, (useNight ? zoneUsed.min_price_night : zoneUsed.min_price_day) || 0);
+    // Comme le tarif classique (prise en charge de la gamme + km, avec un minimum), mais avec le prix au km
+    // et le minimum de la zone. Un tarif de nuit laisse a 0 reprend celui de jour.
+    const nightOr = (night, day) => Number(useNight && Number(night) > 0 ? night : day) || 0;
+    const base = useNight ? pricing.base_price_night ?? pricing.base_price : pricing.base_price;
+    price = Math.max(base + nightOr(zoneUsed.price_per_km_night, zoneUsed.price_per_km_day) * km, nightOr(zoneUsed.min_price_night, zoneUsed.min_price_day));
     zoneFee = Number(zoneUsed.pickup_fee) || 0;
   } else {
     const night = isNightRate(pricing.night_start, pricing.night_end, when);

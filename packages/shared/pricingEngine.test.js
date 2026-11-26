@@ -29,51 +29,29 @@ const r2 = computeTrajetSimplePrice({
 });
 assert.strictEqual(r2.price, 23, `nuit samedi attendu 23, obtenu ${r2.price}`); // 8 + 15
 
-// Zone correspondante : tarif propre a la zone (jour), pas de calcul km.
+// Zone correspondante : prise en charge de la gamme + km au prix de la zone, minimum de la zone, supplement de la zone.
 const zone = {
   lat: 48.1, lng: -1.6, radius_km: 5,
-  day_start: '07:00', day_end: '19:00', day_price: 20, min_price_day: 15,
-  day_saturday_surcharge: 0, day_sunday_surcharge: 0, day_holiday_surcharge: 0,
-  night_start: '19:00', night_end: '07:00', night_price: 25, min_price_night: 20,
-  night_saturday_surcharge: 0, night_sunday_surcharge: 0, night_holiday_surcharge: 0,
-  pickup_fee: 1,
+  price_per_km_day: 2, min_price_day: 30, price_per_km_night: 3, min_price_night: 40,
+  night_start: '19:00', night_end: '07:00', pickup_fee: 1,
 };
-const r3 = computeTrajetSimplePrice({
-  pricing: { ...pricing, zone_pricing_pickup: true },
-  zones: [zone],
-  pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 49, lng: -1.7 },
-  km: 50, when: new Date(2026, 2, 16, 14, 0),
+const inZone = (km, when, z = zone) => computeTrajetSimplePrice({
+  pricing: { ...pricing, zone_pricing_pickup: true }, zones: [z],
+  pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 49, lng: -1.7 }, km, when,
 });
-assert.strictEqual(r3.price, 21, `zone jour attendu 21 (20 + prise en charge de la zone), obtenu ${r3.price}`);
-
-// Meme zone mais de nuit : tarif nuit de la zone.
-const r3b = computeTrajetSimplePrice({
-  pricing: { ...pricing, zone_pricing_pickup: true },
-  zones: [zone],
-  pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 49, lng: -1.7 },
-  km: 50, when: new Date(2026, 2, 16, 23, 0),
-});
-assert.strictEqual(r3b.price, 26, `zone nuit attendu 26 (25 + prise en charge de la zone), obtenu ${r3b.price}`);
+const jour = new Date(2026, 2, 16, 14, 0), nuit = new Date(2026, 2, 16, 23, 0);
+assert.strictEqual(inZone(50, jour).price, 106, 'zone jour : 5 + 50 x 2 + 1');
+assert.strictEqual(inZone(50, nuit).price, 159, 'zone nuit : 8 + 50 x 3 + 1');
+assert.strictEqual(inZone(2, jour).price, 31, 'minimum de la zone (30) + supplement 1');
+assert.strictEqual(inZone(50, nuit, { ...zone, price_per_km_night: 0, min_price_night: 0 }).price, 109, 'nuit vide : km de jour, prise en charge de nuit');
+const horsGamme = inZone(50, jour, { ...zone, price_per_km_day: 0 });
+assert.strictEqual(horsGamme.price, 55, 'gamme non concernee : calcul classique');
+assert.strictEqual(horsGamme.zoneUsed, null);
 
 // Mode manuel : pas de prix calcule.
 const r4 = computeTrajetSimplePrice({ pricing: { ...pricing, manual_mode: true }, zones: [], pickup: {}, dropoff: {}, km: 0, when: new Date() });
 assert.strictEqual(r4.price, null);
 assert.strictEqual(r4.manual, true);
-
-// Zone dont le tarif de nuit est vide : on garde le tarif de jour la nuit aussi.
-const r5 = computeTrajetSimplePrice({
-  pricing: { ...pricing, zone_pricing_pickup: true }, zones: [{ ...zone, night_price: 0, min_price_night: 0 }],
-  pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 49, lng: -1.7 }, km: 50, when: new Date(2026, 2, 16, 23, 0),
-});
-assert.strictEqual(r5.price, 21, "zone sans tarif de nuit : tarif de jour");
-
-// Zone sans tarif pour cette gamme (0 / 0) : le calcul classique reprend la main.
-const r6 = computeTrajetSimplePrice({
-  pricing: { ...pricing, zone_pricing_pickup: true }, zones: [{ ...zone, day_price: 0, night_price: 0 }],
-  pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 49, lng: -1.7 }, km: 50, when: new Date(2026, 2, 16, 14, 0),
-});
-assert.strictEqual(r6.price, 55, "zone vide : calcul classique (5 + 50)");
-assert.strictEqual(r6.zoneUsed, null);
 
 const base = { zones: [], pickup: { lat: 48.1, lng: -1.6 }, dropoff: { lat: 48.2, lng: -1.7 }, km: 10 };
 const at = (when, extra) => computeTrajetSimplePrice({ ...base, pricing: { ...pricing, vehicle_category: 'van' }, when, ...extra }).price;
