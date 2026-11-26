@@ -2746,7 +2746,7 @@ async function renderPending() {
             <option value="">Choisir un chauffeur...</option>
             ${options}
           </select>
-          <button class="secondary" data-dispatch-one="${ride.id}">Dispatcher a ce chauffeur</button>
+          <button class="secondary" data-assign-one="${ride.id}">Attribuer a ce chauffeur</button>
           <button class="secondary" data-view-ride="${ride.id}">Voir la fiche</button>
           <button class="secondary rm-refuse" data-refuse-ride="${ride.id}">Refuser</button>
         </div>
@@ -2762,14 +2762,19 @@ async function renderPending() {
     btn.addEventListener('click', () => refuseRide(btn.dataset.refuseRide));
   });
   container.querySelectorAll('[data-dispatch-all]').forEach((btn) => {
-    btn.addEventListener('click', () => dispatchRide(btn.dataset.dispatchAll, null));
+    btn.addEventListener('click', () => dispatchRide(btn.dataset.dispatchAll));
   });
-  container.querySelectorAll('[data-dispatch-one]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const rideId = btn.dataset.dispatchOne;
-      const select = container.querySelector(`[data-driver-select="${rideId}"]`);
-      if (!select.value) { alert('Choisissez un chauffeur.'); return; }
-      dispatchRide(rideId, select.value);
+  // Attribution d'office : le chauffeur n'a rien a accepter, la course passe directement dans ses courses.
+  container.querySelectorAll('[data-assign-one]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const rideId = btn.dataset.assignOne;
+      const driverId = container.querySelector(`[data-driver-select="${rideId}"]`).value;
+      if (!driverId) { alert('Choisissez un chauffeur.'); return; }
+      btn.disabled = true; // un seul envoi : l'attribution previent le chauffeur et le client
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/admin/rides/${rideId}/assign`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ driverId }) }).catch(() => null);
+      if (!res?.ok) { btn.disabled = false; alert((await res?.json().catch(() => ({})))?.error || 'Attribution impossible.'); return; }
+      refresh();
     });
   });
 }
@@ -2786,10 +2791,10 @@ async function refuseRide(rideId) {
   refresh();
 }
 
-async function dispatchRide(rideId, driverId) {
+async function dispatchRide(rideId) {
   const { error } = await supabase
     .from('rides')
-    .update({ status: 'dispatched', dispatched_to: driverId })
+    .update({ status: 'dispatched', dispatched_to: null })
     .eq('id', rideId)
     .or(RIDES_TO_DISPATCH);
   if (error) { alert(error.message); return; }
