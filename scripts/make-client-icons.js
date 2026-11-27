@@ -8,6 +8,8 @@ const ICONS = {
   tag: '<path d="M46 10h34a6 6 0 0 1 6 6v34L50.500 85.500a6 6 0 0 1-8.500 0L10.500 54a6 6 0 0 1 0-8.500z"/><circle cx="68" cy="28" r="5"/>',
   mail: '<rect x="8" y="22" width="80" height="52" rx="9"/><path d="m12 30 36 26 36-26"/>',
   check: '<path d="m20 50 22 22 36-44" stroke-width="8"/>',
+  eye: '<path d="M6 48s15-27 42-27 42 27 42 27-15 27-42 27S6 48 6 48z"/><circle cx="48" cy="48" r="12"/>',
+  eyeoff: '<path d="M6 48s15-27 42-27 42 27 42 27-15 27-42 27S6 48 6 48z"/><circle cx="48" cy="48" r="12"/><path d="M16 80 80 16"/>',
   back: '<path d="M60 18 28 48l32 30"/>',
 };
 (async () => {

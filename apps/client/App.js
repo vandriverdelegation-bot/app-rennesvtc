@@ -8,6 +8,7 @@ import { supabase } from './lib/supabase';
 import ClientHome from './screens/ClientHome';
 import ClientMenu from './screens/ClientMenu';
 import BottomNav from './screens/BottomNav';
+import { Icon } from './icons';
 
 // Accentue le dernier mot du nom de l'app (ex: "Rennes VTC" -> "Rennes" + "VTC" en accent).
 function renderAppName(appName) {
@@ -54,6 +55,7 @@ function AppContent() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // oeil : afficher le mot de passe saisi
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState('home'); // home | courses | account
@@ -217,14 +219,20 @@ function AppContent() {
             value={email}
             onChangeText={setEmail}
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Mot de passe"
-            placeholderTextColor={theme.colors.textMuted}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          <View>
+            <TextInput
+              style={[styles.input, { paddingRight: 52 }]}
+              placeholder="Mot de passe"
+              placeholderTextColor={theme.colors.textMuted}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity style={styles.eye} onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+              <Icon name={showPassword ? 'eyeoff' : 'eye'} color="m" size={22} />
+            </TouchableOpacity>
+          </View>
           {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
           <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={submitting}>
             <Text style={styles.buttonText}>{submitting ? '...' : mode === 'login' ? 'Se connecter' : "S'inscrire"}</Text>
@@ -270,6 +278,7 @@ const styles = themedStyles(() => ({
   logoRow: { marginBottom: 24, alignItems: 'center' },
   logo: { fontFamily: theme.fonts.title, fontSize: 28, color: theme.colors.text, letterSpacing: 1 },
   title: { fontFamily: theme.fonts.title, fontSize: 22, marginBottom: 12, color: theme.colors.text },
+  eye: { position: 'absolute', right: 6, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
   input: {
     width: '100%',
     borderWidth: 1,

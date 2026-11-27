@@ -177,9 +177,12 @@ export default function ClientMenu({ session, onClose, initialView = 'menu', the
     return () => sub.remove();
   }, [view]);
 
-  async function handleLogout() {
-    setLoggingOut(true);
-    await supabase.auth.signOut();
+  // Confirmation avant de se deconnecter (evite une deconnexion par erreur).
+  function handleLogout() {
+    Alert.alert('Se déconnecter ?', 'Vous devrez vous reconnecter pour commander une course.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Se déconnecter', style: 'destructive', onPress: async () => { setLoggingOut(true); await supabase.auth.signOut(); } },
+    ]);
   }
 
   function confirmDelete() {

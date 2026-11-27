@@ -34,6 +34,8 @@ const ICONS = {
   mail: { w: require('./assets/ui/mail_w.png'), g: require('./assets/ui/mail_g.png'), m: require('./assets/ui/mail_m.png'), k: require('./assets/ui/mail_k.png') },
   check: { w: require('./assets/ui/check_w.png'), g: require('./assets/ui/check_g.png'), m: require('./assets/ui/check_m.png'), k: require('./assets/ui/check_k.png') },
   back: { w: require('./assets/ui/back_w.png'), g: require('./assets/ui/back_g.png'), m: require('./assets/ui/back_m.png'), k: require('./assets/ui/back_k.png') },
+  eye: { w: require('./assets/ui/eye_w.png'), g: require('./assets/ui/eye_g.png'), m: require('./assets/ui/eye_m.png'), k: require('./assets/ui/eye_k.png') },
+  eyeoff: { w: require('./assets/ui/eyeoff_w.png'), g: require('./assets/ui/eyeoff_g.png'), m: require('./assets/ui/eyeoff_m.png'), k: require('./assets/ui/eyeoff_k.png') },
 };
 
 // color : w = adaptatif (blanc en mode sombre, texte en mode clair), white = toujours blanc (sur fond vert), g = vert, m = gris, k = noir (texte du bouton vert).
